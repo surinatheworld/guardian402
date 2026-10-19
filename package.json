@@ -20,7 +20,9 @@
     "deploy:fuji": "node scripts/contracts.mjs deploy fuji",
     "seed:fuji": "node scripts/contracts.mjs seed fuji",
     "verify:fuji": "node scripts/contracts.mjs verify fuji",
-    "handoff:fuji": "node scripts/contracts.mjs handoff fuji"
+    "handoff:fuji": "node scripts/contracts.mjs handoff fuji",
+    "abi": "node scripts/gen-abi.mjs",
+    "test:crosscheck": "tsx scripts/gen-verdict-fixture.ts && cd contracts && forge test --match-contract VerdictCrossCheck -vv"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -31,6 +33,16 @@
     "prettier": "3.9.10",
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.2",
-    "vitest": "5.0.5"
+    "vitest": "5.0.5",
+    "tsx": "4.23.15"
+  },
+  "dependencies": {
+    "@guardian402/shared": "workspace:*",
+    "viem": "2.57.7"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

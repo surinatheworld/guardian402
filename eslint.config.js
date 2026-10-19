@@ -15,6 +15,12 @@ export default tseslint.config(
       sourceType: "module",
       globals: { ...globals.node },
     },
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", destructuredArrayIgnorePattern: "^_" },
+      ],
+    },
   },
   prettier,
 );

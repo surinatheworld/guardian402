@@ -7,5 +7,15 @@
   "scripts": {
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./sign": "./src/sign.ts",
+    "./abi": "./src/abi/index.ts",
+    "./addresses/*.json": "./src/addresses/*.json"
+  },
+  "dependencies": {
+    "viem": "2.57.7",
+    "zod": "3.25.76"
   }
 }

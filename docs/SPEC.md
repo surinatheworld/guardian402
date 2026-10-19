@@ -539,4 +539,9 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
     - forge can only write inside `contracts/`, so scripts write `contracts/deployments/<network>.json` (git-ignored) and the wrapper copies it to the committed `packages/shared/src/addresses/<network>.json`.
     - Local fork only: the owner's test USDC is minted through the impersonated USDC masterMinter (`anvil_impersonateAccount`), because the fork inherits the owner's empty Fuji balance.
     - Verification: Routescan's documented Foundry flow (`--verifier-url https://api.routescan.io/v2/network/testnet/evm/<chainId>/etherscan`, `--etherscan-api-key verifyContract`, info.routescan.io article "Deploying and verifying contracts (Foundry)") with chain id 43113, probed before use. Routescan shows mWAVAX with a pre-existing similar-match source ("ERC20Mock", solc 0.8.27) although our exact-source submission returned "Pass - Verified".
+  - §5 / §6.2 `packages/shared` (P3):
+    - zod is pinned to 3.25.76, the same major that `@x402/core` 2.28.0 depends on (`zod ^3.24.2`), so the workspace has one zod.
+    - The package ships TypeScript sources (`exports` point at `src/*.ts`, imports use `.ts` extensions with `allowImportingTsExtensions`); apps run them with tsx, vitest or Next.js transpilation.
+    - `signVerdict` lives in `@guardian402/shared/sign` and is not re-exported from the package index, so the explainer can use the schemas and hashing helpers without importing a signer.
+    - `CheckRequest` is `.strict()`: unknown fields are rejected with 400 (no agent-supplied free text reaches the pipeline).
   - §7 `pnpm fork`: Anvil may run natively, through WSL2, or through the official Docker image `ghcr.io/foundry-rs/foundry:v1.8.5` (`ANVIL_RUNNER=auto|native|docker`), because Windows Smart App Control can block `anvil.exe`.
