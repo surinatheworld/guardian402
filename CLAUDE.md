@@ -91,6 +91,7 @@ Available now:
 - `pnpm deploy:fuji` / `pnpm seed:fuji` — same on Fuji; addresses go to `packages/shared/src/addresses/<network>.json`. Seed is idempotent.
 - `pnpm verify:fuji` — verify the Fuji contracts on Routescan / testnet.snowtrace.io
 - `pnpm handoff:fuji` — start the Ownable2Step transfer of AgentVault to the team lead's wallet
+- `pnpm redeploy-mocks:fuji` / `pnpm swap-router:fuji <oldRouter>` — replace mWAVAX and MockRouter (verified in the same run), then move the vault allowlist from the old router to the new one
 - `pnpm abi` — `forge build`, then regenerate `packages/shared/src/abi/*.ts` (committed)
 - `pnpm test:crosscheck` — sign a verdict in TypeScript, write `contracts/test/fixtures/verdict.json`, run `VerdictCrossCheck.t.sol`
 

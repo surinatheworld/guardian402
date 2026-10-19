@@ -84,19 +84,19 @@ Mock: chỉ trong test (`test/mocks/`), không deploy. Rủi ro còn lại cho P
 
 Local fork (`pnpm fork` → `pnpm deploy:local` → `pnpm seed:local`): thành công; seed lần 2 → `No transactions to broadcast`.
 
-Địa chỉ Fuji (`packages/shared/src/addresses/fuji.json`, trùng địa chỉ local vì cùng nonce deployer):
+Địa chỉ Fuji đang dùng (`packages/shared/src/addresses/fuji.json`). mWAVAX và MockRouter đã được deploy lại ngày 2026-10-19, xem mục "Sửa mWAVAX" bên dưới:
 
 | Contract | Địa chỉ | Deploy tx | Verify |
 | --- | --- | --- | --- |
 | AgentVault | [0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99](https://testnet.snowtrace.io/address/0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99) | [0xb1ba847c…eceb](https://testnet.snowtrace.io/tx/0xb1ba847c24bb08024202e730e4443e51063e0b9e4acd98a436b0f7a9035eeceb) | Pass - Verified |
-| mWAVAX (MockERC20) | [0x8Ed571d1666FC12D872c352cf53B377B3893f5EF](https://testnet.snowtrace.io/address/0x8Ed571d1666FC12D872c352cf53B377B3893f5EF) | [0xd539175d…8698](https://testnet.snowtrace.io/tx/0xd539175d179f9538325f2541b92bf9a91a346b775953175795d4a05e3b318698) | Pass, nhưng Routescan hiển thị source "ERC20Mock" khớp gần đúng có sẵn |
+| mWAVAX (MockERC20) | [0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5](https://testnet.snowtrace.io/address/0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5) | [0xce77caa0…c8b8](https://testnet.snowtrace.io/tx/0xce77caa0c5c0d9b66626b9dda8dd27def4c6dc105c7cd559494911146e05c8b8) | Pass - Verified (`MockERC20`) |
 | MockOracle | [0xeebAac693aA19308bA859b3D668e3794310e66AE](https://testnet.snowtrace.io/address/0xeebAac693aA19308bA859b3D668e3794310e66AE) | [0x04beace0…4c45](https://testnet.snowtrace.io/tx/0x04beace0846becdb89b5bd3eb18babe690fb99577d8d10d4d42af2fb6a9e4c45) | Pass - Verified |
-| MockRouter | [0x263a18Df9E627A862880Ec79E11aAC8671509355](https://testnet.snowtrace.io/address/0x263a18Df9E627A862880Ec79E11aAC8671509355) | [0x0bd4d30c…1dd8](https://testnet.snowtrace.io/tx/0x0bd4d30c21ecedbc0e186eb7fe4f2b37177d8a2011433e8b89b90faceedb1dd8) | Pass - Verified |
+| MockRouter | [0xe20967C615e442991D468ed7f797edcAeA1771d9](https://testnet.snowtrace.io/address/0xe20967C615e442991D468ed7f797edcAeA1771d9) | [0x6028b2f6…a24b](https://testnet.snowtrace.io/tx/0x6028b2f6865c35a64ed441f0e22afb156dc74cb4b0daadf447ce25a3c97ca24b) | Pass - Verified |
 | CancunSmoke | [0x0D363882aA2DdA271323F91a1a268Cd707D3C426](https://testnet.snowtrace.io/address/0x0D363882aA2DdA271323F91a1a268Cd707D3C426) | (P1) | Pass - Verified |
 
 Seed Fuji: 11 giao dịch, tất cả status 1 (gas cho owner/agent, mint 1.000 mWAVAX cho router, policy, allowlist, agent, guardian). Handoff: [0xe864b2e2…519d](https://testnet.snowtrace.io/tx/0xe864b2e2846874faeb6391d815cf327404ab234f858854c6a2fb694dc1f1519d) → `pendingOwner = 0x54A2276F134d3Cfaa7572BC326092fABa6352888`, chờ accept từ ví đó.
 
-`cast call <vault> "getPolicy()(…)"` trên Fuji:
+`cast call <vault> "getPolicy()(…)"` trên Fuji, đọc lúc seed lần đầu (với router cũ). Số liệu hiện tại xem ở mục "Sửa mWAVAX":
 
 ```
 (owner 0x6678…3b72, pendingOwner 0x54A2…2888, agent 0x7bD6…8ff7, guardian 0xF1ff…2359, paused false, nonce 0, maxAgentRisk 0, day 20745,
@@ -110,7 +110,7 @@ Nạp vault: team lấy USDC từ faucet (owner 40, agent 20); agent chuyển 10
 
 ```
 cast call USDC "balanceOf(address)(uint256)" 0x32cb…Ab99   → 50000000   (vault: 50 USDC)
-cast call mWAVAX "balanceOf(address)(uint256)" 0x263a…9355 → 1000000000000000000000   (router: 1.000 mWAVAX)
+cast call mWAVAX "balanceOf(address)(uint256)" <router> → 1000000000000000000000   (router: 1.000 mWAVAX; đúng cả với router mới 0xe209…71d9)
 agent 0x7bD6…8ff7: 10 USDC (phí x402), 0.1 AVAX
 ```
 
@@ -121,7 +121,39 @@ Ownership: OWNER_PK vẫn là owner tới hết P8 (team lead accept sau P8), n�
 - `forge build` sạch, không có cảnh báo. `forge test`: 7 suite, 141 test pass, 0 fail. Coverage: AgentVault, MockERC20, MockOracle, MockRouter đều 100% dòng, câu lệnh và hàm. Phần nhánh (branch) cũng 100%, riêng MockERC20 không có nhánh nào để đo.
 - Đọc trực tiếp trên Fuji và so với SPEC §4.8: **26/26 giá trị khớp**. Gồm owner, pendingOwner, agent, guardian, paused, maxAgentRisk; USDC được theo dõi với cap 20, maxApproval 10, threshold 1; vault có 50 USDC; native cap 0,1 và threshold 0,01; router là target duy nhất, chỉ cho selector `swapExactIn`; recipient gồm router và treasury; oracle 25 USDC; router có 1.000 mWAVAX; router trỏ đúng USDC, mWAVAX và oracle; mWAVAX có 18 decimals.
 - Giao dịch P2 trên Fuji: **20/20 status 1**. Gồm 4 deploy, 11 seed, 3 lần seed nạp vault (gồm cả nạp gas), 1 handoff và 1 lệnh chuyển 10 USDC từ agent sang owner.
-- Verify trên Routescan: AgentVault, MockOracle, MockRouter, CancunSmoke đã verify (solc 0.8.28, cancun). **Còn lệch:** mWAVAX đang hiển thị source "ERC20Mock" (solc 0.8.27) do Routescan khớp gần đúng từ trước, không phải `MockERC20` của repo. Lần gửi source của mình báo "Pass" nhưng không thay được. Muốn sửa thì phải deploy lại mWAVAX và MockRouter (router lưu địa chỉ mWAVAX dạng immutable), rồi đổi allowlist của vault sang router mới. Việc này thay đổi điều vault cho phép, nên chờ team quyết.
+- Verify trên Routescan: AgentVault, MockOracle, MockRouter, CancunSmoke đã verify (solc 0.8.28, cancun). Lúc rà soát còn lệch: mWAVAX cũ hiển thị source "ERC20Mock" (solc 0.8.27) mà Routescan khớp gần đúng từ trước. **Đã sửa** theo quyết định của team, xem mục bên dưới.
+
+### Sửa mWAVAX: deploy lại mWAVAX và MockRouter (2026-10-19)
+
+Team quyết định deploy lại để mWAVAX hiển thị đúng source. Các bước:
+
+1. `MockERC20` có thêm hằng `NOTICE = "DEMO ONLY: Guardian402 testnet mock token, no value"`. Hằng này làm bytecode khác "ERC20Mock", nên Routescan không thể khớp gần đúng như lần trước, và người xem explorer cũng biết đây là token mock.
+2. Script mới `contracts/script/RedeployMocks.s.sol`:
+   - `deploy()`: deployer tạo mWAVAX và MockRouter mới (dùng lại USDC và MockOracle), mint 1.000 mWAVAX cho router, rồi ghi lại `fuji.json`.
+   - `swapAllowlist(oldRouter)`: owner gỡ router cũ khỏi allowlist của vault và cho phép router mới.
+   - Lệnh chạy: `pnpm redeploy-mocks:fuji` (verify ngay trong cùng lượt chạy, trước khi có truy vấn nào khác tới địa chỉ mới) và `pnpm swap-router:fuji <oldRouter>`.
+3. Chạy thử trước trên fork local, rồi mới làm trên Fuji.
+
+| Bước | Giao dịch | Status |
+| --- | --- | --- |
+| Deploy mWAVAX mới [0xC2439b70…7ba5](https://testnet.snowtrace.io/address/0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5) | [0xce77caa0…c8b8](https://testnet.snowtrace.io/tx/0xce77caa0c5c0d9b66626b9dda8dd27def4c6dc105c7cd559494911146e05c8b8) | 1 |
+| Deploy MockRouter mới [0xe20967C6…71d9](https://testnet.snowtrace.io/address/0xe20967C615e442991D468ed7f797edcAeA1771d9) | [0x6028b2f6…a24b](https://testnet.snowtrace.io/tx/0x6028b2f6865c35a64ed441f0e22afb156dc74cb4b0daadf447ce25a3c97ca24b) | 1 |
+| Mint 1.000 mWAVAX cho router mới | [0xbe0731b0…bc5b](https://testnet.snowtrace.io/tx/0xbe0731b0d770a2cc7cfe308402e41e973255a8fc385d77d6800dd9c22f43bc5b) | 1 |
+| Gỡ selector `swapExactIn` của router cũ | [0x980dddc0…1974](https://testnet.snowtrace.io/tx/0x980dddc0dd6a197000e7febda2aabab7e4417608912b9ce09b3af7ac44a31974) | 1 |
+| Gỡ router cũ khỏi allowed target | [0x38dbc132…6adc](https://testnet.snowtrace.io/tx/0x38dbc132f08d7b6bd874ce9e50303084e0c8cfe896a7e4c295e946b736d73adc) | 1 |
+| Gỡ router cũ khỏi allowed recipient | [0x03efadc4…0855](https://testnet.snowtrace.io/tx/0x03efadc47a31dd215565539a3bc8b38ccfbffaf333df891bb95898cc7d550855) | 1 |
+| Cho phép router mới làm target | [0x3c4b2a79…0a4d](https://testnet.snowtrace.io/tx/0x3c4b2a793eb7fecfe9fca27e92a1c28519beb55cbed0396e7cf3e172e8dd0a4d) | 1 |
+| Cho phép selector `swapExactIn` của router mới | [0xec487ef9…150f](https://testnet.snowtrace.io/tx/0xec487ef914739819b89930164622976bada7c00411ca7fb6b9f9b7dc77c8150f) | 1 |
+| Cho phép router mới làm recipient | [0x38ffb64f…d7d1](https://testnet.snowtrace.io/tx/0x38ffb64fc94f7efc5940edf31492ff2739d3024c653229ffbfdb00cb04aad7d1) | 1 |
+| `pnpm seed:fuji` (chỉ nạp bù 0,00003 AVAX gas cho owner) | [0x281e1e91…1a3d](https://testnet.snowtrace.io/tx/0x281e1e91281d6614d55dfbdc8a10508fe0011defaab5a90fc6cba17ca2871a3d) | 1 |
+
+Kiểm tra lại sau khi sửa:
+
+- Đọc trực tiếp trên Fuji: **30/30 giá trị khớp**. Gồm toàn bộ §4.8; allowed target chỉ còn router mới, và chỉ cho selector `swapExactIn`; recipient gồm treasury và router mới; router cũ không còn là allowed target, allowed selector hay recipient; vault không còn allowance nào cho router cũ; router mới trỏ đúng USDC, mWAVAX mới và oracle; router mới có 1.000 mWAVAX; vault vẫn có 50 USDC.
+- Giao dịch sửa lỗi: **10/10 status 1** (đã kiểm tra bằng `eth_getTransactionReceipt` trên node Fuji).
+- Verify trên Routescan: **cả 5 contract hiện dùng đều đúng source của repo**: AgentVault, `MockERC20` (mWAVAX), MockOracle, MockRouter, CancunSmoke (solc 0.8.28, cancun).
+- `forge test`: 141 test pass. `pnpm abi` đã sinh lại ABI (có thêm `NOTICE`). `packages/shared`: 33 test pass.
+- Contract cũ vẫn còn trên chain nhưng vault không dùng nữa: mWAVAX [0x8Ed571d1…f5EF](https://testnet.snowtrace.io/address/0x8Ed571d1666FC12D872c352cf53B377B3893f5EF), MockRouter [0x263a18Df…9355](https://testnet.snowtrace.io/address/0x263a18Df9E627A862880Ec79E11aAC8671509355).
 
 ## P3 — Package shared và cross-check verdict (xong 2026-10-19)
 
