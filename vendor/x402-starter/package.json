@@ -1,0 +1,25 @@
+{
+  "name": "x402-pay-per-request",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "An API that charges USDC per request with x402 on Avalanche, a client that pays, and a facilitator you can run yourself.",
+  "engines": {
+    "node": ">=22.9"
+  },
+  "scripts": {
+    "server": "node --env-file-if-exists=.env.local src/server.mjs",
+    "pay": "node --env-file-if-exists=.env.local src/pay.mjs",
+    "facilitator": "node --env-file-if-exists=.env.local src/facilitator.mjs",
+    "new-wallet": "node scripts/new-wallet.mjs",
+    "balance": "node --env-file-if-exists=.env.local scripts/balance.mjs"
+  },
+  "dependencies": {
+    "@x402/core": "~2.28.0",
+    "@x402/evm": "~2.28.0",
+    "@x402/express": "~2.28.0",
+    "@x402/fetch": "~2.28.0",
+    "express": "^5.3.0",
+    "viem": "^2.57.4"
+  }
+}
