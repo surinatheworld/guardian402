@@ -45,7 +45,9 @@ contract Seed is Script {
         address agent = vm.addr(vm.envUint("AGENT_PK"));
         address guardian = vm.addr(vm.envUint("GUARDIAN_SIGNER_PK"));
         address treasury = vm.envOr("TREASURY", vm.addr(deployerPk));
-        require(d.vault.owner() == owner, "OWNER_PK is not the vault owner");
+        // After the handoff (SPEC §16) OWNER_PK may no longer own the vault; it can still fund it.
+        bool isOwner = d.vault.owner() == owner;
+        if (!isOwner) console2.log("OWNER_PK no longer owns the vault: policy steps skipped, funding only");
 
         // Deployer: gas for owner and agent, oracle price, router inventory.
         vm.startBroadcast(deployerPk);
@@ -58,10 +60,12 @@ contract Seed is Script {
 
         // Owner: vault policy, roles and funding.
         vm.startBroadcast(ownerPk);
-        _seedPolicy(d, treasury);
-        if (d.vault.agent() != agent) d.vault.setAgent(agent);
-        if (d.vault.guardian() != guardian) d.vault.setGuardian(guardian);
-        if (d.vault.maxAgentRisk() != 0) d.vault.setMaxAgentRisk(0);
+        if (isOwner) {
+            _seedPolicy(d, treasury);
+            if (d.vault.agent() != agent) d.vault.setAgent(agent);
+            if (d.vault.guardian() != guardian) d.vault.setGuardian(guardian);
+            if (d.vault.maxAgentRisk() != 0) d.vault.setMaxAgentRisk(0);
+        }
         _fundVault(d, owner);
         vm.stopBroadcast();
 

@@ -195,6 +195,8 @@ function verifyAll() {
       ROUTESCAN_FUJI,
       "--etherscan-api-key",
       "verifyContract",
+      "--chain",
+      "43113",
       "--watch",
     ];
     if (args !== "0x") flags.push("--constructor-args", args);
