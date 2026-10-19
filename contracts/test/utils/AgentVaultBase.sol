@@ -127,7 +127,7 @@ abstract contract AgentVaultBase is Test {
         return AgentVault.Verdict({
             callsHash: _hash(calls),
             nonce: vault.verdictNonce(),
-            deadline: uint64(block.timestamp + 60),
+            deadline: uint64(vm.getBlockTimestamp() + 60),
             risk: risk,
             checkId: CHECK_ID
         });
@@ -165,6 +165,6 @@ abstract contract AgentVaultBase is Test {
     }
 
     function _today() internal view returns (uint256) {
-        return block.timestamp / 1 days;
+        return vm.getBlockTimestamp() / 1 days;
     }
 }
