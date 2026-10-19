@@ -149,6 +149,16 @@ abstract contract AgentVaultBase is Test {
         vault.executeBatch(calls, v, sig);
     }
 
+    /// @dev Signs first, so vm.expectRevert applies to executeBatch and not to the verdictNonce() read.
+    function _execWithVerdictExpectRevert(AgentVault.Call[] memory calls, uint8 risk, bytes memory revertData)
+        internal
+    {
+        AgentVault.Verdict memory v = _verdictFor(calls, risk);
+        bytes memory sig = _signWith(GUARDIAN_PK, v);
+        vm.expectRevert(revertData);
+        _execSigned(calls, v, sig);
+    }
+
     function _execSigned(AgentVault.Call[] memory calls, AgentVault.Verdict memory v, bytes memory sig) internal {
         vm.prank(agent);
         vault.executeBatch(calls, v, sig);
