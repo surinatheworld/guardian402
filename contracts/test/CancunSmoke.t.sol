@@ -18,6 +18,10 @@ contract CancunSmokeTest is Test {
         assertEq(smoke.lastTransientValue(), 42);
     }
 
+    function test_PeekTransient_ZeroBeforeAnyWrite() public view {
+        assertEq(smoke.peekTransient(), 0);
+    }
+
     function test_CheckMcopy_CopiesAndStoresHash() public {
         bytes memory data = "guardian402 cancun smoke: mcopy across more than one 32-byte word";
         vm.expectEmit(address(smoke));

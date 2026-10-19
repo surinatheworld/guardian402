@@ -80,7 +80,8 @@ Available now:
 - `git submodule update --init --recursive` — fetch `contracts/lib` (OpenZeppelin v5.7.0, forge-std v1.17.0) after a fresh clone
 - `pnpm install`
 - `pnpm fork` — start an Anvil fork of Fuji on `http://127.0.0.1:8545` (`scripts/fork.mjs`). `ANVIL_RUNNER=auto|native|docker`; `auto` uses native `anvil` if it runs, else the `ghcr.io/foundry-rs/foundry:v1.8.5` Docker image (needed where Windows Smart App Control blocks `anvil.exe`; on Windows, WSL2 is recommended, see README)
-- `cd contracts && forge build` / `cd contracts && forge test -vvv` — contract build and tests
+- `cd contracts && forge build` / `cd contracts && forge test -vvv` — contract build and tests (unit, fuzz, invariant)
+- `cd contracts && forge coverage --report summary --no-match-coverage "(test|script)/"` — coverage of `src/`
 - `pnpm test` (same as `pnpm -r test`) — TypeScript tests in every workspace package
 - `pnpm typecheck` — `tsc` in every workspace package
 - `pnpm lint` — ESLint over the TypeScript workspace
