@@ -116,6 +116,13 @@ agent 0x7bD6…8ff7: 10 USDC (phí x402), 0.1 AVAX
 
 Ownership: OWNER_PK vẫn là owner tới hết P8 (team lead accept sau P8), nên seed và S6 (kill switch) do OWNER_PK chạy. Mock: mWAVAX, MockOracle, MockRouter (DEMO MODE).
 
+### Rà soát lại P2 (2026-10-19, theo yêu cầu "phải chuẩn")
+
+- `forge build` sạch, không có cảnh báo. `forge test`: 7 suite, 141 test pass, 0 fail. Coverage: AgentVault, MockERC20, MockOracle, MockRouter đều 100% dòng, câu lệnh và hàm. Phần nhánh (branch) cũng 100%, riêng MockERC20 không có nhánh nào để đo.
+- Đọc trực tiếp trên Fuji và so với SPEC §4.8: **26/26 giá trị khớp**. Gồm owner, pendingOwner, agent, guardian, paused, maxAgentRisk; USDC được theo dõi với cap 20, maxApproval 10, threshold 1; vault có 50 USDC; native cap 0,1 và threshold 0,01; router là target duy nhất, chỉ cho selector `swapExactIn`; recipient gồm router và treasury; oracle 25 USDC; router có 1.000 mWAVAX; router trỏ đúng USDC, mWAVAX và oracle; mWAVAX có 18 decimals.
+- Giao dịch P2 trên Fuji: **20/20 status 1**. Gồm 4 deploy, 11 seed, 3 lần seed nạp vault (gồm cả nạp gas), 1 handoff và 1 lệnh chuyển 10 USDC từ agent sang owner.
+- Verify trên Routescan: AgentVault, MockOracle, MockRouter, CancunSmoke đã verify (solc 0.8.28, cancun). **Còn lệch:** mWAVAX đang hiển thị source "ERC20Mock" (solc 0.8.27) do Routescan khớp gần đúng từ trước, không phải `MockERC20` của repo. Lần gửi source của mình báo "Pass" nhưng không thay được. Muốn sửa thì phải deploy lại mWAVAX và MockRouter (router lưu địa chỉ mWAVAX dạng immutable), rồi đổi allowlist của vault sang router mới. Việc này thay đổi điều vault cho phép, nên chờ team quyết.
+
 ## P3 — Package shared và cross-check verdict (xong 2026-10-19)
 
 - `packages/shared`: ABI sinh tự động (`pnpm abi` → `src/abi/*.ts`, `as const`), địa chỉ theo NETWORK (`getAddresses`, `parseNetwork`), hằng số (chain, USDC Fuji, giá x402, rule id, mã rủi ro), schema zod đúng SPEC §6.2 (`CheckRequest`, `CheckResponse`, `Finding`, `Diff`, `Verdict`), `verdict.ts` (`hashCalls`, `verdictTypes`, `verdictDomain`, `recoverVerdictSigner`) và `sign.ts` (`signVerdict`, chỉ export qua `@guardian402/shared/sign`).
@@ -138,6 +145,10 @@ forge test (toàn bộ) → 7 test suites: 141 tests passed, 0 failed · pnpm li
 ```
 
 Mock: không có (fixture chỉ dùng key/địa chỉ thử nghiệm, không có tiền).
+
+## P4 — Simulator (tạm dừng 2026-10-19 theo yêu cầu, chưa merge)
+
+Code nằm ở nhánh `feat/p4-simulator` (chưa push, chưa merge). Đã có: Simulator (mutex, snapshot, impersonate vault, mine từng call, giải mã Transfer/Approval/ApprovalForAll, chạy lại call bị revert để lấy lý do), 10 unit test pass, 10/11 fork test pass, độ trễ p50 189 ms / p95 232 ms trên 20 lần. Còn 1 test lỗi: test reset fork về block Fuji mới nhất (lệch 17 block, ngưỡng của test là 10). Chưa đạt nghiệm thu P4.
 
 ## Checklist trước demo
 
