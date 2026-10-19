@@ -31,7 +31,8 @@ The agent's funds live in `AgentVault`, a contract on Fuji. The vault only execu
 ## Engineering rules
 
 - **Do not invent APIs.** For x402, read the installed source and types under `node_modules/@x402/*` (pinned to 2.28.0) and the Team1 starter in `vendor/x402-starter/`. For ERC-8004, use the ABIs from the official `erc-8004-contracts` repo. If something is still unclear, stop and ask the team.
-- Pin dependency versions. Node >= 22.9, pnpm workspaces.
+- Pin dependency versions. Node >= 22.13, pnpm workspaces.
+- One branch per phase (`feat/p1-agentvault`, `feat/p2-…`, …), merged into `main` by pull request after the team reviews it.
 - Secrets live in `.env.local` files (git-ignored). Keep `.env.example` files complete and up to date. Never log private keys or full signatures of keys.
 - Small, focused commits. Run the relevant tests before saying something works, and paste the real command output when reporting. If a test fails, say so.
 - Code, identifiers, comments and commit messages in English. Talk to the team in Vietnamese.
@@ -40,7 +41,7 @@ The agent's funds live in `AgentVault`, a contract on Fuji. The vault only execu
 
 ## Stack
 
-- Contracts: Solidity 0.8.28, Foundry (forge, anvil, cast), OpenZeppelin Contracts v5. Set `evm_version = "shanghai"` in `foundry.toml`; do not raise it unless you have verified Fuji supports the newer EVM version.
+- Contracts: Solidity 0.8.28, Foundry (forge, anvil, cast), OpenZeppelin Contracts exactly v5.7.0. Set `evm_version = "cancun"` in `foundry.toml` (Fuji has the Cancun EIPs active via ACP-131; blob transactions excluded). Do not raise it further unless you have verified Fuji supports the newer EVM version. Use the non-transient `ReentrancyGuard`. Fallback if a Fuji deploy fails: OpenZeppelin v5.4.0 + `shanghai` (SPEC §16).
 - TypeScript services: Node 22, TypeScript strict mode, viem 2.x, zod, vitest, Express, better-sqlite3, pino.
 - x402: `@x402/core`, `@x402/evm`, `@x402/express`, `@x402/fetch`, all at exactly `2.28.0`.
 - Dashboard: Next.js (App Router), wagmi 2.x, viem, Tailwind CSS.
@@ -76,9 +77,9 @@ Keep this list true. Add each script here when you create it.
 
 Available now:
 
-- `git submodule update --init --recursive` — fetch `contracts/lib` (OpenZeppelin v5.4.0, forge-std v1.17.0) after a fresh clone
+- `git submodule update --init --recursive` — fetch `contracts/lib` (OpenZeppelin v5.7.0, forge-std v1.17.0) after a fresh clone
 - `pnpm install`
-- `pnpm fork` — start an Anvil fork of Fuji on `http://127.0.0.1:8545` (`scripts/fork.mjs`). `ANVIL_RUNNER=auto|native|docker`; `auto` uses native `anvil` if it runs, else the `ghcr.io/foundry-rs/foundry:v1.8.5` Docker image (needed where Windows Smart App Control blocks `anvil.exe`)
+- `pnpm fork` — start an Anvil fork of Fuji on `http://127.0.0.1:8545` (`scripts/fork.mjs`). `ANVIL_RUNNER=auto|native|docker`; `auto` uses native `anvil` if it runs, else the `ghcr.io/foundry-rs/foundry:v1.8.5` Docker image (needed where Windows Smart App Control blocks `anvil.exe`; on Windows, WSL2 is recommended, see README)
 - `cd contracts && forge build` / `cd contracts && forge test -vvv` — contract build and tests
 - `pnpm test` (same as `pnpm -r test`) — TypeScript tests in every workspace package
 - `pnpm typecheck` — `tsc` in every workspace package

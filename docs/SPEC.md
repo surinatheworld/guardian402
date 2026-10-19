@@ -1,6 +1,6 @@
 # Guardian402 — Technical spec
 
-Version 0.1 · 2026-10-19 · Status: source of truth for the MVP. Change it only with the team's agreement, and note the change in §16.
+Version 0.2 · 2026-10-19 · Status: source of truth for the MVP. Change it only with the team's agreement, and note the change in §16.
 
 ## 0. MVP scope
 
@@ -76,7 +76,7 @@ src = "src"
 out = "out"
 libs = ["lib"]
 solc = "0.8.28"
-evm_version = "shanghai"
+evm_version = "cancun"
 optimizer = true
 optimizer_runs = 200
 fs_permissions = [{ access = "read", path = "./test/fixtures" }]
@@ -89,6 +89,9 @@ depth = 64
 fuji = "${FUJI_RPC_URL}"
 local = "http://127.0.0.1:8545"
 ```
+
+- Dependencies (git submodules in `contracts/lib`, pinned in `foundry.lock`): OpenZeppelin Contracts exactly v5.7.0, forge-std v1.17.0.
+- `cancun` is used because OpenZeppelin ≥ 5.5 needs `mcopy` (EIP-5656); Fuji has the Cancun EIPs active (ACP-131), blob transactions excluded. Still use the non-transient `ReentrancyGuard`. See §16.
 
 ### 4.1 Types and EIP-712
 
@@ -509,3 +512,7 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
 ## 16. Change log
 
 - 2026-10-19 — v0.1, first version.
+- 2026-10-19 — v0.2, P0 deviations agreed by the team:
+  - Node requirement raised from >= 22.9 to >= 22.13 (vitest 5 needs ^22.12, ESLint 10 needs ^22.13). TypeScript pinned to 6.0.3 because typescript-eslint 8.71 does not support TypeScript 7.
+  - §4 `foundry.toml`: `evm_version` raised from `shanghai` to `cancun`; OpenZeppelin Contracts pinned to exactly v5.7.0. Reason: OZ ≥ 5.5 uses `mcopy` (EIP-5656) via `EIP712 → Strings → Bytes`, which does not compile for shanghai. Fuji has the Cancun EIPs active (ACP-131: EIP-1153, 5656, 6780, 7516, BLOBHASH; blob transactions excluded). AgentVault keeps the non-transient `ReentrancyGuard` (§4.3). To confirm at the start of P1: deploy a minimal contract compiled with these settings to Fuji; if it fails, fall back to OZ v5.4.0 + `shanghai`.
+  - §7 `pnpm fork`: Anvil may run natively, through WSL2, or through the official Docker image `ghcr.io/foundry-rs/foundry:v1.8.5` (`ANVIL_RUNNER=auto|native|docker`), because Windows Smart App Control can block `anvil.exe`.

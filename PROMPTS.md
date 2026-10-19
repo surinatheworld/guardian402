@@ -69,7 +69,7 @@ Set up the monorepo exactly as in CLAUDE.md "Repo layout":
 Then read vendor/x402-starter (README.md and src/) without modifying it, and summarise in Vietnamese in at most 10 lines: how its seller, buyer and facilitator work, which @x402 packages and versions it pins, and anything specific to Fuji.
 
 Acceptance (paste the real output of each):
-- `node -v` is >= 22.9; `pnpm -v`; `forge --version`; `anvil --version`.
+- `node -v` is >= 22.13; `pnpm -v`; `forge --version`; `anvil --version`.
 - `pnpm fork` starts; in another terminal `cast chain-id --rpc-url http://127.0.0.1:8545` prints 43113.
 - `cast call 0x5425890298aed601595a70AB815c96711a31Bc65 "symbol()(string)" --rpc-url http://127.0.0.1:8545` prints "USDC".
 - `cd contracts && forge build` succeeds; `pnpm -r test` runs.
