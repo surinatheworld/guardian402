@@ -5,7 +5,12 @@
   "description": "Guardian API: x402 paywall, simulator, rules, explainer, signer, store",
   "type": "module",
   "scripts": {
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
+    "test:fork": "vitest run --config vitest.fork.config.ts",
     "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@guardian402/shared": "workspace:*",
+    "viem": "2.57.7"
   }
 }
