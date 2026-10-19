@@ -1,6 +1,6 @@
 # Guardian402 — Technical spec
 
-Version 0.1 · 2026-10-19 · Status: source of truth for the MVP. Change it only with the team's agreement, and note the change in §16.
+Version 0.2 · 2026-10-19 · Status: source of truth for the MVP. Change it only with the team's agreement, and note the change in §16.
 
 ## 0. MVP scope
 
@@ -76,7 +76,7 @@ src = "src"
 out = "out"
 libs = ["lib"]
 solc = "0.8.28"
-evm_version = "shanghai"
+evm_version = "cancun"
 optimizer = true
 optimizer_runs = 200
 fs_permissions = [{ access = "read", path = "./test/fixtures" }]
@@ -89,6 +89,9 @@ depth = 64
 fuji = "${FUJI_RPC_URL}"
 local = "http://127.0.0.1:8545"
 ```
+
+- Dependencies (git submodules in `contracts/lib`, pinned in `foundry.lock`): OpenZeppelin Contracts exactly v5.7.0, forge-std v1.17.0.
+- `cancun` is used because OpenZeppelin ≥ 5.5 needs `mcopy` (EIP-5656); Fuji has the Cancun EIPs active (ACP-131), blob transactions excluded. Still use the non-transient `ReentrancyGuard`. See §16.
 
 ### 4.1 Types and EIP-712
 
@@ -509,3 +512,24 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
 ## 16. Change log
 
 - 2026-10-19 — v0.1, first version.
+- 2026-10-19 — v0.2, P0 deviations agreed by the team:
+  - Node requirement raised from >= 22.9 to >= 22.13 (vitest 5 needs ^22.12, ESLint 10 needs ^22.13). TypeScript pinned to 6.0.3 because typescript-eslint 8.71 does not support TypeScript 7.
+  - §4 `foundry.toml`: `evm_version` raised from `shanghai` to `cancun`; OpenZeppelin Contracts pinned to exactly v5.7.0. Reason: OZ ≥ 5.5 uses `mcopy` (EIP-5656) via `EIP712 → Strings → Bytes`, which does not compile for shanghai. Fuji has the Cancun EIPs active (ACP-131: EIP-1153, 5656, 6780, 7516, BLOBHASH; blob transactions excluded). AgentVault keeps the non-transient `ReentrancyGuard` (§4.3). To confirm at the start of P1: deploy a minimal contract compiled with these settings to Fuji; if it fails, fall back to OZ v5.4.0 + `shanghai`.
+    - Confirmed 2026-10-19 (P1): `contracts/src/smoke/CancunSmoke.sol` executed TSTORE/TLOAD and MCOPY in real Fuji transactions — deploy [0x590d0a0f…3529](https://testnet.snowtrace.io/tx/0x590d0a0f4ef21bc0a9a9d4dee290e6232f2cc6de88573e0fb935630838963529), `checkTransient(402)` [0xb5adee96…4235](https://testnet.snowtrace.io/tx/0xb5adee964f5fdbf4ee78a19156e61db2313fd1268a46787b222d29e3efe94235), `checkMcopy` [0x2996f8c6…fa98](https://testnet.snowtrace.io/tx/0x2996f8c6fb20db3be48d4c9106d2cc3a861bbcc8318f41df72f452f1c662fa98), all status 1; contract [0x0D363882…C426](https://testnet.snowtrace.io/address/0x0D363882aA2DdA271323F91a1a268Cd707D3C426). `cancun` + OZ v5.7.0 stay.
+  - §4.8 ownership: after deploy and seed on Fuji (P2), the deployer/OWNER key starts `transferOwnership(0x54A2276F134d3Cfaa7572BC326092fABa6352888)` (Ownable2Step); the team lead accepts from that wallet. Until then OWNER_PK is the owner.
+  - §4 AgentVault (P1): spec ambiguities resolved with the safest reading.
+    - Constructor is `(initialOwner, initialAgent, initialGuardian)`. A zero agent (revoked) or zero guardian (no verdict accepted) is valid; a zero owner is rejected.
+    - Tracked-token calls must be exactly `selector + abi.encode(address, uint256)` (68 bytes); anything else reverts `SelectorNotAllowed(token, selector)`. Empty or < 4-byte data to a tracked token → `SelectorNotAllowed(token, 0x00000000)`.
+    - `value > 0` to a target that is neither an allowed target nor an allowed recipient → `TargetNotAllowed(target)`.
+    - Malformed signatures (any `ECDSA.tryRecover` error) → `BadSignature()`, same as a wrong signer.
+    - A verdict sent with a batch that does not need one is still verified and consumes the nonce.
+    - `Executed` carries `checkId = 0` and `nonceUsed = 0` when no verdict was sent (`withVerdict` disambiguates).
+    - Outflow is net per batch, exactly as §4.3 step 6 defines it; inflows in the same batch offset outflows.
+    - `setMaxAgentRisk(x > 2)` → `RiskTooHigh(x)`. `setTokenPolicy` on `address(0)` (native key) or the vault → `TargetNotAllowed`.
+    - Untracking a token keeps its `spent` history, so re-tracking it the same day keeps counting towards the cap.
+    - `renounceOwnership()` reverts `RenounceDisabled()` (new error): an ownerless vault could never be withdrawn from.
+    - Pause events are `VaultPaused` / `VaultUnpaused` (an event named `Paused` would clash with the `Paused()` error).
+    - Allowlists are `EnumerableSet`s so `getPolicy()` can return them; `allowedTarget(address)`, `allowedSelector(address,bytes4)`, `allowedRecipient(address)` keep the mapping-getter ABI. `getPolicy()` also returns owner, pendingOwner, day, per-token spentToday and balances. `remainingToday(token)` returns 0 for a token that is not tracked.
+    - `withdrawNative` uses OpenZeppelin `Address.sendValue` (reverts `FailedCall()` if the recipient refuses AVAX).
+    - Known residual risk for P11: an approval granted with a verdict outlives the batch, so an allowlisted spender could pull up to `maxApproval` later without passing `executeBatch`; bounded by `maxApproval` and the spender allowlist.
+  - §7 `pnpm fork`: Anvil may run natively, through WSL2, or through the official Docker image `ghcr.io/foundry-rs/foundry:v1.8.5` (`ANVIL_RUNNER=auto|native|docker`), because Windows Smart App Control can block `anvil.exe`.

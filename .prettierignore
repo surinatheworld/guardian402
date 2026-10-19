@@ -1,0 +1,14 @@
+node_modules
+pnpm-lock.yaml
+contracts/lib
+contracts/out
+contracts/cache
+contracts/broadcast
+vendor
+apps/*/data
+**/.next
+**/dist
+# Team-authored docs: keep their formatting as written
+CLAUDE.md
+PROMPTS.md
+docs/SPEC.md

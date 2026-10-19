@@ -1,0 +1,11 @@
+{
+  "name": "@guardian402/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ABIs, addresses, EIP-712 types, zod schemas and constants",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

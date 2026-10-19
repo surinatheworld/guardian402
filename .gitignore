@@ -1,0 +1,27 @@
+# Secrets
+.env.local
+.env*.local
+*.key
+
+# Dependencies and build output
+node_modules
+dist
+.next
+*.tsbuildinfo
+coverage
+
+# Foundry
+contracts/out
+contracts/cache
+contracts/broadcast
+lcov.info
+
+# Runtime data (SQLite, attempts log)
+apps/*/data
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea
