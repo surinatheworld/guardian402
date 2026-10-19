@@ -1,0 +1,98 @@
+# Guardian402 — instructions for the coding agent
+
+## What we are building
+
+Guardian402 is a transaction firewall and co-signer for AI-agent wallets on Avalanche.
+
+Before an agent's transaction runs, the Guardian API:
+
+1. simulates it on an Anvil fork of Avalanche Fuji,
+2. scores it with a deterministic rule engine,
+3. asks an LLM to write a short explanation (Vietnamese + English) of what the simulation shows,
+4. signs an EIP-712 verdict bound to that exact transaction.
+
+The agent's funds live in `AgentVault`, a contract on Fuji. The vault only executes an agent's calls if they pass its on-chain policy (allowlists, daily caps, kill switch) and, when required, carry a valid Guardian verdict. Each check is paid per request in USDC over x402.
+
+- Hackathon: Team1 Vietnam UniHack. Code freeze 2026-11-19, submission 2026-11-21 23:59 (UTC+7).
+- Network: Avalanche Fuji only (chain id 43113, CAIP-2 `eip155:43113`).
+- Full technical spec: `docs/SPEC.md`. Read the relevant section before every phase.
+- Phase-by-phase tasks: `PROMPTS.md`. Do one phase at a time.
+
+## Non-negotiable rules (hackathon rules — breaking them costs points or disqualifies)
+
+1. **The LLM never decides whether money moves.** Risk comes only from the rule engine. The LLM only writes explanation text from the simulation result. The explainer module must not import the signer, any wallet client, or anything that can change a risk level.
+2. **Every agent action passes AgentVault's policy:** spending caps, allowlists, kill switch.
+3. **Non-custodial.** Funds stay in the owner's AgentVault. The owner can withdraw at any time. The Guardian can only sign verdicts; it can never move funds.
+4. **No token, no token sale, no real money from users.** Fuji testnet only. Never put mainnet keys or mainnet addresses with funds in this repo.
+5. **On-chain data is limited to hashes, payments and state.** No personal data on-chain.
+6. **Every mocked or simulated part is behind an explicit flag** (mock oracle, mock pools, scripted attack mode, demo lookalike settings) and shows a `DEMO MODE` banner in the dashboard, so the team can declare it at the start of the pitch.
+7. **Tests are mandatory on every money path** in the contracts.
+
+## Engineering rules
+
+- **Do not invent APIs.** For x402, read the installed source and types under `node_modules/@x402/*` (pinned to 2.28.0) and the Team1 starter in `vendor/x402-starter/`. For ERC-8004, use the ABIs from the official `erc-8004-contracts` repo. If something is still unclear, stop and ask the team.
+- Pin dependency versions. Node >= 22.9, pnpm workspaces.
+- Secrets live in `.env.local` files (git-ignored). Keep `.env.example` files complete and up to date. Never log private keys or full signatures of keys.
+- Small, focused commits. Run the relevant tests before saying something works, and paste the real command output when reporting. If a test fails, say so.
+- Code, identifiers, comments and commit messages in English. Talk to the team in Vietnamese.
+- Keep the "Commands" section below accurate whenever you add a script.
+- At the end of each phase, report in Vietnamese: what changed, how to run it, test results, open questions, and anything you mocked.
+
+## Stack
+
+- Contracts: Solidity 0.8.28, Foundry (forge, anvil, cast), OpenZeppelin Contracts v5. Set `evm_version = "shanghai"` in `foundry.toml`; do not raise it unless you have verified Fuji supports the newer EVM version.
+- TypeScript services: Node 22, TypeScript strict mode, viem 2.x, zod, vitest, Express, better-sqlite3, pino.
+- x402: `@x402/core`, `@x402/evm`, `@x402/express`, `@x402/fetch`, all at exactly `2.28.0`.
+- Dashboard: Next.js (App Router), wagmi 2.x, viem, Tailwind CSS.
+
+## Repo layout
+
+```
+guardian402/
+├── CLAUDE.md                  # this file
+├── PROMPTS.md                 # phase prompts
+├── README.md
+├── docs/
+│   ├── SPEC.md                # technical spec (source of truth)
+│   ├── THREAT_MODEL.md        # written in phase 12
+│   └── DEMO_RUNBOOK.md        # written in phase 12
+├── contracts/                 # Foundry project
+│   ├── src/AgentVault.sol
+│   ├── src/mocks/             # MockERC20, MockOracle, MockRouter
+│   ├── test/
+│   └── script/
+├── packages/shared/           # ABIs, addresses, EIP-712 types, zod schemas, constants
+├── apps/guardian/             # Guardian API: x402 paywall, simulator, rules, explainer, signer, store
+├── apps/agent/                # demo agent, scripted scenarios, local control API
+├── apps/dashboard/            # Next.js dashboard (Vietnamese UI)
+├── eval/                      # labelled cases, runner, report
+├── scripts/                   # fork, deploy, seed, lookalike-address mining
+└── vendor/x402-starter/       # read-only reference: Team1 x402 starter (do not edit)
+```
+
+## Commands
+
+Keep this list true. Add each script here when you create it.
+
+Available now:
+
+- `git submodule update --init --recursive` — fetch `contracts/lib` (OpenZeppelin v5.4.0, forge-std v1.17.0) after a fresh clone
+- `pnpm install`
+- `pnpm fork` — start an Anvil fork of Fuji on `http://127.0.0.1:8545` (`scripts/fork.mjs`). `ANVIL_RUNNER=auto|native|docker`; `auto` uses native `anvil` if it runs, else the `ghcr.io/foundry-rs/foundry:v1.8.5` Docker image (needed where Windows Smart App Control blocks `anvil.exe`)
+- `cd contracts && forge build` / `cd contracts && forge test -vvv` — contract build and tests
+- `pnpm test` (same as `pnpm -r test`) — TypeScript tests in every workspace package
+- `pnpm typecheck` — `tsc` in every workspace package
+- `pnpm lint` — ESLint over the TypeScript workspace
+- `pnpm format` / `pnpm format:check` — Prettier
+
+Planned (not created yet):
+
+- `pnpm dev:guardian` / `pnpm dev:agent` / `pnpm dev:dashboard`
+- `pnpm eval` — run the eval set and write `eval/report.md`
+- `pnpm deploy:fuji` / `pnpm seed:fuji`
+
+## Key constants (details and sources in docs/SPEC.md §2)
+
+- Fuji RPC: `https://api.avax-test.network/ext/bc/C/rpc` · explorer: `https://testnet.snowtrace.io`
+- USDC on Fuji: `0x5425890298aed601595a70AB815c96711a31Bc65` (6 decimals, EIP-712 name `USD Coin`, version `2`)
+- Default x402 facilitator: `https://facilitator.ultravioletadao.xyz`
