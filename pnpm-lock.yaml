@@ -50,7 +50,14 @@ importers:
 
   apps/dashboard: {}
 
-  apps/guardian: {}
+  apps/guardian:
+    dependencies:
+      '@guardian402/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      viem:
+        specifier: 2.57.7
+        version: 2.57.7(typescript@6.0.3)(zod@3.25.76)
 
   eval: {}
 
