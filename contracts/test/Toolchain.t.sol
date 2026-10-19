@@ -11,7 +11,7 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// Phase P0 toolchain check: the OpenZeppelin modules AgentVault will use (SPEC §4, P1)
-/// compile with solc 0.8.28 and evm_version = "shanghai". No business logic.
+/// compile with solc 0.8.28 and evm_version = "cancun". No business logic.
 contract ToolchainProbe is Ownable2Step, EIP712, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -23,7 +23,7 @@ contract ToolchainProbe is Ownable2Step, EIP712, ReentrancyGuard {
 }
 
 contract ToolchainTest is Test {
-    function test_OpenZeppelinModulesCompileOnShanghai() public {
+    function test_OpenZeppelinModulesCompileOnCancun() public {
         ToolchainProbe probe = new ToolchainProbe();
         assertEq(probe.owner(), address(this));
 
