@@ -76,7 +76,7 @@ forge coverage --report summary --no-match-coverage "(test|script)/"
 
 Mock: chỉ trong test (`test/mocks/`), không deploy. Rủi ro còn lại cho P11: approval đã cấp (có verdict) vẫn còn sau batch, spender trong allowlist có thể kéo tối đa `maxApproval` sau đó.
 
-## P2 — Mock, deploy và seed lên Fuji (gần xong: chờ 50 USDC cho vault)
+## P2 — Mock, deploy và seed lên Fuji (xong 2026-10-19)
 
 - Mock DEMO trong `contracts/src/mocks/`: `MockERC20` (mWAVAX, 18 decimals, owner mint), `MockOracle` (25 USDC / mWAVAX), `MockRouter` (USDC → mWAVAX, pool 0 lệch 30 bps, pool 1 lệch 3.000 bps). 12 test trong `test/Mocks.t.sol`, có cả kịch bản S1 và S4 qua vault.
 - Script: `Deploy.s.sol`, `Seed.s.sol` (chạy lại được nhiều lần), `HandOff.s.sol`; wrapper `scripts/contracts.mjs` (lấy key từ `.env.local`, từ chối nếu chain id khác 43113).
@@ -106,4 +106,23 @@ Seed Fuji: 11 giao dịch, tất cả status 1 (gas cho owner/agent, mint 1.000 
 router mWAVAX = 1000000000000000000000 (1.000 mWAVAX) · oracle price = 25000000
 ```
 
-Còn thiếu: vault chưa có 50 USDC trên Fuji (owner đang có 0 USDC; faucet Circle cần người qua captcha). Mock: mWAVAX, MockOracle, MockRouter (DEMO MODE).
+Nạp vault: team lấy USDC từ faucet (owner 40, agent 20); agent chuyển 10 USDC cho owner ([0xebb51dbf…8b09](https://testnet.snowtrace.io/tx/0xebb51dbf8c64506d2a78ae1a8e8d204e273f76c5a6372fc0689f0b96cb748b09)); `pnpm seed:fuji` chuyển 50 USDC vào vault ([0xb92cf374…2829](https://testnet.snowtrace.io/tx/0xb92cf3748417ee1c7803972c68fda5954edcbabe0c1f2c6cb79ea649f1c72829), status 1).
+
+```
+cast call USDC "balanceOf(address)(uint256)" 0x32cb…Ab99   → 50000000   (vault: 50 USDC)
+cast call mWAVAX "balanceOf(address)(uint256)" 0x263a…9355 → 1000000000000000000000   (router: 1.000 mWAVAX)
+agent 0x7bD6…8ff7: 10 USDC (phí x402), 0.1 AVAX
+```
+
+Ownership: OWNER_PK vẫn là owner tới hết P8 (team lead accept sau P8), nên seed và S6 (kill switch) do OWNER_PK chạy. Mock: mWAVAX, MockOracle, MockRouter (DEMO MODE).
+
+## Checklist trước demo
+
+- [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault (tx [0xe864b2e2…519d](https://testnet.snowtrace.io/tx/0xe864b2e2846874faeb6391d815cf327404ab234f858854c6a2fb694dc1f1519d)). Các bước:
+  1. Trong Core hoặc MetaMask, chọn ví `0x54A2…2888` và mạng Avalanche Fuji C-Chain (chain id 43113). Ví cần một ít AVAX testnet để trả gas.
+  2. Mở https://testnet.snowtrace.io/address/0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99/contract/43113/writeContract (AgentVault → tab **Contract** → **Write Contract**).
+  3. Bấm **Connect to Web3** và kết nối ví `0x54A2…2888`.
+  4. Mở hàm **acceptOwnership** (không có tham số) → **Write** → xác nhận giao dịch trong ví.
+  5. Kiểm tra trong tab **Read Contract**: `owner()` = `0x54A2276F134d3Cfaa7572BC326092fABa6352888` và `pendingOwner()` = `0x0000000000000000000000000000000000000000`. Hoặc chạy:
+     `cast call 0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99 "owner()(address)" --rpc-url https://api.avax-test.network/ext/bc/C/rpc`
+  6. Sau bước này OWNER_PK không còn quyền owner: pause/unpause, đổi cap, revoke agent làm từ ví `0x54A2…2888` (dashboard, trang Điều khiển).
