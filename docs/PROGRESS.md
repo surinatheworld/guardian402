@@ -116,6 +116,29 @@ agent 0x7bD6…8ff7: 10 USDC (phí x402), 0.1 AVAX
 
 Ownership: OWNER_PK vẫn là owner tới hết P8 (team lead accept sau P8), nên seed và S6 (kill switch) do OWNER_PK chạy. Mock: mWAVAX, MockOracle, MockRouter (DEMO MODE).
 
+## P3 — Package shared và cross-check verdict (xong 2026-10-19)
+
+- `packages/shared`: ABI sinh tự động (`pnpm abi` → `src/abi/*.ts`, `as const`), địa chỉ theo NETWORK (`getAddresses`, `parseNetwork`), hằng số (chain, USDC Fuji, giá x402, rule id, mã rủi ro), schema zod đúng SPEC §6.2 (`CheckRequest`, `CheckResponse`, `Finding`, `Diff`, `Verdict`), `verdict.ts` (`hashCalls`, `verdictTypes`, `verdictDomain`, `recoverVerdictSigner`) và `sign.ts` (`signVerdict`, chỉ export qua `@guardian402/shared/sign`).
+- Cross-check: `scripts/gen-verdict-fixture.ts` ký verdict bằng TypeScript và ghi `contracts/test/fixtures/verdict.json`; `VerdictCrossCheck.t.sol` deploy vault từ deployer cố định ở nonce 0 (`vm.computeCreateAddress` = `getContractAddress`), xác nhận vault chấp nhận verdict rồi đột biến từng trường và từng call.
+
+```
+pnpm --filter @guardian402/shared test
+ Test Files  4 passed (4)
+      Tests  33 passed (33)
+
+pnpm test:crosscheck
+[crosscheck] vault 0x4CEc0f582a574812244196266BAf1fe0d7565C6d signer 0xdA23b9314AEAF0a70b93697B520e6ee4665cAe9c
+[PASS] test_EncodingMatchesTypeScript()      (hashCalls và EIP-712 digest khớp từng byte)
+[PASS] test_AcceptsTypeScriptVerdict()
+[PASS] test_RejectsMutatedCallsHash / Nonce / Deadline / Risk / CheckId / Signature, test_RejectsExpiredVerdict, test_RejectsOtherChain, test_RejectsReplay
+[PASS] test_RejectsOneByteChangeInEachCall, test_RejectsMutatedValue, test_RejectsMutatedTarget, test_RejectsReorderedCalls, test_RejectsDroppedCall
+Suite result: ok. 16 passed; 0 failed; 0 skipped
+
+forge test (toàn bộ) → 7 test suites: 141 tests passed, 0 failed · pnpm lint, pnpm typecheck, pnpm format:check → sạch
+```
+
+Mock: không có (fixture chỉ dùng key/địa chỉ thử nghiệm, không có tiền).
+
 ## Checklist trước demo
 
 - [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault (tx [0xe864b2e2…519d](https://testnet.snowtrace.io/tx/0xe864b2e2846874faeb6391d815cf327404ab234f858854c6a2fb694dc1f1519d)). Các bước:
