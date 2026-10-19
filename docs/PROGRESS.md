@@ -75,3 +75,54 @@ forge coverage --report summary --no-match-coverage "(test|script)/"
 | 6. Verdict cho calls A không mở khoá calls B | `invariant_VerdictBoundToCalls`; `testFuzz_VerdictForOneAmountDoesNotAuthorizeAnother`, `test_RevertWhen_VerdictForOtherCalls_*` (target, value, data, thứ tự) |
 
 Mock: chỉ trong test (`test/mocks/`), không deploy. Rủi ro còn lại cho P11: approval đã cấp (có verdict) vẫn còn sau batch, spender trong allowlist có thể kéo tối đa `maxApproval` sau đó.
+
+## P2 — Mock, deploy và seed lên Fuji (xong 2026-10-19)
+
+- Mock DEMO trong `contracts/src/mocks/`: `MockERC20` (mWAVAX, 18 decimals, owner mint), `MockOracle` (25 USDC / mWAVAX), `MockRouter` (USDC → mWAVAX, pool 0 lệch 30 bps, pool 1 lệch 3.000 bps). 12 test trong `test/Mocks.t.sol`, có cả kịch bản S1 và S4 qua vault.
+- Script: `Deploy.s.sol`, `Seed.s.sol` (chạy lại được nhiều lần), `HandOff.s.sol`; wrapper `scripts/contracts.mjs` (lấy key từ `.env.local`, từ chối nếu chain id khác 43113).
+- Ví (testnet, key trong `.env.local`): deployer/treasury/PAY_TO `0x64281A1b566EB95Ac50c42282Cc257DBD518fB50`, owner `0x6678788309Ac06a05c584A05fe52181CcB4E3b72`, agent `0x7bD676072d0e34880F7003d8DA817F54ebB68ff7`, guardian `0xF1ff0D01D4B2fA90BCb234747b8409831A3C2359`.
+
+Local fork (`pnpm fork` → `pnpm deploy:local` → `pnpm seed:local`): thành công; seed lần 2 → `No transactions to broadcast`.
+
+Địa chỉ Fuji (`packages/shared/src/addresses/fuji.json`, trùng địa chỉ local vì cùng nonce deployer):
+
+| Contract | Địa chỉ | Deploy tx | Verify |
+| --- | --- | --- | --- |
+| AgentVault | [0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99](https://testnet.snowtrace.io/address/0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99) | [0xb1ba847c…eceb](https://testnet.snowtrace.io/tx/0xb1ba847c24bb08024202e730e4443e51063e0b9e4acd98a436b0f7a9035eeceb) | Pass - Verified |
+| mWAVAX (MockERC20) | [0x8Ed571d1666FC12D872c352cf53B377B3893f5EF](https://testnet.snowtrace.io/address/0x8Ed571d1666FC12D872c352cf53B377B3893f5EF) | [0xd539175d…8698](https://testnet.snowtrace.io/tx/0xd539175d179f9538325f2541b92bf9a91a346b775953175795d4a05e3b318698) | Pass, nhưng Routescan hiển thị source "ERC20Mock" khớp gần đúng có sẵn |
+| MockOracle | [0xeebAac693aA19308bA859b3D668e3794310e66AE](https://testnet.snowtrace.io/address/0xeebAac693aA19308bA859b3D668e3794310e66AE) | [0x04beace0…4c45](https://testnet.snowtrace.io/tx/0x04beace0846becdb89b5bd3eb18babe690fb99577d8d10d4d42af2fb6a9e4c45) | Pass - Verified |
+| MockRouter | [0x263a18Df9E627A862880Ec79E11aAC8671509355](https://testnet.snowtrace.io/address/0x263a18Df9E627A862880Ec79E11aAC8671509355) | [0x0bd4d30c…1dd8](https://testnet.snowtrace.io/tx/0x0bd4d30c21ecedbc0e186eb7fe4f2b37177d8a2011433e8b89b90faceedb1dd8) | Pass - Verified |
+| CancunSmoke | [0x0D363882aA2DdA271323F91a1a268Cd707D3C426](https://testnet.snowtrace.io/address/0x0D363882aA2DdA271323F91a1a268Cd707D3C426) | (P1) | Pass - Verified |
+
+Seed Fuji: 11 giao dịch, tất cả status 1 (gas cho owner/agent, mint 1.000 mWAVAX cho router, policy, allowlist, agent, guardian). Handoff: [0xe864b2e2…519d](https://testnet.snowtrace.io/tx/0xe864b2e2846874faeb6391d815cf327404ab234f858854c6a2fb694dc1f1519d) → `pendingOwner = 0x54A2276F134d3Cfaa7572BC326092fABa6352888`, chờ accept từ ví đó.
+
+`cast call <vault> "getPolicy()(…)"` trên Fuji:
+
+```
+(owner 0x6678…3b72, pendingOwner 0x54A2…2888, agent 0x7bD6…8ff7, guardian 0xF1ff…2359, paused false, nonce 0, maxAgentRisk 0, day 20745,
+ tokens [(USDC 0x5425…Bc65, cap 20000000, maxApproval 10000000, threshold 1000000, spentToday 0, balance 0)],
+ native cap 1e17, threshold 1e16, spent 0, balance 0,
+ targets [(router 0x263a…9355, [0x85e858b9 = swapExactIn])], recipients [router, treasury 0x6428…fB50])
+router mWAVAX = 1000000000000000000000 (1.000 mWAVAX) · oracle price = 25000000
+```
+
+Nạp vault: team lấy USDC từ faucet (owner 40, agent 20); agent chuyển 10 USDC cho owner ([0xebb51dbf…8b09](https://testnet.snowtrace.io/tx/0xebb51dbf8c64506d2a78ae1a8e8d204e273f76c5a6372fc0689f0b96cb748b09)); `pnpm seed:fuji` chuyển 50 USDC vào vault ([0xb92cf374…2829](https://testnet.snowtrace.io/tx/0xb92cf3748417ee1c7803972c68fda5954edcbabe0c1f2c6cb79ea649f1c72829), status 1).
+
+```
+cast call USDC "balanceOf(address)(uint256)" 0x32cb…Ab99   → 50000000   (vault: 50 USDC)
+cast call mWAVAX "balanceOf(address)(uint256)" 0x263a…9355 → 1000000000000000000000   (router: 1.000 mWAVAX)
+agent 0x7bD6…8ff7: 10 USDC (phí x402), 0.1 AVAX
+```
+
+Ownership: OWNER_PK vẫn là owner tới hết P8 (team lead accept sau P8), nên seed và S6 (kill switch) do OWNER_PK chạy. Mock: mWAVAX, MockOracle, MockRouter (DEMO MODE).
+
+## Checklist trước demo
+
+- [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault (tx [0xe864b2e2…519d](https://testnet.snowtrace.io/tx/0xe864b2e2846874faeb6391d815cf327404ab234f858854c6a2fb694dc1f1519d)). Các bước:
+  1. Trong Core hoặc MetaMask, chọn ví `0x54A2…2888` và mạng Avalanche Fuji C-Chain (chain id 43113). Ví cần một ít AVAX testnet để trả gas.
+  2. Mở https://testnet.snowtrace.io/address/0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99/contract/43113/writeContract (AgentVault → tab **Contract** → **Write Contract**).
+  3. Bấm **Connect to Web3** và kết nối ví `0x54A2…2888`.
+  4. Mở hàm **acceptOwnership** (không có tham số) → **Write** → xác nhận giao dịch trong ví.
+  5. Kiểm tra trong tab **Read Contract**: `owner()` = `0x54A2276F134d3Cfaa7572BC326092fABa6352888` và `pendingOwner()` = `0x0000000000000000000000000000000000000000`. Hoặc chạy:
+     `cast call 0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99 "owner()(address)" --rpc-url https://api.avax-test.network/ext/bc/C/rpc`
+  6. Sau bước này OWNER_PK không còn quyền owner: pause/unpause, đổi cap, revoke agent làm từ ví `0x54A2…2888` (dashboard, trang Điều khiển).
