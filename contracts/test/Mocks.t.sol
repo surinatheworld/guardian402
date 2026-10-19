@@ -40,6 +40,7 @@ contract MocksTest is AgentVaultBase {
         assertEq(wavax.symbol(), "mWAVAX");
         assertEq(wavax.decimals(), 18);
         assertEq(wavax.owner(), mockOwner);
+        assertEq(wavax.NOTICE(), "DEMO ONLY: Guardian402 testnet mock token, no value");
     }
 
     function test_MockERC20_OnlyOwnerMints() public {

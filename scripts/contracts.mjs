@@ -2,6 +2,8 @@
 // Deploy, seed, verify and hand off the contracts (docs/SPEC.md §4.8).
 //
 //   node scripts/contracts.mjs <deploy|seed|verify|handoff> <local|fuji>
+//   node scripts/contracts.mjs redeploy-mocks <local|fuji>       (new mWAVAX + MockRouter; verified on fuji)
+//   node scripts/contracts.mjs swap-router <local|fuji> <oldRouter>  (vault allowlist: old router → new router)
 //
 // Loads secrets from the repo-root .env.local into the environment of forge/cast (never on the command line),
 // refuses to run unless the RPC answers chain id 43113 (Avalanche Fuji, or a fork of it), and in local mode
@@ -21,11 +23,22 @@ const USDC = "0x5425890298aed601595a70AB815c96711a31Bc65";
 const SHARED_ADDRESSES = join(ROOT, "packages/shared/src/addresses");
 const FORGE_DEPLOYMENTS = join(CONTRACTS, "deployments");
 const ROUTESCAN_FUJI = "https://api.routescan.io/v2/network/testnet/evm/43113/etherscan";
+const VERIFY_FLAGS = [
+  "--verifier-url",
+  ROUTESCAN_FUJI,
+  "--etherscan-api-key",
+  "verifyContract",
+  "--chain",
+  "43113",
+];
 
-const [action, network] = process.argv.slice(2);
-if (!["deploy", "seed", "verify", "handoff"].includes(action) || !["local", "fuji"].includes(network)) {
-  fail("usage: node scripts/contracts.mjs <deploy|seed|verify|handoff> <local|fuji>");
+const ACTIONS = ["deploy", "seed", "verify", "handoff", "redeploy-mocks", "swap-router"];
+const [action, network, extraArg] = process.argv.slice(2);
+if (!ACTIONS.includes(action) || !["local", "fuji"].includes(network)) {
+  fail(`usage: node scripts/contracts.mjs <${ACTIONS.join("|")}> <local|fuji> [oldRouter]`);
 }
+if (action === "swap-router" && !/^0x[0-9a-fA-F]{40}$/.test(extraArg || ""))
+  fail("swap-router needs the old router address");
 if (existsSync(join(ROOT, ".env.local"))) process.loadEnvFile(join(ROOT, ".env.local"));
 process.env.NETWORK = network;
 for (const key of ["DEPLOYER_PK", "OWNER_PK", "AGENT_PK", "GUARDIAN_SIGNER_PK"]) {
@@ -47,6 +60,33 @@ if (action !== "deploy") syncAddresses("toForge");
 if (action === "verify") {
   if (network !== "fuji") fail("verify runs on fuji only");
   verifyAll();
+} else if (action === "redeploy-mocks") {
+  // Verify in the same run, right after broadcast, before anything else looks the new addresses up.
+  const verify = network === "fuji" ? ["--verify", ...VERIFY_FLAGS] : [];
+  run("forge", [
+    "script",
+    "script/RedeployMocks.s.sol:RedeployMocks",
+    "--sig",
+    "deploy()",
+    "--rpc-url",
+    rpc,
+    "--broadcast",
+    "--slow",
+    ...verify,
+  ]);
+  syncAddresses("toShared");
+} else if (action === "swap-router") {
+  run("forge", [
+    "script",
+    "script/RedeployMocks.s.sol:RedeployMocks",
+    "--sig",
+    "swapAllowlist(address)",
+    extraArg,
+    "--rpc-url",
+    rpc,
+    "--broadcast",
+    "--slow",
+  ]);
 } else {
   const script = { deploy: "Deploy", seed: "Seed", handoff: "HandOff" }[action];
   run("forge", ["script", `script/${script}.s.sol:${script}`, "--rpc-url", rpc, "--broadcast", "--slow"]);

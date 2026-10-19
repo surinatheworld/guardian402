@@ -22,7 +22,9 @@
     "verify:fuji": "node scripts/contracts.mjs verify fuji",
     "handoff:fuji": "node scripts/contracts.mjs handoff fuji",
     "abi": "node scripts/gen-abi.mjs",
-    "test:crosscheck": "tsx scripts/gen-verdict-fixture.ts && cd contracts && forge test --match-contract VerdictCrossCheck -vv"
+    "test:crosscheck": "tsx scripts/gen-verdict-fixture.ts && cd contracts && forge test --match-contract VerdictCrossCheck -vv",
+    "redeploy-mocks:fuji": "node scripts/contracts.mjs redeploy-mocks fuji",
+    "swap-router:fuji": "node scripts/contracts.mjs swap-router fuji"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

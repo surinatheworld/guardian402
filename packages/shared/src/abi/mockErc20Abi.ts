@@ -28,6 +28,19 @@ export const mockErc20Abi = [
   },
   {
     type: "function",
+    name: "NOTICE",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "string",
+        internalType: "string",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "allowance",
     inputs: [
       {
