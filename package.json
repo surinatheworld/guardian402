@@ -14,7 +14,13 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "deploy:local": "node scripts/contracts.mjs deploy local",
+    "seed:local": "node scripts/contracts.mjs seed local",
+    "deploy:fuji": "node scripts/contracts.mjs deploy fuji",
+    "seed:fuji": "node scripts/contracts.mjs seed fuji",
+    "verify:fuji": "node scripts/contracts.mjs verify fuji",
+    "handoff:fuji": "node scripts/contracts.mjs handoff fuji"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
