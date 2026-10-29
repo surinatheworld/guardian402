@@ -178,9 +178,39 @@ forge test (toàn bộ) → 7 test suites: 141 tests passed, 0 failed · pnpm li
 
 Mock: không có (fixture chỉ dùng key/địa chỉ thử nghiệm, không có tiền).
 
-## P4 — Simulator (tạm dừng 2026-10-19 theo yêu cầu, chưa merge)
+## P4 — Simulator (code xong 2026-10-30, nhánh `feat/p4-simulator`, chưa merge)
 
-Code nằm ở nhánh `feat/p4-simulator` (chưa push, chưa merge). Đã có: Simulator (mutex, snapshot, impersonate vault, mine từng call, giải mã Transfer/Approval/ApprovalForAll, chạy lại call bị revert để lấy lý do), 10 unit test pass, 10/11 fork test pass, độ trễ p50 189 ms / p95 232 ms trên 20 lần. Còn 1 test lỗi: test reset fork về block Fuji mới nhất (lệch 17 block, ngưỡng của test là 10). Chưa đạt nghiệm thu P4.
+- `apps/guardian/src/sim`: `Simulator.simulate(vault, calls, trackedTokens)` theo SPEC §7.
+  - Chạy dưới mutex. Các bước: snapshot → impersonate vault → thêm gas → đọc số dư → gửi từng call từ vault, mỗi call một block → receipt và log → đọc số dư → revert → bỏ impersonate.
+  - Giải mã Transfer, Approval và ApprovalForAll. Native delta không tính gas.
+  - Khi call bị revert, chạy lại bằng `eth_call` ở block trước để lấy lý do (custom error của vault/mock, `Error(string)`, hoặc hex thô).
+  - Timeout 800 ms thì trả `success: false, timedOut: true`.
+- Anvil 1.8.5 chấp nhận giao dịch từ vault đang bị impersonate (không vướng EIP-3607), nên **không dùng** cách dự phòng `setCode(vault, "0x")`.
+- Các lỗi tìm ra và đã sửa khi làm tiếp:
+  - Test reset cũ so sánh với block Fuji lấy *sau* khi reset, nên kết quả không ổn định. Test mới so với block lấy *trước* khi reset, và kiểm tra riêng từng trường hợp reset: do tụt hơn 2 phút, do hết chu kỳ 5 phút, và do timer chạy nền.
+  - `pnpm fork` thêm `--hardfork cancun`. Mặc định của Anvil là hardfork mới nhất, không giống Fuji, và mỗi block mine đều gọi lên RPC Fuji (~180 ms).
+  - Việc kiểm tra fork tụt sau Fuji (gọi RPC Fuji ~500 ms) trước đây chạy ngay trong request, cứ 15 giây một lần. Nay nó chạy nền qua `start()`/`stop()`, nên request chỉ còn các kiểm tra local.
+  - Nếu process chết giữa lúc mô phỏng, snapshot không được revert (ví dụ allowance còn lại trên fork). Sửa: lần kiểm tra đầu tiên của mỗi process luôn reset fork, và test luôn bắt đầu từ fork sạch.
+  - Anvil làm mất cache các slot đã đọc trong snapshot khi revert (~40 ms mỗi slot, mỗi lần). Sửa: lấy danh sách slot bằng `prestateTracer`, sau khi revert thì đọc lại các slot đó ở ngoài snapshot. Ngoài ra luôn giữ một block local phía trên block được fork.
+
+Cách chạy: `pnpm fork` (cần Docker Desktop đang chạy trên máy này), rồi `pnpm --filter @guardian402/guardian test:fork`.
+
+Lần chạy đủ trên code hiện tại, 2026-10-30 (sau lần này chỉ đổi một dòng comment đầu file):
+
+```
+[latency] runs (ms): 278 295 251 324 295 376 259 279 292 275 289 296 295 295 309 278 287 300 323 279
+[latency] simulate() over 20 runs: p50 292 ms, p95 324 ms
+      Tests  13 passed (13)
+```
+
+Lần chạy cuối, sau 20 phút chờ RPC mở lại: 12/13 pass, p50 261 ms, p95 297 ms. Test `start(): background maintenance…` lỗi vì RPC công khai `api.avax-test.network` lại chặn IP giữa chừng (HTTP 429, Cloudflare 1015), không phải lỗi logic.
+
+Các kiểm tra khác: unit test guardian 10/10, shared 33/33, `forge test` 141/141. `pnpm typecheck`, `pnpm lint`, `pnpm format:check` sạch.
+
+Câu hỏi mở:
+- RPC công khai của Fuji giới hạn tần suất, và một lần chạy suite fork (có reset) đã có thể vượt giới hạn đó. Khi demo, sau mỗi lần reset 5 phút fork cũng phải tải lại state. Nên dùng một RPC Fuji riêng (cần API key) đặt trong `FUJI_RPC_URL`.
+
+Mock: không có. Simulator chạy trên fork của Fuji thật và dùng deployment đã seed trên Fuji.
 
 ## Checklist trước demo
 
