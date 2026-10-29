@@ -20,6 +20,7 @@ import {
   type PublicClient,
   type TestClient,
   type Hash,
+  type Hex,
   type TransactionReceipt,
 } from "viem";
 import { fujiChain, type Call } from "@guardian402/shared";
@@ -38,7 +39,10 @@ export type SimulatorOptions = {
   timeoutMs?: number;
   maxLagSeconds?: number;
   resetIntervalMs?: number;
+  /** Period of the background fork maintenance started by `start()`. */
   healthCheckIntervalMs?: number;
+  /** Called when a background maintenance run fails; the next run retries. */
+  onMaintenanceError?: (error: unknown) => void;
   /** Tokens whose balance is always read (e.g. USDC, mWAVAX), besides tracked tokens and call targets. */
   knownTokens?: readonly Address[];
   gasBuffer?: bigint;
@@ -53,23 +57,31 @@ const DEFAULTS = {
 };
 
 type TokenMeta = { symbol: string; decimals: number };
+/** Lower-case address → storage slots read by the simulated transactions. */
+type TouchedState = Map<string, Set<Hex>>;
 
 const SIM_GAS = numberToHex(5_000_000n);
+const MAX_PINNED = 100_000;
 
 export class Simulator {
-  readonly #opts: Required<Omit<SimulatorOptions, "upstreamRpcUrl" | "knownTokens">> &
-    Pick<SimulatorOptions, "upstreamRpcUrl"> & { knownTokens: readonly Address[] };
+  readonly #opts: Required<Omit<SimulatorOptions, "upstreamRpcUrl" | "knownTokens" | "onMaintenanceError">> &
+    Pick<SimulatorOptions, "upstreamRpcUrl" | "onMaintenanceError"> & { knownTokens: readonly Address[] };
   readonly #public: PublicClient;
   readonly #test: TestClient<"anvil">;
   readonly #upstream: PublicClient | undefined;
   readonly #mutex = new Mutex();
   readonly #meta = new Map<string, TokenMeta | null>();
-  #lastHealthCheck = 0;
-  #lastReset = Date.now();
+  /** Accounts (`address`) and slots (`address:slot`) already read outside a snapshot, see #pin. */
+  readonly #pinned = new Set<string>();
+  #lastReset: number;
   #lastForkBlock = 0n;
+  #timer: NodeJS.Timeout | undefined;
 
   constructor(options: SimulatorOptions) {
     this.#opts = { ...DEFAULTS, knownTokens: [], ...options };
+    // With an upstream, the first check resets the fork: a previous process may have died mid-simulation and
+    // left its snapshot unreverted (e.g. an approval still in place).
+    this.#lastReset = options.upstreamRpcUrl ? Number.NEGATIVE_INFINITY : Date.now();
     // Concurrent reads (balances, metadata) go out as one JSON-RPC batch.
     const transport = http(options.forkRpcUrl, { batch: { wait: 0 } });
     this.#public = createPublicClient({ chain: fujiChain, transport });
@@ -114,38 +126,83 @@ export class Simulator {
     }
   }
 
-  /** Makes sure the vault exists on the fork and, with an upstream, that the fork is fresh (SPEC §7). */
+  /**
+   * Startup check (SPEC §7): with an upstream, reset the fork if it lags Fuji, if the reset interval has passed,
+   * or if it was never reset by this process; then the vault must have code on the fork.
+   */
   async ensureForkHealthy(vault: Address): Promise<void> {
-    await this.#mutex.run(() => this.#checkFork(vault, true));
+    await this.#mutex.run(async () => {
+      await this.#maintain();
+      await this.#checkVault(vault);
+    });
   }
 
-  async #checkFork(vault: Address, force: boolean): Promise<void> {
-    const now = Date.now();
+  /**
+   * Runs fork maintenance in the background (only with an upstream): every `healthCheckIntervalMs`, under the
+   * mutex, the lag and interval checks of `ensureForkHealthy`. Kept out of `simulate()` so that a request never
+   * waits for upstream calls or a reset.
+   */
+  start(): void {
+    if (!this.#upstream || this.#timer) return;
+    this.#timer = setInterval(() => {
+      this.#mutex
+        .run(() => this.#maintain())
+        .catch((error: unknown) => this.#opts.onMaintenanceError?.(error));
+    }, this.#opts.healthCheckIntervalMs);
+    this.#timer.unref();
+  }
+
+  stop(): void {
+    clearInterval(this.#timer);
+    this.#timer = undefined;
+  }
+
+  /** With an upstream: reset when the fork lags Fuji by more than `maxLagSeconds` or is due for a reset. */
+  async #maintain(): Promise<void> {
+    if (!this.#upstream) return;
+    // Blocks Anvil mines itself carry wall-clock timestamps, so the lag is measured on the block the fork was
+    // taken from: its Fuji timestamp versus the latest Fuji block.
+    const forkedAt = await this.#forkBlockNumber();
+    const latest = await this.#upstream.getBlock({ blockTag: "latest" });
+    let lagSeconds = Number.POSITIVE_INFINITY;
+    if (forkedAt !== undefined) {
+      const forkBlock = await this.#upstream.getBlock({ blockNumber: forkedAt });
+      lagSeconds = Number(latest.timestamp - forkBlock.timestamp);
+    }
+    const due = Date.now() - this.#lastReset >= this.#opts.resetIntervalMs;
+    if (lagSeconds > this.#opts.maxLagSeconds || due) await this.#reset(latest.number);
+  }
+
+  async #reset(blockNumber?: bigint): Promise<void> {
+    if (!this.#upstream) return;
+    const target = blockNumber ?? (await this.#upstream.getBlockNumber());
+    await this.#test.reset({ jsonRpcUrl: this.#opts.upstreamRpcUrl, blockNumber: target });
+    this.#lastReset = Date.now();
+    this.#pinned.clear(); // the reset emptied the fork's cache
+  }
+
+  /** Per simulation, with local calls only unless a reset is needed: the vault must have code on the fork. */
+  async #checkVault(vault: Address): Promise<void> {
+    if (this.#lastReset === Number.NEGATIVE_INFINITY) await this.#reset(); // first use, no startup check ran
     let hasCode = (await this.#public.getCode({ address: vault })) !== undefined;
-    // The vault code check is cheap and runs every time; the upstream lag check is throttled.
-    const checkUpstream = force || now - this.#lastHealthCheck >= this.#opts.healthCheckIntervalMs;
-    if (this.#upstream && (checkUpstream || !hasCode)) {
-      this.#lastHealthCheck = now;
-      // Blocks Anvil mines itself carry wall-clock timestamps, so the lag is measured on the block the fork
-      // was taken from: its Fuji timestamp versus the latest Fuji block.
-      const info = (await this.#test.request({ method: "anvil_nodeInfo" } as never)) as {
-        forkConfig?: { forkBlockNumber?: number | string };
-      };
-      const forkedAt = info.forkConfig?.forkBlockNumber;
-      const latest = await this.#upstream.getBlock({ blockTag: "latest" });
-      let lagSeconds = Number.POSITIVE_INFINITY;
-      if (forkedAt !== undefined) {
-        const forkBlock = await this.#upstream.getBlock({ blockNumber: BigInt(forkedAt) });
-        lagSeconds = Number(latest.timestamp - forkBlock.timestamp);
-      }
-      const stale = now - this.#lastReset >= this.#opts.resetIntervalMs;
-      if (!hasCode || lagSeconds > this.#opts.maxLagSeconds || stale) {
-        await this.#test.reset({ jsonRpcUrl: this.#opts.upstreamRpcUrl, blockNumber: latest.number });
-        this.#lastReset = Date.now();
-        hasCode = (await this.#public.getCode({ address: vault })) !== undefined;
-      }
+    if (!hasCode && this.#upstream) {
+      await this.#reset();
+      hasCode = (await this.#public.getCode({ address: vault })) !== undefined;
     }
     if (!hasCode) throw new Error(`vault ${vault} has no code on the fork`);
+    // Mining directly on the fork block makes Anvil fetch from the upstream every time the snapshot is reverted
+    // to it (~40 ms per mined block); with one local block on top, mining stays local (~1 ms).
+    const [head, forkedAt] = await Promise.all([this.#public.getBlockNumber(), this.#forkBlockNumber()]);
+    if (head === forkedAt) await this.#test.mine({ blocks: 1 });
+  }
+
+  /** The block the fork was taken from, or undefined when the node is not a fork. */
+  async #forkBlockNumber(): Promise<bigint | undefined> {
+    const info = (await this.#test.request({ method: "anvil_nodeInfo" } as never)) as {
+      forkConfig?: { forkBlockNumber?: number | string };
+    };
+    const forkedAt = info.forkConfig?.forkBlockNumber;
+    return forkedAt === undefined ? undefined : BigInt(forkedAt);
   }
 
   async #simulateLocked(
@@ -154,10 +211,11 @@ export class Simulator {
     trackedTokens: readonly Address[],
     started: number,
   ): Promise<SimResult> {
-    await this.#checkFork(vault, false);
+    await this.#checkVault(vault);
     const forkBlock = await this.#public.getBlockNumber();
     this.#lastForkBlock = forkBlock;
     const snapshot = await this.#test.snapshot();
+    const touchedState: TouchedState = new Map();
     // With automine on, Anvil answers receipts ~240 ms late; mining each call explicitly takes a few ms.
     // Automine is node configuration (not reverted by the snapshot), so it is restored in `finally`.
     const automine = await this.#test.getAutomine();
@@ -189,6 +247,7 @@ export class Simulator {
         }
         await this.#test.mine({ blocks: 1 }); // one block per call, so a revert can be replayed on block − 1
         const receipt = await this.#receipt(hash);
+        await this.#collectPrestate(hash, touchedState);
         gasUsed += receipt.gasUsed;
         gasCost += receipt.gasUsed * receipt.effectiveGasPrice;
         logs.push(...receipt.logs);
@@ -236,7 +295,50 @@ export class Simulator {
       await this.#test.revert({ id: snapshot });
       if (automine) await this.#test.setAutomine(true);
       await this.#test.stopImpersonatingAccount({ address: vault });
+      // Queued behind this run, so it never delays the result.
+      this.#mutex.run(() => this.#pin(touchedState)).catch(() => undefined);
     }
+  }
+
+  /** Adds the accounts and storage slots a mined transaction read (prestateTracer) to `into`. */
+  async #collectPrestate(hash: Hash, into: TouchedState): Promise<void> {
+    try {
+      const prestate = (await this.#test.request({
+        method: "debug_traceTransaction",
+        params: [hash, { tracer: "prestateTracer" }],
+      } as never)) as Record<string, { storage?: Record<string, Hex> }>;
+      for (const [address, account] of Object.entries(prestate)) {
+        const slots = into.get(address) ?? new Set<Hex>();
+        for (const slot of Object.keys(account.storage ?? {})) slots.add(slot as Hex);
+        into.set(address, slots);
+      }
+    } catch {
+      // Only a cache optimisation (see #pin): the simulation result does not depend on it.
+    }
+  }
+
+  /**
+   * Anvil drops upstream state fetched inside a snapshot when the snapshot is reverted, so every simulation
+   * would fetch the same accounts and slots again (~40 ms each). Reading them once outside any snapshot keeps
+   * them in the fork's cache for later runs. Pure reads: the fork state does not change.
+   */
+  async #pin(touched: TouchedState): Promise<void> {
+    if (this.#pinned.size > MAX_PINNED) this.#pinned.clear();
+    const reads: Promise<unknown>[] = [];
+    for (const [address, slots] of touched) {
+      const account = address as Address;
+      if (!this.#pinned.has(address)) {
+        this.#pinned.add(address);
+        reads.push(this.#public.getBalance({ address: account }), this.#public.getCode({ address: account }));
+      }
+      for (const slot of slots) {
+        const key = `${address}:${slot}`;
+        if (this.#pinned.has(key)) continue;
+        this.#pinned.add(key);
+        reads.push(this.#public.getStorageAt({ address: account, slot }));
+      }
+    }
+    await Promise.all(reads); // one JSON-RPC batch
   }
 
   /**

@@ -162,13 +162,22 @@ describe("Simulator on the fork", () => {
   it("latency over 20 runs (target p50 < 800 ms)", async () => {
     const fast = new Simulator({ forkRpcUrl: FORK_RPC_URL, knownTokens: [a.usdc, a.mWAVAX] });
     const calls = [approve(a.router, 2_000_000n), swap(2_000_000n, 0, 0n)];
-    await fast.simulate(a.vault, calls, [a.usdc]); // warm-up (token metadata cache, fork state)
+    // Warm-up: fork state first, with the long timeout (on a cold fork the first run reads from Fuji and can
+    // exceed 800 ms; a timed-out run keeps the mutex, so the next measured run would wait for it), then the
+    // token metadata cache of `fast`.
+    expect((await sim.simulate(a.vault, calls, [a.usdc])).success).toBe(true);
+    expect((await fast.simulate(a.vault, calls, [a.usdc])).success).toBe(true);
     const ms: number[] = [];
     for (let i = 0; i < 20; i++) {
       const r = await fast.simulate(a.vault, calls, [a.usdc]);
-      expect(r.success).toBe(true);
+      expect({ run: i, success: r.success, reason: r.revertReason }).toEqual({
+        run: i,
+        success: true,
+        reason: undefined,
+      });
       ms.push(r.durationMs);
     }
+    console.log(`[latency] runs (ms): ${ms.map((x) => x.toFixed(0)).join(" ")}`);
     ms.sort((x, y) => x - y);
     const p50 = ms[9] ?? Infinity;
     const p95 = ms[18] ?? Infinity;
@@ -176,21 +185,94 @@ describe("Simulator on the fork", () => {
     expect(p50).toBeLessThan(800);
   });
 
-  // Last on purpose: it resets the fork to the latest Fuji block. The Fuji deployment exists there.
-  it("with an upstream, resets a stale fork to the latest Fuji block", async () => {
-    const fuji = getAddresses("fuji");
+  // Last on purpose: these reset the fork to Fuji blocks. The Fuji deployment exists there, so the next
+  // `setupFork()` finds a seeded vault at the same addresses.
+  describe("fork health with an upstream", () => {
     const upstream = createPublicClient({ chain: fujiChain, transport: http(FUJI_RPC_URL) });
-    const before = await env.client.getBlockNumber();
-    const fresh = new Simulator({
-      forkRpcUrl: FORK_RPC_URL,
-      upstreamRpcUrl: FUJI_RPC_URL,
-      resetIntervalMs: 0,
+    const fuji = getAddresses("fuji");
+    const forkedAt = async () => {
+      const info = (await env.client.request({ method: "anvil_nodeInfo" } as never)) as {
+        forkConfig: { forkBlockNumber: number | string };
+      };
+      return BigInt(info.forkConfig.forkBlockNumber);
+    };
+    const resetTo = (blockNumber: bigint) =>
+      env.client.request({
+        method: "anvil_reset",
+        params: [{ forking: { jsonRpcUrl: FUJI_RPC_URL, blockNumber: Number(blockNumber) } }],
+      } as never);
+
+    /** A Fuji block more than 3 minutes older than `latest` (the vault exists there). */
+    const blockBehind = async (latest: { number: bigint; timestamp: bigint }) => {
+      let old = latest.number - 100n;
+      while (latest.timestamp - (await upstream.getBlock({ blockNumber: old })).timestamp <= 180n)
+        old -= 100n;
+      return old;
+    };
+
+    it("resets a fork more than 2 minutes behind Fuji to the latest block", async () => {
+      const latestBefore = await upstream.getBlock({ blockTag: "latest" });
+      const old = await blockBehind(latestBefore);
+      // Periodic reset is off (1 h); the first check is the startup reset, so the second can only be the lag rule.
+      const sim1 = new Simulator({
+        forkRpcUrl: FORK_RPC_URL,
+        upstreamRpcUrl: FUJI_RPC_URL,
+        resetIntervalMs: 3_600_000,
+      });
+      await sim1.ensureForkHealthy(fuji.vault);
+      await resetTo(old);
+      expect(await forkedAt()).toBe(old);
+      await sim1.ensureForkHealthy(fuji.vault);
+      expect(await forkedAt()).toBeGreaterThanOrEqual(latestBefore.number);
+      expect(await env.client.getCode({ address: fuji.vault })).toBeDefined();
     });
-    await fresh.ensureForkHealthy(fuji.vault);
-    const latest = await upstream.getBlockNumber();
-    const head = await env.client.getBlockNumber();
-    expect(head).toBeGreaterThanOrEqual(before);
-    expect(latest - head).toBeLessThan(10n);
-    expect(await env.client.getCode({ address: fuji.vault })).toBeDefined();
+
+    it("resets on startup, leaves a fresh fork alone, and resets once the interval has passed", async () => {
+      const startedAt = await upstream.getBlockNumber();
+      await resetTo(startedAt - 5n); // fresh enough for the lag rule
+      // An 8 s interval stands in for the 5-minute one.
+      const intervalMs = 8_000;
+      const sim2 = new Simulator({
+        forkRpcUrl: FORK_RPC_URL,
+        upstreamRpcUrl: FUJI_RPC_URL,
+        resetIntervalMs: intervalMs,
+      });
+      await sim2.ensureForkHealthy(fuji.vault); // startup reset
+      const at = await forkedAt();
+      expect(at).toBeGreaterThanOrEqual(startedAt);
+      await sim2.ensureForkHealthy(fuji.vault); // interval not reached, fork is fresh: no reset
+      expect(await forkedAt()).toBe(at);
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      const latestBefore = await upstream.getBlockNumber();
+      await sim2.ensureForkHealthy(fuji.vault); // interval passed
+      const after = await forkedAt();
+      expect(after).toBeGreaterThan(at);
+      expect(after).toBeGreaterThanOrEqual(latestBefore);
+      expect(await env.client.getCode({ address: fuji.vault })).toBeDefined();
+    });
+
+    it("start(): background maintenance resets a lagging fork without any request", async () => {
+      const bg = new Simulator({
+        forkRpcUrl: FORK_RPC_URL,
+        upstreamRpcUrl: FUJI_RPC_URL,
+        healthCheckIntervalMs: 500,
+        resetIntervalMs: 3_600_000,
+      });
+      await bg.ensureForkHealthy(fuji.vault); // startup reset
+      const latestBefore = await upstream.getBlock({ blockTag: "latest" });
+      await resetTo(await blockBehind(latestBefore));
+      bg.start();
+      try {
+        const deadline = Date.now() + 30_000;
+        while ((await forkedAt()) < latestBefore.number && Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
+      } finally {
+        bg.stop();
+      }
+      expect(await forkedAt()).toBeGreaterThanOrEqual(latestBefore.number);
+      expect(await env.client.getCode({ address: fuji.vault })).toBeDefined();
+    });
   });
 });

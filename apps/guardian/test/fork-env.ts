@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createPublicClient, erc20Abi, getAddress, http, type Address, type PublicClient } from "viem";
-import { deploymentSchema, fujiChain, type Deployment } from "@guardian402/shared";
+import { deploymentSchema, FUJI_RPC_URL, fujiChain, type Deployment } from "@guardian402/shared";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 export const FORK_RPC_URL = process.env.FORK_RPC_URL ?? "http://127.0.0.1:8545";
@@ -45,6 +45,13 @@ export async function setupFork(): Promise<ForkEnv> {
     throw new Error(`no Anvil fork at ${FORK_RPC_URL}: start it with \`pnpm fork\``);
   });
   if (chainId !== 43113) throw new Error(`fork chain id is ${chainId}, expected 43113`);
+  // Start from a clean fork at the latest Fuji block: an earlier run that died mid-simulation may have left
+  // its snapshot unreverted. The local addresses equal the Fuji ones, so the seeded Fuji vault is used.
+  await client.request({
+    method: "anvil_reset",
+    params: [{ forking: { jsonRpcUrl: FUJI_RPC_URL } }],
+  } as never);
+  await client.request({ method: "evm_setAutomine", params: [true] } as never);
   let addresses = readLocal();
   if (!(await isSeeded(client, addresses))) {
     const run = (action: string) =>

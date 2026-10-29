@@ -5,6 +5,8 @@ export default defineConfig({
   test: {
     include: ["test/**/*.fork.test.ts"],
     fileParallelism: false,
+    silent: false, // keep the latency log of passing tests
+
     testTimeout: 120_000,
     hookTimeout: 300_000,
   },
