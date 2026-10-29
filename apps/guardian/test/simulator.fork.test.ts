@@ -1,4 +1,4 @@
-// Simulator integration tests on the Anvil fork (SPEC §7, P4). Run: `pnpm fork`, then
+// Simulator integration tests on the Anvil fork (SPEC Â§7, P4). Run: `pnpm fork`, then
 // `pnpm --filter @guardian402/guardian test:fork`.
 import {
   createPublicClient,
@@ -10,16 +10,9 @@ import {
   type Address,
 } from "viem";
 import { beforeAll, describe, expect, it } from "vitest";
-import {
-  FUJI_RPC_URL,
-  fujiChain,
-  getAddresses,
-  mockRouterAbi,
-  type Call,
-  type Deployment,
-} from "@guardian402/shared";
+import { fujiChain, getAddresses, mockRouterAbi, type Call, type Deployment } from "@guardian402/shared";
 import { Simulator } from "../src/sim/index.ts";
-import { ATTACKER, FORK_RPC_URL, setupFork, type ForkEnv } from "./fork-env.ts";
+import { ATTACKER, FORK_RPC_URL, setupFork, UPSTREAM_RPC_URL, type ForkEnv } from "./fork-env.ts";
 
 let env: ForkEnv;
 let a: Deployment;
@@ -188,7 +181,7 @@ describe("Simulator on the fork", () => {
   // Last on purpose: these reset the fork to Fuji blocks. The Fuji deployment exists there, so the next
   // `setupFork()` finds a seeded vault at the same addresses.
   describe("fork health with an upstream", () => {
-    const upstream = createPublicClient({ chain: fujiChain, transport: http(FUJI_RPC_URL) });
+    const upstream = createPublicClient({ chain: fujiChain, transport: http(UPSTREAM_RPC_URL) });
     const fuji = getAddresses("fuji");
     const forkedAt = async () => {
       const info = (await env.client.request({ method: "anvil_nodeInfo" } as never)) as {
@@ -199,7 +192,7 @@ describe("Simulator on the fork", () => {
     const resetTo = (blockNumber: bigint) =>
       env.client.request({
         method: "anvil_reset",
-        params: [{ forking: { jsonRpcUrl: FUJI_RPC_URL, blockNumber: Number(blockNumber) } }],
+        params: [{ forking: { jsonRpcUrl: UPSTREAM_RPC_URL, blockNumber: Number(blockNumber) } }],
       } as never);
 
     /** A Fuji block more than 3 minutes older than `latest` (the vault exists there). */
@@ -216,7 +209,7 @@ describe("Simulator on the fork", () => {
       // Periodic reset is off (1 h); the first check is the startup reset, so the second can only be the lag rule.
       const sim1 = new Simulator({
         forkRpcUrl: FORK_RPC_URL,
-        upstreamRpcUrl: FUJI_RPC_URL,
+        upstreamRpcUrl: UPSTREAM_RPC_URL,
         resetIntervalMs: 3_600_000,
       });
       await sim1.ensureForkHealthy(fuji.vault);
@@ -234,7 +227,7 @@ describe("Simulator on the fork", () => {
       const intervalMs = 8_000;
       const sim2 = new Simulator({
         forkRpcUrl: FORK_RPC_URL,
-        upstreamRpcUrl: FUJI_RPC_URL,
+        upstreamRpcUrl: UPSTREAM_RPC_URL,
         resetIntervalMs: intervalMs,
       });
       await sim2.ensureForkHealthy(fuji.vault); // startup reset
@@ -255,7 +248,7 @@ describe("Simulator on the fork", () => {
     it("start(): background maintenance resets a lagging fork without any request", async () => {
       const bg = new Simulator({
         forkRpcUrl: FORK_RPC_URL,
-        upstreamRpcUrl: FUJI_RPC_URL,
+        upstreamRpcUrl: UPSTREAM_RPC_URL,
         healthCheckIntervalMs: 500,
         resetIntervalMs: 3_600_000,
       });
