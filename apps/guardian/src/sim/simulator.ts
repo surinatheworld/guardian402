@@ -2,6 +2,7 @@
 //
 // Per check, under a global mutex: snapshot → impersonate the vault → gas buffer → read balances → send each
 // call from the vault → receipts and logs → read balances → revert the snapshot → stop impersonating.
+// Fork health (lag, periodic reset) runs in the background via start(); a request only runs local checks.
 //
 // Limitation: the calls run directly from the vault address, so the vault's own checks (policy, verdict, caps)
 // are not executed here; POLICY_PRECHECK covers them statically. Anvil 1.8.5 accepts transactions from an

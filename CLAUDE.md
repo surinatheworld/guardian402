@@ -79,7 +79,7 @@ Available now:
 
 - `git submodule update --init --recursive` — fetch `contracts/lib` (OpenZeppelin v5.7.0, forge-std v1.17.0) after a fresh clone
 - `pnpm install`
-- `pnpm fork` — start an Anvil fork of Fuji on `http://127.0.0.1:8545` (`scripts/fork.mjs`). `ANVIL_RUNNER=auto|native|docker`; `auto` uses native `anvil` if it runs, else the `ghcr.io/foundry-rs/foundry:v1.8.5` Docker image (needed where Windows Smart App Control blocks `anvil.exe`; on Windows, WSL2 is recommended, see README)
+- `pnpm fork` — start an Anvil fork of Fuji on `http://127.0.0.1:8545` with `--hardfork cancun` (`scripts/fork.mjs`). `ANVIL_RUNNER=auto|native|docker`; `auto` uses native `anvil` if it runs, else the `ghcr.io/foundry-rs/foundry:v1.8.5` Docker image (needed where Windows Smart App Control blocks `anvil.exe`; on Windows, WSL2 is recommended, see README)
 - `cd contracts && forge build` / `cd contracts && forge test -vvv` — contract build and tests (unit, fuzz, invariant)
 - `cd contracts && forge coverage --report summary --no-match-coverage "(test|script)/"` — coverage of `src/`
 - `pnpm test` (same as `pnpm -r test`) — TypeScript tests in every workspace package
@@ -94,6 +94,7 @@ Available now:
 - `pnpm redeploy-mocks:fuji` / `pnpm swap-router:fuji <oldRouter>` — replace mWAVAX and MockRouter (verified in the same run), then move the vault allowlist from the old router to the new one
 - `pnpm abi` — `forge build`, then regenerate `packages/shared/src/abi/*.ts` (committed)
 - `pnpm test:crosscheck` — sign a verdict in TypeScript, write `contracts/test/fixtures/verdict.json`, run `VerdictCrossCheck.t.sol`
+- `pnpm --filter @guardian402/guardian test:fork` — simulator integration tests (`*.fork.test.ts`); needs `pnpm fork` running. Resets the fork to the latest Fuji block first and uses the seeded Fuji deployment. Each run makes many calls to the public Fuji RPC, which rate-limits (HTTP 429 / Cloudflare 1015): avoid running it in a tight loop
 
 Planned (not created yet):
 

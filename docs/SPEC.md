@@ -369,7 +369,7 @@ Store no IP addresses and no personal data.
 
 ## 7. Simulator (`apps/guardian/src/sim`)
 
-- `pnpm fork` runs `anvil --fork-url "$FUJI_RPC_URL" --chain-id 43113 --port 8545`. The Guardian uses viem `createTestClient({ mode: "anvil" })` plus a public client and a wallet client on `FORK_RPC_URL`.
+- `pnpm fork` runs `anvil --fork-url "$FUJI_RPC_URL" --chain-id 43113 --port 8545 --hardfork cancun`. The Guardian uses viem `createTestClient({ mode: "anvil" })` plus a public client and a wallet client on `FORK_RPC_URL`.
 - Before simulating, make sure the vault exists on the fork (`getCode`). If not, or if the fork is more than 2 minutes behind Fuji, `reset` the fork to the latest block. Also reset every 5 minutes.
 - Per check, under a global mutex:
   1. `snapshot()`.
@@ -545,3 +545,9 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
     - `signVerdict` lives in `@guardian402/shared/sign` and is not re-exported from the package index, so the explainer can use the schemas and hashing helpers without importing a signer.
     - `CheckRequest` is `.strict()`: unknown fields are rejected with 400 (no agent-supplied free text reaches the pipeline).
   - §7 `pnpm fork`: Anvil may run natively, through WSL2, or through the official Docker image `ghcr.io/foundry-rs/foundry:v1.8.5` (`ANVIL_RUNNER=auto|native|docker`), because Windows Smart App Control can block `anvil.exe`.
+  - §7 Simulator (P4):
+    - `pnpm fork` adds `--hardfork cancun`. Anvil 1.8.5 defaults to the latest hardfork, which is not what Fuji runs (Cancun EIPs via ACP-131), and its EIP-2935 block-hash system call reads an account Fuji does not have, from the upstream, on every mined block (~180 ms per simulation).
+    - Anvil accepts transactions from the impersonated vault (no EIP-3607 rejection), so the `setCode(vault, "0x")` fallback is not used. Each call is mined in its own block (automine off inside the snapshot), so a reverted call can be replayed with `eth_call` on the previous block to get its revert data.
+    - Fork health: the lag check (fork block timestamp vs latest Fuji block, > 120 s) and the 5-minute reset run on a background timer (`Simulator.start()`, every 15 s, under the mutex), not inside a request. Per request only local checks run: the vault must have code (else reset once), and one local block is kept above the fork block. The first check of a process always resets the fork, in case a previous process died mid-simulation and left its snapshot unreverted.
+    - Anvil drops upstream state fetched inside a snapshot when it is reverted. The Simulator traces each simulated transaction with `prestateTracer` and reads the same accounts and slots again outside the snapshot, after the result is returned (cache only; results do not depend on it).
+    - The 800 ms timeout includes the time waiting for the mutex. A timed-out run keeps the mutex until its snapshot is reverted.
