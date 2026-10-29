@@ -8,6 +8,9 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 /// @notice DEMO ONLY (DEMO_MODE): a testnet token with no value, e.g. "Mock Wrapped AVAX" (mWAVAX, 18 decimals),
 /// used as the swap output of MockRouter. Only the owner can mint.
 contract MockERC20 is ERC20, Ownable {
+    /// @notice Shown on the explorer so nobody mistakes this token for something of value.
+    string public constant NOTICE = "DEMO ONLY: Guardian402 testnet mock token, no value";
+
     uint8 private immutable _decimals;
 
     constructor(string memory name_, string memory symbol_, uint8 decimals_, address initialOwner)
