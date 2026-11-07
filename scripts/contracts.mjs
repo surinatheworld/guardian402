@@ -55,6 +55,8 @@ if (Number(chainId) !== FUJI_CHAIN_ID)
 if (action === "handoff" && network !== "fuji") fail("handoff runs on fuji only");
 
 if (network === "local" && (action === "deploy" || action === "seed")) await prepareFork();
+// Fresh clone: contracts/deployments is git-ignored, and forge cannot create it.
+mkdirSync(FORGE_DEPLOYMENTS, { recursive: true });
 if (action !== "deploy") syncAddresses("toForge");
 
 if (action === "verify") {
@@ -146,7 +148,9 @@ function addressOf(key) {
 async function prepareFork() {
   const ten = "0x8ac7230489e80000"; // 10 AVAX
   const owner = addressOf("OWNER_PK");
-  for (const key of ["DEPLOYER_PK", "OWNER_PK", "AGENT_PK"]) {
+  // The self-hosted facilitator pays settlement gas on the fork too; its key is optional.
+  const facilitator = /^0x[0-9a-fA-F]{64}$/.test(process.env.FACILITATOR_PK || "") ? ["FACILITATOR_PK"] : [];
+  for (const key of ["DEPLOYER_PK", "OWNER_PK", "AGENT_PK", ...facilitator]) {
     await rpcCall("anvil_setBalance", [addressOf(key), ten]);
   }
   if (action !== "seed") return;
