@@ -55,6 +55,8 @@ if (Number(chainId) !== FUJI_CHAIN_ID)
 if (action === "handoff" && network !== "fuji") fail("handoff runs on fuji only");
 
 if (network === "local" && (action === "deploy" || action === "seed")) await prepareFork();
+// Fresh clone: contracts/deployments is git-ignored, and forge cannot create it.
+mkdirSync(FORGE_DEPLOYMENTS, { recursive: true });
 if (action !== "deploy") syncAddresses("toForge");
 
 if (action === "verify") {
@@ -146,17 +148,26 @@ function addressOf(key) {
 async function prepareFork() {
   const ten = "0x8ac7230489e80000"; // 10 AVAX
   const owner = addressOf("OWNER_PK");
-  for (const key of ["DEPLOYER_PK", "OWNER_PK", "AGENT_PK"]) {
+  // The self-hosted facilitator pays settlement gas on the fork too; its key is optional.
+  const facilitator = /^0x[0-9a-fA-F]{64}$/.test(process.env.FACILITATOR_PK || "") ? ["FACILITATOR_PK"] : [];
+  for (const key of ["DEPLOYER_PK", "OWNER_PK", "AGENT_PK", ...facilitator]) {
     await rpcCall("anvil_setBalance", [addressOf(key), ten]);
   }
   if (action !== "seed") return;
-  const balance = BigInt(
-    run("cast", ["call", USDC, "balanceOf(address)(uint256)", owner, "--rpc-url", rpc], {
-      capture: true,
-    }).split(" ")[0],
-  );
-  if (balance >= 100_000_000n) return;
-  // Fork only: mint test USDC to the owner through the impersonated masterMinter.
+  // Fork only: test USDC through the impersonated masterMinter. The owner funds the vault (100 USDC); the agent
+  // pays x402 fees from its own small balance (5 USDC), which a fresh key does not have on Fuji either.
+  const agent = addressOf("AGENT_PK");
+  const usdcOf = (who) =>
+    BigInt(
+      run("cast", ["call", USDC, "balanceOf(address)(uint256)", who, "--rpc-url", rpc], {
+        capture: true,
+      }).split(" ")[0],
+    );
+  const mints = [
+    [owner, 100_000_000n],
+    [agent, 5_000_000n],
+  ].filter(([who, want]) => usdcOf(who) < want);
+  if (!mints.length) return;
   const masterMinter = run("cast", ["call", USDC, "masterMinter()(address)", "--rpc-url", rpc], {
     capture: true,
   });
@@ -178,24 +189,26 @@ async function prepareFork() {
     ],
     { capture: true },
   );
-  run(
-    "cast",
-    [
-      "send",
-      USDC,
-      "mint(address,uint256)",
-      owner,
-      "100000000",
-      "--from",
-      owner,
-      "--unlocked",
-      "--rpc-url",
-      rpc,
-    ],
-    { capture: true },
-  );
+  for (const [who, amount] of mints) {
+    run(
+      "cast",
+      [
+        "send",
+        USDC,
+        "mint(address,uint256)",
+        who,
+        amount.toString(),
+        "--from",
+        owner,
+        "--unlocked",
+        "--rpc-url",
+        rpc,
+      ],
+      { capture: true },
+    );
+    console.log(`[contracts] fork: minted ${Number(amount) / 1e6} test USDC to ${who} (local fork only)`);
+  }
   for (const who of [masterMinter, owner]) await rpcCall("anvil_stopImpersonatingAccount", [who]);
-  console.log(`[contracts] fork: minted 100 test USDC to owner ${owner} (local fork only)`);
 }
 
 function verifyAll() {

@@ -97,7 +97,8 @@ contract AgentVaultFuzzTest is AgentVaultBase {
             _exec(calls);
             _execWithVerdict(calls, 0);
         }
-        assertEq(usdc.allowance(address(vault), address(target)), amount);
+        // An agent-path approval never outlives its batch (P11 finding F1).
+        assertEq(usdc.allowance(address(vault), address(target)), 0);
     }
 
     // ------------------------------------------------ random allowed batches

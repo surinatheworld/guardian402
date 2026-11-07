@@ -392,6 +392,27 @@ export const recipientNotAllowlisted: Rule = (sim, ctx) => {
       ),
     );
   }
+  // A swap through a known router sends its output to `to`; that output belongs to the vault (P11 review F1).
+  for (const { call, index } of indexed(sim.calls)) {
+    if (ctx.knownContracts[lc(call.target)]?.kind !== "router") continue;
+    let to: Address;
+    try {
+      const decoded = decodeFunctionData({ abi: mockRouterAbi, data: call.data });
+      if (decoded.functionName !== "swapExactIn") continue;
+      to = decoded.args[5];
+    } catch {
+      continue;
+    }
+    if (lc(to) === lc(ctx.vault) || recipients.has(lc(to))) continue;
+    out.push(
+      finding("RECIPIENT_NOT_ALLOWLISTED", "HIGH", "Swap output goes to an address outside the allowlist", {
+        recipient: to,
+        router: call.target,
+        callIndex: index,
+        via: "swap-output",
+      }),
+    );
+  }
   for (const { call, index } of indexed(sim.calls)) {
     if (call.value === 0n || recipients.has(lc(call.target)) || targets.has(lc(call.target))) continue;
     out.push(

@@ -80,9 +80,13 @@ const SENTENCES: Record<RuleId, Sentence> = {
       : `The swap returns ${pct}% less than the reference price.`;
   },
   RECIPIENT_NOT_ALLOWLISTED: (f, i, lang) =>
-    lang === "vi"
-      ? `${amount(i, f.evidence.token, f.evidence.amount, lang)} rời vault tới ${label(i, f.evidence.recipient)}, ngoài danh sách cho phép.`
-      : `${amount(i, f.evidence.token, f.evidence.amount, lang)} leaves the vault to ${label(i, f.evidence.recipient)}, outside the allowlist.`,
+    f.evidence.via === "swap-output"
+      ? lang === "vi"
+        ? `Token nhận được từ hoán đổi được gửi tới ${label(i, f.evidence.recipient)} thay vì vault, ngoài danh sách cho phép.`
+        : `The swap output is sent to ${label(i, f.evidence.recipient)} instead of the vault, outside the allowlist.`
+      : lang === "vi"
+        ? `${amount(i, f.evidence.token, f.evidence.amount, lang)} rời vault tới ${label(i, f.evidence.recipient)}, ngoài danh sách cho phép.`
+        : `${amount(i, f.evidence.token, f.evidence.amount, lang)} leaves the vault to ${label(i, f.evidence.recipient)}, outside the allowlist.`,
 };
 
 /** "Vault: -2 USDC, +0,079 mWAVAX." from the token and AVAX deltas. */
