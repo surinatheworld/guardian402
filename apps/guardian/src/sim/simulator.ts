@@ -44,6 +44,8 @@ export type SimulatorOptions = {
   healthCheckIntervalMs?: number;
   /** Called when a background maintenance run fails; the next run retries. */
   onMaintenanceError?: (error: unknown) => void;
+  /** Called after each fork reset, outside the mutex, e.g. to warm the fork's cache with a typical batch. */
+  onReset?: () => void;
   /** Tokens whose balance is always read (e.g. USDC, mWAVAX), besides tracked tokens and call targets. */
   knownTokens?: readonly Address[];
   gasBuffer?: bigint;
@@ -65,8 +67,12 @@ const SIM_GAS = numberToHex(5_000_000n);
 const MAX_PINNED = 100_000;
 
 export class Simulator {
-  readonly #opts: Required<Omit<SimulatorOptions, "upstreamRpcUrl" | "knownTokens" | "onMaintenanceError">> &
-    Pick<SimulatorOptions, "upstreamRpcUrl" | "onMaintenanceError"> & { knownTokens: readonly Address[] };
+  readonly #opts: Required<
+    Omit<SimulatorOptions, "upstreamRpcUrl" | "knownTokens" | "onMaintenanceError" | "onReset">
+  > &
+    Pick<SimulatorOptions, "upstreamRpcUrl" | "onMaintenanceError" | "onReset"> & {
+      knownTokens: readonly Address[];
+    };
   readonly #public: PublicClient;
   readonly #test: TestClient<"anvil">;
   readonly #upstream: PublicClient | undefined;
@@ -180,6 +186,8 @@ export class Simulator {
     await this.#test.reset({ jsonRpcUrl: this.#opts.upstreamRpcUrl, blockNumber: target });
     this.#lastReset = Date.now();
     this.#pinned.clear(); // the reset emptied the fork's cache
+    // We hold the mutex here: let the callback queue its work after it.
+    if (this.#opts.onReset) setImmediate(this.#opts.onReset);
   }
 
   /** Per simulation, with local calls only unless a reset is needed: the vault must have code on the fork. */
