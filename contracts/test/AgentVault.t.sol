@@ -150,8 +150,10 @@ contract AgentVaultTest is AgentVaultBase {
     }
 
     function test_Approve_ExactlyMaxApprovalWithVerdict() public {
-        _execWithVerdict(_one(_approve(address(target), USDC_MAX_APPROVAL)), 0);
-        assertEq(usdc.allowance(address(vault), address(target)), USDC_MAX_APPROVAL);
+        _execWithVerdict(_two(_approve(address(target), USDC_MAX_APPROVAL), _pull(USDC_MAX_APPROVAL)), 0);
+        assertEq(usdc.balanceOf(address(target)), USDC_MAX_APPROVAL);
+        // Revoked at the end of the batch (P11 finding F1).
+        assertEq(usdc.allowance(address(vault), address(target)), 0);
     }
 
     function test_RevertWhen_ApproveWithoutVerdict() public {

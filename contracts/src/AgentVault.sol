@@ -199,6 +199,7 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
         // 4.–6. balances, calls, daily caps on the actual outflow
         uint256[] memory balancesBefore = _balances();
         _run(calls);
+        _revokeApprovals(calls);
         bool needsVerdict = _recordOutflows(balancesBefore);
 
         // 7. verdict required for large outflows and for approvals
@@ -464,6 +465,18 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
             // forge-lint: disable-next-line(arbitrary-send-eth)
             (bool ok, bytes memory returndata) = calls[i].target.call{value: calls[i].value}(calls[i].data);
             if (!ok) revert CallFailed(i, returndata);
+        }
+    }
+
+    /// @dev Approvals granted on the agent path never outlive their batch (P11 review, finding F1): whatever the
+    /// batch did not use is revoked, so an allowlisted spender cannot be used later without a new verdict.
+    /// `_checkCall` already required tracked-token calls to be exactly `selector + (address, uint256)`.
+    function _revokeApprovals(Call[] calldata calls) private {
+        for (uint256 i; i < calls.length; ++i) {
+            Call calldata c = calls[i];
+            if (!tokenPolicy[c.target].tracked || bytes4(c.data[:4]) != APPROVE_SELECTOR) continue;
+            (address spender, uint256 amount) = abi.decode(c.data[4:], (address, uint256));
+            if (amount > 0) IERC20(c.target).forceApprove(spender, 0);
         }
     }
 
