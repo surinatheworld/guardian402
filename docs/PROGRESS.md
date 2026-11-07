@@ -252,6 +252,36 @@ pnpm typecheck, pnpm lint, pnpm format:check → sạch
 
 Mock: không có (rule chỉ đọc kết quả mô phỏng và context).
 
+## P6 — Explainer (xong 2026-11-07, nhánh `feat/p6-explainer`)
+
+- `apps/guardian/src/explain`: interface `Explainer`, `TemplateExplainer` (mẫu câu tiếng Việt và tiếng Anh cho từng ruleId và cho LOW; số tiền có ký hiệu và số thập phân, địa chỉ rút gọn `0x1234…abcd`, contract đã biết hiện tên), `LlmExplainer` (≤ 400 ký tự mỗi ngôn ngữ, timeout 1,5 s, kiểm tra JSON bằng zod, quay về mẫu câu khi lỗi, quá giờ, JSON sai, hoặc câu chữ trái với mức rủi ro).
+- Nhà cung cấp: `LLM_PROVIDER=none` (chỉ mẫu câu, mặc định) hoặc `anthropic` (SDK chính thức `@anthropic-ai/sdk` 1.3.0, model mặc định `claude-opus-5-5`, structured output JSON, effort `low`, không retry).
+- Đầu vào của LLM chỉ gồm diff đã chuẩn hoá, findings và nhãn tin cậy (`src/explain-input.ts`); không có calldata, chuỗi revert hay chữ do agent gửi (có test).
+- Test kiến trúc: `src/explain` không import signer, phần gộp rủi ro, và không tạo wallet client.
+
+Ví dụ từ `TemplateExplainer` trên fixture thật:
+
+```
+[LOW normal-swap]
+ vi: Rủi ro THẤP. Vault: -2 USDC, +0,07976 mWAVAX. Không thấy dấu hiệu bất thường.
+ en: LOW risk. Vault: -2 USDC, +0.07976 mWAVAX. No warning signs found.
+[MEDIUM medium-slippage]
+ vi: Rủi ro TRUNG BÌNH. Hoán đổi nhận ít hơn giá tham chiếu 4,98%. Vault: -2 USDC, +0,07976 mWAVAX.
+ en: MEDIUM risk. The swap returns 4.98% less than the reference price. Vault: -2 USDC, +0.07976 mWAVAX.
+[HIGH drain-to-attacker]
+ vi: Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. Chuyển 100% số dư (50 USDC) ra khỏi vault. 50 USDC rời vault tới 0x0000…a77A, ngoài danh sách cho phép. Vault: -50 USDC.
+ en: HIGH risk. The vault policy would reject it: recipient not allowed. Moves 100% of the balance (50 USDC) out of the vault. 50 USDC leaves the vault to 0x0000…a77A, outside the allowlist. Vault: -50 USDC.
+```
+
+```
+pnpm --filter @guardian402/guardian exec vitest run
+ Test Files  3 passed (3)
+      Tests  87 passed (87)      (explain 13, rules 64, decode 10)
+```
+
+Chưa thử với LLM thật: `.env.local` chưa có `LLM_API_KEY` (đang `LLM_PROVIDER=none`). Các nhánh lỗi của `LlmExplainer` đã test bằng LLM giả.
+Mock: không có.
+
 ## Checklist trước demo
 
 - [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault (tx [0xe864b2e2…519d](https://testnet.snowtrace.io/tx/0xe864b2e2846874faeb6391d815cf327404ab234f858854c6a2fb694dc1f1519d)). Các bước:

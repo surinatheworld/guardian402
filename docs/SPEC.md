@@ -498,7 +498,7 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 - [x] Contracts deployed and verified on Fuji; addresses committed in `packages/shared`.
 - [ ] `/v1/check` and `/v1/cosign` behind x402 on Fuji; at least one real settlement visible on Snowtrace; a test proves a 400 response is not charged.
 - [x] All 8 rules implemented with unit tests.
-- [ ] Explainer with LLM and template fallback; the architecture test passes.
+- [x] Explainer with LLM and template fallback; the architecture test passes.
 - [ ] Scenarios S1–S6 run on the local fork and S1, S2, S4 on Fuji, with links; S4 ends in `RiskTooHigh`.
 - [ ] Dashboard pages working against Fuji, with the DEMO MODE banner.
 - [ ] Eval: ≥ 40 cases, report generated and reproducible.
@@ -557,3 +557,7 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
     - `DRAIN_PATTERN` for native AVAX compares with `getPolicy().nativeBalance`, because the simulator tops the vault up with a gas buffer inside the snapshot.
     - `UNLIMITED_APPROVAL` and `RECIPIENT_NOT_ALLOWLISTED` read `approve`/`transfer` calldata as well when the simulation failed (no logs).
     - Finding evidence never contains revert strings or other untrusted text.
+  - §9 Explainer (P6):
+    - `LLM_PROVIDER` is `none` or `anthropic` (official `@anthropic-ai/sdk`, default model `claude-opus-5-5`, JSON structured output). Current Claude models reject sampling parameters, so "low temperature" becomes `effort: "low"`; the SDK client runs with `maxRetries: 0` so the 1.5 s budget holds.
+    - MEDIUM text is also rejected when it claims either end ("an toàn"/"safe" or "nguy hiểm"/"dangerous").
+    - The explainer input is built outside `src/explain` (`src/explain-input.ts`) from the diff, the findings and trusted labels (vault and known-contracts names).
