@@ -197,6 +197,11 @@ describe("free endpoints", () => {
     const list = await json(await fetch(`${base}/v1/checks?limit=3`));
     expect(list.checks.length).toBe(3);
     expect(list.checks[0]).not.toHaveProperty("findingsJson");
+    expect(list.checks[0].ruleIds).toBeInstanceOf(Array);
+    expect(typeof list.checks[0].explanation.vi).toBe("string");
+    expect(list.checks[0]).toHaveProperty("paymentTx", null);
+    const high = list.checks.find((c: { risk: string }) => c.risk === "HIGH");
+    expect(high.ruleIds.length).toBeGreaterThan(0);
     const one = await json(await fetch(`${base}/v1/checks/${list.checks[0].checkId}`));
     expect(one.findings).toBeInstanceOf(Array);
     expect((await fetch(`${base}/v1/checks/0x1234`)).status).toBe(404);
