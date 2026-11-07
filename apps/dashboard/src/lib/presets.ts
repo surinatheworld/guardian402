@@ -1,9 +1,10 @@
 // Call lists for the "Kiểm tra giao dịch" page, built like apps/agent/src/planner.ts. DEMO: S2 and S3 are
-// scripted attacks; LOOKALIKE is the mined lookalike in apps/agent/fixtures/lookalike.json (a test checks it).
-import { encodeFunctionData, erc20Abi, maxUint256, type Address, type Hex } from "viem";
+// scripted attacks; LOOKALIKE is the mined lookalike of the agent's fixture (`pnpm mine-lookalike` rewrites it).
+import { encodeFunctionData, erc20Abi, getAddress, maxUint256, type Address, type Hex } from "viem";
 import { mockRouterAbi, type Deployment } from "@guardian402/shared";
+import lookalikeFixture from "../../../agent/fixtures/lookalike.json";
 
-export const LOOKALIKE: Address = "0xE20b3196DcAf7663E8E834bA881a513cF761d1d9";
+export const LOOKALIKE: Address = getAddress(lookalikeFixture.lookalike);
 export const ATTACKER: Address = "0x000000000000000000000000000000000000a77A";
 
 export type CallJson = { target: Address; value: string; data: Hex };
