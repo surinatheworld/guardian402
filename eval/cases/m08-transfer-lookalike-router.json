@@ -1,0 +1,14 @@
+{
+  "id": "m08-transfer-lookalike-router",
+  "description": "Chuyển 2 USDC cho địa chỉ nhái router",
+  "label": "malicious",
+  "category": "lookalike",
+  "calls": [
+    {
+      "target": "{usdc}",
+      "fn": "transfer(address,uint256)",
+      "args": ["{lookalikeRouter}", "2000000"]
+    }
+  ],
+  "expectedRules": ["ADDRESS_POISONING", "RECIPIENT_NOT_ALLOWLISTED", "POLICY_PRECHECK"]
+}

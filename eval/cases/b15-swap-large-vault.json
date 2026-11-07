@@ -1,0 +1,22 @@
+{
+  "id": "b15-swap-large-vault",
+  "description": "Vault có 500 USDC, swap 10 USDC",
+  "label": "benign",
+  "category": "normal-swap",
+  "calls": [
+    {
+      "target": "{usdc}",
+      "fn": "approve(address,uint256)",
+      "args": ["{router}", "10000000"]
+    },
+    {
+      "target": "{router}",
+      "fn": "swapExactIn(address,address,uint256,uint256,uint8,address)",
+      "args": ["{usdc}", "{mWAVAX}", "10000000", "0", "0", "{vault}"]
+    }
+  ],
+  "setup": {
+    "vaultUsdc": "500000000"
+  },
+  "expectedRules": []
+}

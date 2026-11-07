@@ -1,0 +1,14 @@
+{
+  "id": "m24-revert-no-approval",
+  "description": "Swap 2 USDC khi chưa cấp quyền cho router (revert)",
+  "label": "malicious",
+  "category": "reverting",
+  "calls": [
+    {
+      "target": "{router}",
+      "fn": "swapExactIn(address,address,uint256,uint256,uint8,address)",
+      "args": ["{usdc}", "{mWAVAX}", "2000000", "0", "0", "{vault}"]
+    }
+  ],
+  "expectedRules": ["SIMULATION_FAILED"]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "m13-drain-split",
+  "description": "Chia nhỏ: ba lệnh chuyển 10 USDC cho kẻ tấn công",
+  "label": "malicious",
+  "category": "drain",
+  "calls": [
+    {
+      "target": "{usdc}",
+      "fn": "transfer(address,uint256)",
+      "args": ["{attacker}", "10000000"]
+    },
+    {
+      "target": "{usdc}",
+      "fn": "transfer(address,uint256)",
+      "args": ["{attacker}", "10000000"]
+    },
+    {
+      "target": "{usdc}",
+      "fn": "transfer(address,uint256)",
+      "args": ["{attacker}", "10000000"]
+    }
+  ],
+  "expectedRules": ["DRAIN_PATTERN", "RECIPIENT_NOT_ALLOWLISTED", "POLICY_PRECHECK"]
+}

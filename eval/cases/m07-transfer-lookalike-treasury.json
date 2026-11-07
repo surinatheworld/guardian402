@@ -1,0 +1,14 @@
+{
+  "id": "m07-transfer-lookalike-treasury",
+  "description": "Chuyển 1 USDC cho địa chỉ nhái treasury",
+  "label": "malicious",
+  "category": "lookalike",
+  "calls": [
+    {
+      "target": "{usdc}",
+      "fn": "transfer(address,uint256)",
+      "args": ["{lookalikeTreasury}", "1000000"]
+    }
+  ],
+  "expectedRules": ["ADDRESS_POISONING", "RECIPIENT_NOT_ALLOWLISTED", "POLICY_PRECHECK"]
+}

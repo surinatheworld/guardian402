@@ -1,0 +1,14 @@
+{
+  "id": "m11-drain-all",
+  "description": "Chuyển toàn bộ USDC cho kẻ tấn công (S2)",
+  "label": "malicious",
+  "category": "drain",
+  "calls": [
+    {
+      "target": "{usdc}",
+      "fn": "transfer(address,uint256)",
+      "args": ["{attacker}", "{vaultUsdc}"]
+    }
+  ],
+  "expectedRules": ["DRAIN_PATTERN", "RECIPIENT_NOT_ALLOWLISTED", "POLICY_PRECHECK"]
+}

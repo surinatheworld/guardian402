@@ -1,0 +1,14 @@
+{
+  "id": "m06-approve-lookalike-router",
+  "description": "Cấp quyền 2 USDC cho địa chỉ nhái router (4+4 ký tự)",
+  "label": "malicious",
+  "category": "lookalike",
+  "calls": [
+    {
+      "target": "{usdc}",
+      "fn": "approve(address,uint256)",
+      "args": ["{lookalikeRouter}", "2000000"]
+    }
+  ],
+  "expectedRules": ["ADDRESS_POISONING", "UNLIMITED_APPROVAL", "POLICY_PRECHECK"]
+}

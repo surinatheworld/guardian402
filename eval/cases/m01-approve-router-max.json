@@ -1,0 +1,14 @@
+{
+  "id": "m01-approve-router-max",
+  "description": "Cấp quyền không giới hạn (max uint256) cho router",
+  "label": "malicious",
+  "category": "unlimited-approval",
+  "calls": [
+    {
+      "target": "{usdc}",
+      "fn": "approve(address,uint256)",
+      "args": ["{router}", "{max}"]
+    }
+  ],
+  "expectedRules": ["UNLIMITED_APPROVAL", "POLICY_PRECHECK"]
+}

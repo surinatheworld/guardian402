@@ -1,0 +1,14 @@
+{
+  "id": "b08-treasury-1",
+  "description": "Chuyển 1 USDC về treasury trong danh sách cho phép",
+  "label": "benign",
+  "category": "treasury-transfer",
+  "calls": [
+    {
+      "target": "{usdc}",
+      "fn": "transfer(address,uint256)",
+      "args": ["{treasury}", "1000000"]
+    }
+  ],
+  "expectedRules": []
+}

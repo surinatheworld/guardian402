@@ -31,7 +31,8 @@
     "agent": "pnpm --filter @guardian402/agent agent",
     "dev:agent": "pnpm --filter @guardian402/agent dev",
     "mine-lookalike": "bash scripts/mine-lookalike.sh",
-    "dev:dashboard": "pnpm --filter @guardian402/dashboard dev"
+    "dev:dashboard": "pnpm --filter @guardian402/dashboard dev",
+    "eval": "pnpm --filter @guardian402/eval eval"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
