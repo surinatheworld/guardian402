@@ -110,11 +110,13 @@ export class Pipeline {
     // 6. Cosign: always the true risk, nonce read now (never cached).
     let verdict: CheckResponse["verdict"];
     if (endpoint === "cosign") {
-      const nonce = await d.chain.readContract({
-        address: req.vault,
-        abi: agentVaultAbi,
-        functionName: "verdictNonce",
-      });
+      // The vault compares the deadline with block.timestamp. Base it on the later of chain time and this
+      // machine's clock: a clock behind the chain would sign verdicts that are already short-lived, and an idle
+      // fork's latest block can be minutes old.
+      const [nonce, head] = await Promise.all([
+        d.chain.readContract({ address: req.vault, abi: agentVaultAbi, functionName: "verdictNonce" }),
+        d.chain.getBlock({ blockTag: "latest" }),
+      ]);
       verdict = await d.signer.sign({
         vault: req.vault,
         chainId: FUJI_CHAIN_ID,
@@ -122,7 +124,7 @@ export class Pipeline {
         nonce,
         risk,
         checkId,
-        now: d.now(),
+        now: Math.max(Number(head.timestamp) * 1000, d.now()),
       });
     }
     const res: CheckResponse = {
