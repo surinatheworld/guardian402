@@ -11,6 +11,7 @@
     "fixtures:rules": "tsx scripts/capture-rule-fixtures.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.3.0",
     "@guardian402/shared": "workspace:*",
     "viem": "2.57.7",
     "zod": "3.25.76"
