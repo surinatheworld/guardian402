@@ -3,7 +3,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { RuleId } from "@guardian402/shared";
+import { decodeFunctionData, encodeFunctionData } from "viem";
+import { mockRouterAbi, type RuleId } from "@guardian402/shared";
 import {
   aggregate,
   defaultRuleConfig,
@@ -130,6 +131,31 @@ describe("rule details", () => {
     });
     // Without call indexes (old fixtures) both outputs add up and hide the bad swap: the bug the eval found.
     expect(fire("ABNORMAL_SLIPPAGE", mixed(false))).toEqual([]);
+  });
+
+  it("RECIPIENT_NOT_ALLOWLISTED flags a swap whose output goes outside the allowlist (P11 review F1)", () => {
+    const f = fx("normal-swap");
+    const swap = must(f.sim.calls[1]);
+    const attacker = "0x000000000000000000000000000000000000a77A";
+    const decoded = decodeFunctionData({ abi: mockRouterAbi, data: swap.data });
+    if (decoded.functionName !== "swapExactIn") throw new Error("fixture call 1 is not a swap");
+    const [tokenIn, tokenOut, amountIn, minOut, poolId] = decoded.args;
+    const data = encodeFunctionData({
+      abi: mockRouterAbi,
+      functionName: "swapExactIn",
+      args: [tokenIn, tokenOut, amountIn, minOut, poolId, attacker],
+    });
+    const redirected: RuleFixture = {
+      ...f,
+      sim: { ...f.sim, calls: [must(f.sim.calls[0]), { ...swap, data }] },
+    };
+    const [finding] = fire("RECIPIENT_NOT_ALLOWLISTED", redirected);
+    expect(finding).toMatchObject({
+      severity: "HIGH",
+      evidence: { recipient: attacker, via: "swap-output" },
+    });
+    // The normal swap (output to the vault) is still clean.
+    expect(fire("RECIPIENT_NOT_ALLOWLISTED", f)).toEqual([]);
   });
 
   it("ABNORMAL_SLIPPAGE needs the oracle reference", () => {
