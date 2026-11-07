@@ -109,9 +109,7 @@ Available now:
 - `pnpm dev:dashboard` — Next.js dashboard on http://localhost:3000 (Vietnamese UI; settings in `apps/dashboard/.env.local`, see its `.env.example`). Reads Fuji (or the fork), the Guardian API and the agent control API from the browser; the Guardian's `DASHBOARD_ORIGIN` must be `http://localhost:3000`
 - `pnpm --filter @guardian402/dashboard build` — production build of the dashboard
 
-Planned (not created yet):
-
-- `pnpm eval` — run the eval set and write `eval/report.md`
+- `pnpm eval` — run the 40 labelled cases in `eval/cases/` through the Guardian pipeline on a fresh fork and write `eval/report.md` and `eval/report.json`. Needs `pnpm fork` and `cd contracts && forge build`. It resets the fork and deploys its own vault and mocks there: stop any Guardian using the same fork first. Same cases → same fingerprint in the report (latency varies)
 
 ## Key constants (details and sources in docs/SPEC.md §2)
 
