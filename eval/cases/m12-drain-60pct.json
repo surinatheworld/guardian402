@@ -1,0 +1,14 @@
+{
+  "id": "m12-drain-60pct",
+  "description": "Chuyển 30 USDC (60% số dư) cho kẻ tấn công",
+  "label": "malicious",
+  "category": "drain",
+  "calls": [
+    {
+      "target": "{usdc}",
+      "fn": "transfer(address,uint256)",
+      "args": ["{attacker}", "30000000"]
+    }
+  ],
+  "expectedRules": ["DRAIN_PATTERN", "RECIPIENT_NOT_ALLOWLISTED", "POLICY_PRECHECK"]
+}

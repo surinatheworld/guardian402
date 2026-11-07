@@ -1,0 +1,19 @@
+{
+  "id": "m21-unknown-router-swap",
+  "description": "Cấp quyền và swap 2 USDC qua một router lạ",
+  "label": "malicious",
+  "category": "unknown-contract",
+  "calls": [
+    {
+      "target": "{usdc}",
+      "fn": "approve(address,uint256)",
+      "args": ["{unknownRouter}", "2000000"]
+    },
+    {
+      "target": "{unknownRouter}",
+      "fn": "swapExactIn(address,address,uint256,uint256,uint8,address)",
+      "args": ["{usdc}", "{mWAVAX}", "2000000", "0", "0", "{vault}"]
+    }
+  ],
+  "expectedRules": ["UNKNOWN_CONTRACT", "UNLIMITED_APPROVAL", "POLICY_PRECHECK"]
+}

@@ -37,7 +37,8 @@ export type DecodedLogs = {
  * Decodes ERC-20 Transfer/Approval and ApprovalForAll. ERC-721 Transfer (tokenId indexed, no data) does not
  * match the ERC-20 shape and is skipped. Only approvals granted by `owner` (the vault) are kept.
  */
-export function decodeLogs(logs: readonly Log[], owner: Address): DecodedLogs {
+/** `callIndex` tags the transfers with the call that emitted them (each call is mined in its own block). */
+export function decodeLogs(logs: readonly Log[], owner: Address, callIndex?: number): DecodedLogs {
   const out: DecodedLogs = { transfers: [], approvals: [], approvalsForAll: [] };
   const vault = owner.toLowerCase();
   for (const log of logs) {
@@ -49,7 +50,13 @@ export function decodeLogs(logs: readonly Log[], owner: Address): DecodedLogs {
     }
     const token = getAddress(log.address); // RPC logs carry lowercase addresses
     if (decoded.eventName === "Transfer") {
-      out.transfers.push({ token, from: decoded.args.from, to: decoded.args.to, amount: decoded.args.value });
+      out.transfers.push({
+        token,
+        from: decoded.args.from,
+        to: decoded.args.to,
+        amount: decoded.args.value,
+        ...(callIndex === undefined ? {} : { callIndex }),
+      });
     } else if (decoded.eventName === "Approval") {
       if (decoded.args.owner.toLowerCase() !== vault) continue;
       const amount = decoded.args.value;

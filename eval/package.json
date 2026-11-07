@@ -5,7 +5,14 @@
   "description": "Labelled eval cases, runner and report",
   "type": "module",
   "scripts": {
+    "eval": "tsx src/run.ts",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@guardian402/guardian": "workspace:*",
+    "@guardian402/shared": "workspace:*",
+    "viem": "2.57.7",
+    "zod": "3.25.76"
   }
 }

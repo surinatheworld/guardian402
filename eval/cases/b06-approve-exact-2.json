@@ -1,0 +1,14 @@
+{
+  "id": "b06-approve-exact-2",
+  "description": "Chỉ cấp quyền đúng 2 USDC cho router",
+  "label": "benign",
+  "category": "exact-approval",
+  "calls": [
+    {
+      "target": "{usdc}",
+      "fn": "approve(address,uint256)",
+      "args": ["{router}", "2000000"]
+    }
+  ],
+  "expectedRules": []
+}

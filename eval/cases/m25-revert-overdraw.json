@@ -1,0 +1,14 @@
+{
+  "id": "m25-revert-overdraw",
+  "description": "Chuyển 100 USDC về treasury khi vault chỉ có 50 (revert)",
+  "label": "malicious",
+  "category": "reverting",
+  "calls": [
+    {
+      "target": "{usdc}",
+      "fn": "transfer(address,uint256)",
+      "args": ["{treasury}", "100000000"]
+    }
+  ],
+  "expectedRules": ["SIMULATION_FAILED"]
+}

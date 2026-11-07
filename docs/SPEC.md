@@ -502,7 +502,7 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 - [x] Explainer with LLM and template fallback; the architecture test passes.
 - [x] Scenarios S1–S6 run on the local fork and S1, S2, S4 on Fuji, with links; S4 ends in `RiskTooHigh`.
 - [x] Dashboard pages working against Fuji, with the DEMO MODE banner.
-- [ ] Eval: ≥ 40 cases, report generated and reproducible.
+- [x] Eval: ≥ 40 cases, report generated and reproducible.
 - [ ] README (fresh clone to running demo in ≤ 15 minutes), `docs/THREAT_MODEL.md`, `docs/DEMO_RUNBOOK.md`, complete `.env.example` files.
 - [ ] A teammate has done the fresh-clone test.
 
@@ -582,3 +582,9 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
     - `GET /v1/checks` rows also carry `ruleIds`, `explanation` and `paymentTx`, so the activity page needs one request.
     - Đã chặn shows only agent attempts from the dashboard's own network (fork hashes are not on Snowtrace).
     - The vault's mWAVAX balance is read with `balanceOf`, because mWAVAX is not a tracked token and `getPolicy()` omits it.
+  - §12 Eval (P10):
+    - Case calls are written as a function signature plus arguments with placeholders (`{usdc}`, `{router}`, `{attacker}`, `{lookalikeRouter}`, `{vaultUsdc}`, …); the runner encodes them. `setup` supports `vaultUsdc`, `vaultAvax` and existing `approvals`. Each case may carry a Vietnamese `note` shown in the report when it is a miss.
+    - The runner resets the fork to the latest Fuji block and deploys AgentVault and the mocks from fixed eval keys (nonce forced to 0), so addresses are the same on every run. USDC is the real Fuji USDC, minted through the impersonated masterMinter. Two "unknown" contracts (a router and a token) are deployed from another eval key. Each case runs from a snapshot of that base state.
+    - Production thresholds (address poisoning 4/4, `demoMode: false`); lookalikes keep 4 characters at each end. Policy cache off between cases. Simulation timeout 10 s in the eval (800 ms in production) so RPC latency cannot change a label; the report says so.
+    - The report carries a fingerprint (hash of every case's risk, score and rules). Three runs on 2026-11-07 gave the same fingerprint `afe1c281479835c7`.
+    - 2026-11-07 fix found by the eval (no threshold changed): ABNORMAL_SLIPPAGE summed the output of every swap through the same router to the same recipient when judging each swap, so a bad swap next to a normal one was hidden (case m20). The simulator now tags each `Transfer` with its call index and the rule counts only that call's output. Before: blocked = HIGH TP 23 FP 0 TN 15 FN 2 (recall 92%). After: TP 24 FP 0 TN 15 FN 1 (recall 96%).

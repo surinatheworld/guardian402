@@ -238,7 +238,7 @@ export class Simulator {
       const before = await this.#balances(candidates, vault);
       const nativeBefore = await this.#public.getBalance({ address: vault });
 
-      const logs: Log[] = [];
+      const logs: Log[][] = []; // per call
       let gasUsed = 0n;
       let gasCost = 0n;
       let failedCallIndex: number | undefined;
@@ -259,7 +259,7 @@ export class Simulator {
         await this.#collectPrestate(hash, touchedState);
         gasUsed += receipt.gasUsed;
         gasCost += receipt.gasUsed * receipt.effectiveGasPrice;
-        logs.push(...receipt.logs);
+        logs.push(receipt.logs);
         if (receipt.status !== "success") {
           // Anvil mines the reverted transaction without its revert data; replay the call on the state just
           // before it (each transaction is mined in its own block) to get the data.
@@ -269,7 +269,12 @@ export class Simulator {
         }
       }
 
-      const decoded = decodeLogs(logs, vault);
+      const perCall = logs.map((l, i) => decodeLogs(l, vault, i));
+      const decoded = {
+        transfers: perCall.flatMap((x) => x.transfers),
+        approvals: perCall.flatMap((x) => x.approvals),
+        approvalsForAll: perCall.flatMap((x) => x.approvalsForAll),
+      };
       const touched = unique([...candidates, ...decoded.transfers.map((t) => t.token)]);
       const after = await this.#balances(touched, vault);
       const nativeAfter = await this.#public.getBalance({ address: vault });

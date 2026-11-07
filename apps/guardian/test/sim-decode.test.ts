@@ -63,6 +63,11 @@ describe("decodeLogs", () => {
     ]);
   });
 
+  it("tags transfers with the call index when given", () => {
+    const out = decodeLogs([transfer(usdc, vault, router, 1n)], vault, 3);
+    expect(out.transfers).toEqual([{ token: usdc, from: vault, to: router, amount: 1n, callIndex: 3 }]);
+  });
+
   it("flags approvals at or above 2^128 as unlimited", () => {
     const out = decodeLogs(
       [approval(usdc, vault, attacker, maxUint256), approval(usdc, vault, router, UNLIMITED_APPROVAL - 1n)],

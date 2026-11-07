@@ -1,0 +1,24 @@
+{
+  "id": "b13-treasury-and-swap",
+  "description": "Chuyển 2 USDC về treasury rồi swap 2 USDC",
+  "label": "benign",
+  "category": "treasury-transfer",
+  "calls": [
+    {
+      "target": "{usdc}",
+      "fn": "transfer(address,uint256)",
+      "args": ["{treasury}", "2000000"]
+    },
+    {
+      "target": "{usdc}",
+      "fn": "approve(address,uint256)",
+      "args": ["{router}", "2000000"]
+    },
+    {
+      "target": "{router}",
+      "fn": "swapExactIn(address,address,uint256,uint256,uint8,address)",
+      "args": ["{usdc}", "{mWAVAX}", "2000000", "0", "0", "{vault}"]
+    }
+  ],
+  "expectedRules": []
+}

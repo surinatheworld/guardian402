@@ -18,7 +18,14 @@ export type ApprovalEvent = {
   unlimited: boolean;
 };
 export type ApprovalForAllEvent = { token: Address; owner: Address; operator: Address; approved: boolean };
-export type TransferEvent = { token: Address; from: Address; to: Address; amount: bigint };
+export type TransferEvent = {
+  token: Address;
+  from: Address;
+  to: Address;
+  amount: bigint;
+  /** Index of the call whose receipt holds the log (absent in fixtures captured before it existed). */
+  callIndex?: number;
+};
 
 /**
  * What one simulation shows (docs/SPEC.md §7). Rules read only this and the vault policy, never the chain.

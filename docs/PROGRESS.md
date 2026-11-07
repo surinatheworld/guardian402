@@ -372,6 +372,36 @@ Chạy thật với Guardian `NETWORK=fuji` và agent control API trên Fuji: c�
 
 Chưa kiểm tra: thao tác của chủ ví (pause, thu hồi agent, đổi hạn mức) với một ví thật. Trình duyệt dùng để kiểm tra không có ví, nên chỉ thấy các nút bị khoá đúng khi chưa kết nối ví owner. Owner hiện tại là ví của OWNER_PK; ví `0x54A2…2888` phải `acceptOwnership` trước (checklist bên dưới).
 
+## P10 — Bộ eval (xong 2026-11-07, nhánh `feat/p10-eval`)
+
+- `eval/cases/*.json`: 40 case do nhóm tự viết (dữ liệu tổng hợp). 15 bình thường (swap nhiều cỡ, cấp quyền đúng mức, chuyển về treasury, thu hồi quyền), 25 độc hại (5 cấp quyền vô hạn hoặc quá mức, 5 địa chỉ nhái, 5 rút cạn, 5 trượt giá, 3 hợp đồng lạ, 2 lệnh revert).
+- `eval/src`: `fork.ts` (reset fork, deploy vault và mock từ khoá eval cố định, seed theo §4.8), `cases.ts` (đọc và mã hoá case), `metrics.ts`, `report.ts`, `run.ts`. Pipeline chính là `Pipeline` của Guardian, giải thích bằng mẫu cố định, không thu phí.
+- Eval tìm ra một lỗi thật trong ABNORMAL_SLIPPAGE (hai swap cùng router trong một batch che nhau). Đã sửa, có test hồi quy, số liệu trước/sau ghi trong báo cáo và SPEC §16. Không chỉnh ngưỡng nào.
+
+Lệnh: `pnpm eval` (cần `pnpm fork` và `forge build`; eval reset fork, nên tắt Guardian đang dùng fork trước).
+
+Kết quả (`eval/report.md`):
+
+```
+blocked = HIGH:   TP 24 FP 0 TN 15 FN 1 · precision 100,0% · recall 96,0% · FPR 0,0%
+blocked ≥ MEDIUM: TP 24 FP 1 TN 14 FN 1 · precision 96,0%  · recall 96,0% · FPR 6,7%
+latency p50 ~320 ms · p95 ~730 ms
+fingerprint afe1c281479835c7 (3 lần chạy liên tiếp cho cùng giá trị)
+```
+
+Còn sót:
+
+- m15 (âm tính giả): swap qua router hợp lệ nhưng gửi mWAVAX cho kẻ tấn công. Không luật nào và cả AgentVault đều không xét tham số `to` của swap.
+- b11 (TRUNG BÌNH với case bình thường): thu hồi quyền của một hợp đồng lạ vẫn bị UNKNOWN_CONTRACT gắn cờ.
+
+Test:
+
+```
+pnpm --filter @guardian402/eval test                       → Tests 5 passed (đủ cơ cấu case, mã hoá, địa chỉ nhái, chỉ số)
+pnpm --filter @guardian402/guardian exec vitest run        → Tests 96 passed (thêm test hồi quy slippage và gắn chỉ số lệnh)
+pnpm --filter @guardian402/guardian exec vitest run --config vitest.fork.config.ts test/simulator.fork.test.ts → Tests 13 passed
+```
+
 ## Checklist trước demo
 
 - [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault (tx [0xe864b2e2…519d](https://testnet.snowtrace.io/tx/0xe864b2e2846874faeb6391d815cf327404ab234f858854c6a2fb694dc1f1519d)). Các bước:

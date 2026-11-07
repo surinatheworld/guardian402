@@ -1,0 +1,16 @@
+{
+  "id": "m14-drain-avax",
+  "description": "Rút toàn bộ 0,05 AVAX của vault cho kẻ tấn công",
+  "label": "malicious",
+  "category": "drain",
+  "calls": [
+    {
+      "target": "{attacker}",
+      "value": "50000000000000000"
+    }
+  ],
+  "setup": {
+    "vaultAvax": "50000000000000000"
+  },
+  "expectedRules": ["DRAIN_PATTERN", "POLICY_PRECHECK"]
+}

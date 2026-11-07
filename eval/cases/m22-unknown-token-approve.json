@@ -1,0 +1,14 @@
+{
+  "id": "m22-unknown-token-approve",
+  "description": "Gọi một token airdrop lạ (approve cho kẻ tấn công)",
+  "label": "malicious",
+  "category": "unknown-contract",
+  "calls": [
+    {
+      "target": "{unknownToken}",
+      "fn": "approve(address,uint256)",
+      "args": ["{attacker}", "{max}"]
+    }
+  ],
+  "expectedRules": ["UNKNOWN_CONTRACT", "POLICY_PRECHECK"]
+}

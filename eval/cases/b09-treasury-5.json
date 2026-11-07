@@ -1,0 +1,14 @@
+{
+  "id": "b09-treasury-5",
+  "description": "Chuyển 5 USDC về treasury",
+  "label": "benign",
+  "category": "treasury-transfer",
+  "calls": [
+    {
+      "target": "{usdc}",
+      "fn": "transfer(address,uint256)",
+      "args": ["{treasury}", "5000000"]
+    }
+  ],
+  "expectedRules": []
+}
