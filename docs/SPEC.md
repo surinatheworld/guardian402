@@ -65,6 +65,7 @@ Use fresh keys made only for this project. Fund them only with testnet assets.
 | `LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY` | apps/guardian | explainer; `LLM_PROVIDER=none` means template only |
 | `DEMO_MODE` | all apps | enables mocks, scripted attacks, demo endpoints and the banner |
 | `NETWORK` | all apps | `local` or `fuji`; selects the addresses file |
+| `NEXT_PUBLIC_NETWORK`, `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_GUARDIAN_URL`, `NEXT_PUBLIC_AGENT_URL` | apps/dashboard | public settings bundled into the browser (no secrets) |
 
 ## 4. Contracts (`contracts/`)
 
@@ -500,7 +501,7 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 - [x] All 8 rules implemented with unit tests.
 - [x] Explainer with LLM and template fallback; the architecture test passes.
 - [x] Scenarios S1–S6 run on the local fork and S1, S2, S4 on Fuji, with links; S4 ends in `RiskTooHigh`.
-- [ ] Dashboard pages working against Fuji, with the DEMO MODE banner.
+- [x] Dashboard pages working against Fuji, with the DEMO MODE banner.
 - [ ] Eval: ≥ 40 cases, report generated and reproducible.
 - [ ] README (fresh clone to running demo in ≤ 15 minutes), `docs/THREAT_MODEL.md`, `docs/DEMO_RUNBOOK.md`, complete `.env.example` files.
 - [ ] A teammate has done the fresh-clone test.
@@ -574,3 +575,10 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
     - S3's lookalike matches 3+3 hex characters of the MockRouter (DEMO; the rule runs 3/3 in DEMO mode, 4/4 otherwise). The S3 vault revert is `RecipientNotAllowed(lookalike)`.
     - The Guardian also reports `POLICY_PRECHECK` for S2, S3 and S6 (the vault policy would reject them); the §10 table lists the minimum expected rules.
     - On Fuji the fork used for simulation can trail Fuji by up to one reset interval, so a balance shown in an explanation can differ from Fuji by the last few transactions (S2 on Fuji showed 96% instead of 100%).
+  - §11 Dashboard (P9):
+    - Next.js 16.4.2 (App Router, Turbopack), React 19.2.9, wagmi 2.19.5 with the `injected` connector only, TanStack Query 5.104.3, Tailwind CSS 4.3.3 (versions at least two weeks old when added).
+    - Public settings are `NEXT_PUBLIC_NETWORK`, `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_GUARDIAN_URL`, `NEXT_PUBLIC_AGENT_URL`. The dashboard has no `DEMO_MODE` of its own: the banner shows when the Guardian's `/v1/health` reports `demoMode` or the agent control API answers.
+    - The public Fuji RPC limits `eth_getLogs` to 100 blocks, so on Fuji the `Executed` events come from Routescan's Etherscan-compatible API (`api.routescan.io/v2/network/testnet/evm/43113/etherscan/api`, the backend of testnet.snowtrace.io; no key, open CORS). On the local fork the dashboard reads the last 100 blocks from the fork.
+    - `GET /v1/checks` rows also carry `ruleIds`, `explanation` and `paymentTx`, so the activity page needs one request.
+    - Đã chặn shows only agent attempts from the dashboard's own network (fork hashes are not on Snowtrace).
+    - The vault's mWAVAX balance is read with `balanceOf`, because mWAVAX is not a tracked token and `getPolicy()` omits it.

@@ -106,9 +106,11 @@ Available now:
 - `pnpm dev:agent` — local control API on http://127.0.0.1:4403 (`POST /scenario/:id`, `GET /attempts`, `GET /health`), `DEMO_MODE=true` only
 - `pnpm mine-lookalike [fuji|local] [chars]` — mine a lookalike of the MockRouter address with `cast wallet vanity` into `apps/agent/fixtures/lookalike.json` (default 3+3 characters, DEMO)
 
+- `pnpm dev:dashboard` — Next.js dashboard on http://localhost:3000 (Vietnamese UI; settings in `apps/dashboard/.env.local`, see its `.env.example`). Reads Fuji (or the fork), the Guardian API and the agent control API from the browser; the Guardian's `DASHBOARD_ORIGIN` must be `http://localhost:3000`
+- `pnpm --filter @guardian402/dashboard build` — production build of the dashboard
+
 Planned (not created yet):
 
-- `pnpm dev:dashboard`
 - `pnpm eval` — run the eval set and write `eval/report.md`
 
 ## Key constants (details and sources in docs/SPEC.md §2)
