@@ -348,6 +348,30 @@ Fuji thật (Guardian `NETWORK=fuji`, facilitator tự chạy trên Fuji):
 
 Mock (DEMO): planner bị chèn lệnh (kịch bản cố định), bản tin `feed.json`, địa chỉ nhái 3+3 ký tự, facilitator tự chạy.
 
+## P9 — Dashboard (xong 2026-11-07, nhánh `feat/p9-dashboard`)
+
+- `apps/dashboard`: Next.js 16 (App Router), wagmi 2 (chỉ connector injected: Core, MetaMask), TanStack Query, Tailwind 4. Giao diện tiếng Việt, chạy được ở bề ngang điện thoại, sáng và tối theo hệ điều hành. Không có backend riêng, không có khoá nào trong frontend.
+- 6 trang: Tổng quan (số dư, hạn mức còn lại, chính sách, vai trò, trạng thái Guardian và kiểm tra khoá ký có khớp guardian của vault), Hoạt động (check gần đây + sự kiện `Executed`), Đã chặn (check CAO + lần thử agent bị vault từ chối), Doanh thu (`/v1/stats`), Kiểm tra giao dịch (`/v1/demo/check`, chọn S1–S4 hoặc dán JSON), Điều khiển (pause/unpause, thu hồi agent, đổi hạn mức USDC qua hộp xác nhận "hiện tại → sau giao dịch"; nút chạy kịch bản S1–S6 khi control API của agent chạy).
+- Rủi ro hiển thị bằng màu, hình và chữ (THẤP / TRUNG BÌNH / CAO). Lời giải thích hiển thị dạng văn bản thuần. Mọi tx hash là link testnet.snowtrace.io (trên fork thì chỉ hiện chữ, kèm "(fork)").
+- Banner DEMO MODE hiện khi Guardian báo `demoMode` hoặc control API của agent trả lời.
+- RPC công khai của Fuji chỉ cho `eth_getLogs` tối đa 100 block, nên sự kiện `Executed` trên Fuji lấy từ API của Routescan (máy chủ phía sau testnet.snowtrace.io).
+- Guardian: `GET /v1/checks` trả thêm `ruleIds`, `explanation`, `paymentTx`.
+
+Lệnh: `pnpm dev:dashboard` (http://localhost:3000), `pnpm --filter @guardian402/dashboard build`.
+
+Test:
+
+```
+pnpm --filter @guardian402/dashboard test   → Tests 6 passed (định dạng số, nhãn luật, preset hợp lệ, địa chỉ nhái khớp fixture)
+pnpm --filter @guardian402/guardian exec vitest run → Tests 94 passed
+pnpm --filter @guardian402/dashboard build  → build xong, 6 trang
+Lighthouse 13.5.0, accessibility, trang Tổng quan → 100
+```
+
+Chạy thật với Guardian `NETWORK=fuji` và agent control API trên Fuji: cả 6 trang tải dữ liệu thật, không có lỗi console. Ở bề ngang 375 px, trang không cuộn ngang. Nút S1 trên trang Điều khiển chạy kịch bản thật trên Fuji: Guardian THẤP, phí x402 [0x967ded2c…ba07](https://testnet.snowtrace.io/tx/0x967ded2c6f53c3fac0c6660887d2df13980f1372fbd466105310b27e123eba07), vault thực hiện [0xf1ebe5ab…9030](https://testnet.snowtrace.io/tx/0xf1ebe5ab338d802e3af19954490a3f8e1061d667adea7ab9ee7c19ff93009030).
+
+Chưa kiểm tra: thao tác của chủ ví (pause, thu hồi agent, đổi hạn mức) với một ví thật. Trình duyệt dùng để kiểm tra không có ví, nên chỉ thấy các nút bị khoá đúng khi chưa kết nối ví owner. Owner hiện tại là ví của OWNER_PK; ví `0x54A2…2888` phải `acceptOwnership` trước (checklist bên dưới).
+
 ## Checklist trước demo
 
 - [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault (tx [0xe864b2e2…519d](https://testnet.snowtrace.io/tx/0xe864b2e2846874faeb6391d815cf327404ab234f858854c6a2fb694dc1f1519d)). Các bước:

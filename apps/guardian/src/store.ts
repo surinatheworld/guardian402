@@ -29,6 +29,13 @@ export type CheckRow = {
   demo: boolean;
 };
 
+/** A row of GET /v1/checks: the summary plus what the dashboard shows inline. */
+export type CheckListRow = CheckRow & {
+  ruleIds: string[];
+  explanation: { vi: string; en: string; source: string } | null;
+  paymentTx: string | null;
+};
+
 export type PaymentRow = {
   createdAt: number;
   payer: string | null;
@@ -99,13 +106,27 @@ export class Store {
       .run(createdAt, p.payer, p.amount, p.txHash, p.endpoint, p.checkId);
   }
 
-  recentChecks(limit: number): CheckRow[] {
+  recentChecks(limit: number): CheckListRow[] {
     const rows = this.#db
       .prepare(
-        "SELECT checkId, createdAt, endpoint, vault, risk, score, latencyMs, demo FROM checks ORDER BY createdAt DESC LIMIT ?",
+        `SELECT c.checkId, c.createdAt, c.endpoint, c.vault, c.risk, c.score, c.latencyMs, c.demo,
+                c.findingsJson, c.explanationJson,
+                (SELECT p.txHash FROM payments p WHERE p.checkId = c.checkId LIMIT 1) AS paymentTx
+           FROM checks c ORDER BY c.createdAt DESC LIMIT ?`,
       )
-      .all(limit) as (Omit<CheckRow, "demo"> & { demo: number })[];
-    return rows.map((r) => ({ ...r, demo: r.demo === 1 }));
+      .all(limit) as (Omit<CheckRow, "demo"> & {
+      demo: number;
+      findingsJson: string;
+      explanationJson: string;
+      paymentTx: string | null;
+    })[];
+    return rows.map(({ findingsJson, explanationJson, demo, ...r }) => ({
+      ...r,
+      demo: demo === 1,
+      ruleIds: [...new Set((JSON.parse(findingsJson) as { ruleId: string }[]).map((f) => f.ruleId))],
+      explanation: JSON.parse(explanationJson) as CheckListRow["explanation"],
+      paymentTx: r.paymentTx ?? null,
+    }));
   }
 
   getCheck(checkId: string): (CheckRow & Record<string, unknown>) | undefined {

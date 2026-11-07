@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+/* Tokens: light on :root, dark through prefers-color-scheme. Components use only these tokens. */
+:root {
+  --bg: #f5f7f8;
+  --surface: #ffffff;
+  --surface-2: #eef2f4;
+  --fg: #12202b;
+  --muted: #52626e;
+  --line: #d6dee3;
+  --accent: #0f766e;
+  --accent-fg: #ffffff;
+  --low: #166534;
+  --low-bg: #dcfce7;
+  --medium: #854d0e;
+  --medium-bg: #fef3c7;
+  --high: #b91c1c;
+  --high-bg: #fee2e2;
+  --demo: #78350f;
+  --demo-bg: #fde68a;
+  --focus: #2563eb;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0c1419;
+    --surface: #131e25;
+    --surface-2: #1a2730;
+    --fg: #e6edf1;
+    --muted: #9aabb6;
+    --line: #2a3a44;
+    --accent: #2dd4bf;
+    --accent-fg: #062a26;
+    --low: #86efac;
+    --low-bg: #12341f;
+    --medium: #fcd34d;
+    --medium-bg: #3a2c09;
+    --high: #fca5a5;
+    --high-bg: #451414;
+    --demo: #fde68a;
+    --demo-bg: #4a3207;
+    --focus: #93c5fd;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-low: var(--low);
+  --color-low-bg: var(--low-bg);
+  --color-medium: var(--medium);
+  --color-medium-bg: var(--medium-bg);
+  --color-high: var(--high);
+  --color-high-bg: var(--high-bg);
+  --color-demo: var(--demo);
+  --color-demo-bg: var(--demo-bg);
+  --font-sans: var(--font-be-vietnam), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}

@@ -1,0 +1,60 @@
+// Call lists for the "Kiểm tra giao dịch" page, built like apps/agent/src/planner.ts. DEMO: S2 and S3 are
+// scripted attacks; LOOKALIKE is the mined lookalike in apps/agent/fixtures/lookalike.json (a test checks it).
+import { encodeFunctionData, erc20Abi, maxUint256, type Address, type Hex } from "viem";
+import { mockRouterAbi, type Deployment } from "@guardian402/shared";
+
+export const LOOKALIKE: Address = "0xE20b3196DcAf7663E8E834bA881a513cF761d1d9";
+export const ATTACKER: Address = "0x000000000000000000000000000000000000a77A";
+
+export type CallJson = { target: Address; value: string; data: Hex };
+
+const approve = (d: Deployment, spender: Address, amount: bigint): CallJson => ({
+  target: d.usdc,
+  value: "0",
+  data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [spender, amount] }),
+});
+
+const swap = (d: Deployment, amountIn: bigint, poolId: number): CallJson => ({
+  target: d.router,
+  value: "0",
+  data: encodeFunctionData({
+    abi: mockRouterAbi,
+    functionName: "swapExactIn",
+    args: [d.usdc, d.mWAVAX, amountIn, 0n, poolId, d.vault],
+  }),
+});
+
+export type Preset = { id: string; label: string; calls: (d: Deployment, usdcBalance: bigint) => CallJson[] };
+
+export const PRESETS: Preset[] = [
+  {
+    id: "S1",
+    label: "S1 · Swap 2 USDC sang mWAVAX qua pool thường",
+    calls: (d) => [approve(d, d.router, 2_000_000n), swap(d, 2_000_000n, 0)],
+  },
+  {
+    id: "S2",
+    label: "S2 · Chuyển toàn bộ USDC cho kẻ tấn công (DEMO)",
+    calls: (d, balance) => [
+      {
+        target: d.usdc,
+        value: "0",
+        data: encodeFunctionData({
+          abi: erc20Abi,
+          functionName: "transfer",
+          args: [ATTACKER, balance > 0n ? balance : 1_000_000n],
+        }),
+      },
+    ],
+  },
+  {
+    id: "S3",
+    label: "S3 · Cấp quyền không giới hạn cho địa chỉ nhái router (DEMO)",
+    calls: (d) => [approve(d, LOOKALIKE, maxUint256)],
+  },
+  {
+    id: "S4",
+    label: "S4 · Swap 2 USDC qua pool lệch giá, minOut = 0",
+    calls: (d) => [approve(d, d.router, 2_000_000n), swap(d, 2_000_000n, 1)],
+  },
+];
