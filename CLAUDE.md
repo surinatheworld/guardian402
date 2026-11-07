@@ -102,9 +102,13 @@ Available now:
 - `pnpm facilitator` — self-hosted x402 facilitator on http://127.0.0.1:4022, settling on `FACILITATOR_RPC_URL` (default `CHAIN_RPC_URL`); needs `FACILITATOR_PK` with a little AVAX. Point the Guardian at it with `FACILITATOR_URL=http://127.0.0.1:4022`
 - `pnpm --filter @guardian402/guardian pay-check [check|cosign]` — one paid S1 call from the agent wallet; prints the settlement link
 
+- `pnpm agent scenario <S1..S6|all>` — run the demo scenarios (docs/SPEC.md §10) against the Guardian on `GUARDIAN_URL` and the vault on `CHAIN_RPC_URL`; S2–S6 need `DEMO_MODE=true`, S6 needs `OWNER_PK`. Prints risk, explanation, x402 settlement and vault tx; appends to `apps/agent/data/attempts.jsonl`; exits 1 on any mismatch with the spec table
+- `pnpm dev:agent` — local control API on http://127.0.0.1:4403 (`POST /scenario/:id`, `GET /attempts`, `GET /health`), `DEMO_MODE=true` only
+- `pnpm mine-lookalike [fuji|local] [chars]` — mine a lookalike of the MockRouter address with `cast wallet vanity` into `apps/agent/fixtures/lookalike.json` (default 3+3 characters, DEMO)
+
 Planned (not created yet):
 
-- `pnpm dev:agent` / `pnpm dev:dashboard`
+- `pnpm dev:dashboard`
 - `pnpm eval` — run the eval set and write `eval/report.md`
 
 ## Key constants (details and sources in docs/SPEC.md §2)

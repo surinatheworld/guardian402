@@ -46,6 +46,7 @@ function fakeChain(ctxFor: () => Context): PublicClient {
       if (functionName === "verdictNonce") return NONCE;
       throw new Error(`unexpected read ${functionName}`);
     },
+    getBlock: async () => ({ timestamp: BigInt(Math.floor(Date.now() / 1000)) }),
     getCode: async ({ address }: { address: string }) =>
       ctxFor().contracts.some((a) => a.toLowerCase() === address.toLowerCase()) ? "0x6000" : undefined,
   } as unknown as PublicClient;
