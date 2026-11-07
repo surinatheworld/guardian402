@@ -27,7 +27,10 @@
     "swap-router:fuji": "node scripts/contracts.mjs swap-router fuji",
     "known-contracts": "node scripts/gen-known-contracts.mjs",
     "dev:guardian": "pnpm --filter @guardian402/guardian dev",
-    "facilitator": "pnpm --filter @guardian402/guardian facilitator"
+    "facilitator": "pnpm --filter @guardian402/guardian facilitator",
+    "agent": "pnpm --filter @guardian402/agent agent",
+    "dev:agent": "pnpm --filter @guardian402/agent dev",
+    "mine-lookalike": "bash scripts/mine-lookalike.sh"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

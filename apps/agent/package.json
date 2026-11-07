@@ -6,6 +6,20 @@
   "type": "module",
   "scripts": {
     "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "agent": "tsx src/cli.ts",
+    "dev": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "@guardian402/shared": "workspace:*",
+    "@x402/core": "2.28.0",
+    "@x402/evm": "2.28.0",
+    "@x402/fetch": "2.28.0",
+    "express": "5.3.0",
+    "viem": "2.57.7",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6"
   }
 }
