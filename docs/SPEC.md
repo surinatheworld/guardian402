@@ -503,7 +503,7 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 - [x] Scenarios S1–S6 run on the local fork and S1, S2, S4 on Fuji, with links; S4 ends in `RiskTooHigh`.
 - [x] Dashboard pages working against Fuji, with the DEMO MODE banner.
 - [x] Eval: ≥ 40 cases, report generated and reproducible.
-- [ ] README (fresh clone to running demo in ≤ 15 minutes), `docs/THREAT_MODEL.md`, `docs/DEMO_RUNBOOK.md`, complete `.env.example` files.
+- [x] README (fresh clone to running demo in ≤ 15 minutes), `docs/THREAT_MODEL.md`, `docs/DEMO_RUNBOOK.md`, complete `.env.example` files.
 - [ ] A teammate has done the fresh-clone test.
 
 ## 15. Out of scope
@@ -588,3 +588,9 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
     - Production thresholds (address poisoning 4/4, `demoMode: false`); lookalikes keep 4 characters at each end. Policy cache off between cases. Simulation timeout 10 s in the eval (800 ms in production) so RPC latency cannot change a label; the report says so.
     - The report carries a fingerprint (hash of every case's risk, score and rules). Three runs on 2026-11-07 gave the same fingerprint `afe1c281479835c7`.
     - 2026-11-07 fix found by the eval (no threshold changed): ABNORMAL_SLIPPAGE summed the output of every swap through the same router to the same recipient when judging each swap, so a bad swap next to a normal one was hidden (case m20). The simulator now tags each `Transfer` with its call index and the rule counts only that call's output. Before: blocked = HIGH TP 23 FP 0 TN 15 FN 2 (recall 92%). After: TP 24 FP 0 TN 15 FN 1 (recall 96%).
+  - P11 hardening (2026-11-07):
+    - §4.3 AgentVault: after the calls, `executeBatch` resets to 0 every approval the batch granted on a tracked token (`forceApprove(spender, 0)`). An agent-path approval therefore never outlives its batch, which removes the residual risk noted in P1 ("an approval granted with a verdict outlives the batch"). Review finding F1, tests in `contracts/test/AgentVault.audit.t.sol`. An approve-only batch is now a no-op. Owner-path approvals (`ownerExecute`) are unchanged.
+    - §8 `RECIPIENT_NOT_ALLOWLISTED` also flags a `swapExactIn` through a known router whose `to` is neither the vault nor an allowlisted recipient (evidence `via: "swap-output"`). Eval case m15 moved from FN to TP; blocked = HIGH is now TP 25 FP 0 TN 15 FN 0. No threshold changed.
+    - The Fuji AgentVault deployed in P2 does not have the F1 fix. Redeploying it is a team decision.
+    - `pnpm deploy:local` creates `contracts/deployments/` (missing in a fresh clone); `pnpm seed:local` also funds `FACILITATOR_PK` with test AVAX and mints 5 test USDC to the agent on the fork. Both found by the fresh-clone test.
+    - Dashboard: the S3 preset reads the lookalike from `apps/agent/fixtures/lookalike.json` instead of a copy.

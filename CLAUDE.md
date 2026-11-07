@@ -87,7 +87,7 @@ Available now:
 - `pnpm lint` — ESLint over the TypeScript workspace
 - `pnpm format` / `pnpm format:check` — Prettier
 
-- `pnpm deploy:local` / `pnpm seed:local` — deploy and seed on the running `pnpm fork` (wrapper `scripts/contracts.mjs`; secrets from root `.env.local`; refuses any chain id other than 43113)
+- `pnpm deploy:local` / `pnpm seed:local` — deploy and seed on the running `pnpm fork` (wrapper `scripts/contracts.mjs`; secrets from root `.env.local`; refuses any chain id other than 43113). On the fork it funds the keys (and `FACILITATOR_PK` if set) with test AVAX and mints test USDC to the owner (100) and the agent (5)
 - `pnpm deploy:fuji` / `pnpm seed:fuji` — same on Fuji; addresses go to `packages/shared/src/addresses/<network>.json`. Seed is idempotent.
 - `pnpm verify:fuji` — verify the Fuji contracts on Routescan / testnet.snowtrace.io
 - `pnpm handoff:fuji` — start the Ownable2Step transfer of AgentVault to the team lead's wallet

@@ -125,19 +125,19 @@ values and holds no key: the owner signs with a browser wallet.
 
 ## Commands
 
-| Command | What it does |
-| --- | --- |
-| `pnpm test` · `pnpm typecheck` · `pnpm lint` | TypeScript tests, types and lint in every package |
-| `cd contracts && forge test` | contract unit, fuzz and invariant tests |
-| `pnpm fork` | Anvil fork of Fuji on :8545 (Docker fallback on Windows) |
-| `pnpm deploy:local` · `pnpm seed:local` | deploy and seed on the fork |
-| `pnpm deploy:fuji` · `pnpm seed:fuji` · `pnpm verify:fuji` | the same on Fuji, then verify on Snowtrace |
-| `pnpm dev:guardian` | Guardian API on :4402 |
-| `pnpm facilitator` | self-hosted x402 facilitator on :4022 |
-| `pnpm agent scenario <S1..S6\|all>` | run the demo scenarios |
-| `pnpm dev:agent` | agent control API on :4403 (DEMO only) |
-| `pnpm dev:dashboard` | dashboard on :3000 |
-| `pnpm eval` | 40-case eval, writes `eval/report.md` |
+| Command                                                    | What it does                                             |
+| ---------------------------------------------------------- | -------------------------------------------------------- |
+| `pnpm test` · `pnpm typecheck` · `pnpm lint`               | TypeScript tests, types and lint in every package        |
+| `cd contracts && forge test`                               | contract unit, fuzz and invariant tests                  |
+| `pnpm fork`                                                | Anvil fork of Fuji on :8545 (Docker fallback on Windows) |
+| `pnpm deploy:local` · `pnpm seed:local`                    | deploy and seed on the fork                              |
+| `pnpm deploy:fuji` · `pnpm seed:fuji` · `pnpm verify:fuji` | the same on Fuji, then verify on Snowtrace               |
+| `pnpm dev:guardian`                                        | Guardian API on :4402                                    |
+| `pnpm facilitator`                                         | self-hosted x402 facilitator on :4022                    |
+| `pnpm agent scenario <S1..S6\|all>`                        | run the demo scenarios                                   |
+| `pnpm dev:agent`                                           | agent control API on :4403 (DEMO only)                   |
+| `pnpm dev:dashboard`                                       | dashboard on :3000                                       |
+| `pnpm eval`                                                | 40-case eval, writes `eval/report.md`                    |
 
 The full list, with options, is in [CLAUDE.md](CLAUDE.md).
 
@@ -145,13 +145,13 @@ The full list, with options, is in [CLAUDE.md](CLAUDE.md).
 
 Verified on [testnet.snowtrace.io](https://testnet.snowtrace.io). Network: Avalanche Fuji C-Chain, chain id 43113.
 
-| Contract | Address |
-| --- | --- |
-| AgentVault | [`0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99`](https://testnet.snowtrace.io/address/0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99) |
+| Contract          | Address                                                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| AgentVault        | [`0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99`](https://testnet.snowtrace.io/address/0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99) |
 | MockRouter (DEMO) | [`0xe20967C615e442991D468ed7f797edcAeA1771d9`](https://testnet.snowtrace.io/address/0xe20967C615e442991D468ed7f797edcAeA1771d9) |
 | MockOracle (DEMO) | [`0xeebAac693aA19308bA859b3D668e3794310e66AE`](https://testnet.snowtrace.io/address/0xeebAac693aA19308bA859b3D668e3794310e66AE) |
-| mWAVAX (DEMO) | [`0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5`](https://testnet.snowtrace.io/address/0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5) |
-| USDC (Circle) | [`0x5425890298aed601595a70AB815c96711a31Bc65`](https://testnet.snowtrace.io/address/0x5425890298aed601595a70AB815c96711a31Bc65) |
+| mWAVAX (DEMO)     | [`0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5`](https://testnet.snowtrace.io/address/0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5) |
+| USDC (Circle)     | [`0x5425890298aed601595a70AB815c96711a31Bc65`](https://testnet.snowtrace.io/address/0x5425890298aed601595a70AB815c96711a31Bc65) |
 
 The deployed AgentVault predates the P11 fix that revokes unused approvals at the end of each batch (finding F1 in
 the threat model); the code in this repository has the fix.
@@ -169,15 +169,15 @@ Declared at the start of the pitch, and shown as a DEMO MODE banner in the dashb
 
 ## Hackathon rules: where they are enforced
 
-| Rule | Enforced in | Proved by |
-| --- | --- | --- |
-| The LLM never decides whether money moves | Risk only from `apps/guardian/src/rules`; the explainer cannot import the signer or the aggregator; a text that contradicts the risk is replaced by the template | `apps/guardian/test/explain.test.ts` ("nothing in src/explain imports the signer…", "falls back when the text contradicts the risk"); `rules.test.ts` "rules never touch the chain or the network" |
-| Every agent action passes AgentVault's policy | `AgentVault.executeBatch`: allowlists, `maxApproval`, daily caps, pause, verdict | `contracts/test/AgentVault.t.sol`, `AgentVault.fuzz.t.sol`, `AgentVault.invariant.t.sol` (`invariant_DailyOutflowWithinCap`, `invariant_PausedAgentMovesNothing`, `invariant_AttackerNeverPaid`) |
-| Non-custodial: the owner can always withdraw; the Guardian only signs | `withdraw`, `withdrawNative` (work while paused); the Guardian holds no funds and no vault role | `invariant_OwnerCanWithdrawEverything`, `test_OwnerExecute_WorksWhilePaused`, `invariant_AgentCannotChangeAdminState` |
-| No token, no real money, Fuji only | No token contract; `scripts/contracts.mjs` and the Forge scripts refuse any chain id other than 43113 | code guard (no automated test) |
-| On-chain data limited to hashes, payments and state | `Executed(callsHash, checkId, …)` events; the Guardian stores no IPs or personal data | code review; `apps/guardian/src/store.ts` schema |
-| Every mock behind an explicit flag, with a banner | `DEMO_MODE` gates `/v1/demo/check`, scripted scenarios and the agent control API; the dashboard banner follows the Guardian's `demoMode` | `apps/guardian/test/api.test.ts` (demo check), `apps/agent/src/cli.ts` refuses S2–S6 without `DEMO_MODE` |
-| Tests on every money path | Foundry unit, fuzz and invariant tests | `forge coverage`: AgentVault 100% lines, statements, branches and functions |
+| Rule                                                                  | Enforced in                                                                                                                                                      | Proved by                                                                                                                                                                                          |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The LLM never decides whether money moves                             | Risk only from `apps/guardian/src/rules`; the explainer cannot import the signer or the aggregator; a text that contradicts the risk is replaced by the template | `apps/guardian/test/explain.test.ts` ("nothing in src/explain imports the signer…", "falls back when the text contradicts the risk"); `rules.test.ts` "rules never touch the chain or the network" |
+| Every agent action passes AgentVault's policy                         | `AgentVault.executeBatch`: allowlists, `maxApproval`, daily caps, pause, verdict                                                                                 | `contracts/test/AgentVault.t.sol`, `AgentVault.fuzz.t.sol`, `AgentVault.invariant.t.sol` (`invariant_DailyOutflowWithinCap`, `invariant_PausedAgentMovesNothing`, `invariant_AttackerNeverPaid`)   |
+| Non-custodial: the owner can always withdraw; the Guardian only signs | `withdraw`, `withdrawNative` (work while paused); the Guardian holds no funds and no vault role                                                                  | `invariant_OwnerCanWithdrawEverything`, `test_OwnerExecute_WorksWhilePaused`, `invariant_AgentCannotChangeAdminState`                                                                              |
+| No token, no real money, Fuji only                                    | No token contract; `scripts/contracts.mjs` and the Forge scripts refuse any chain id other than 43113                                                            | code guard (no automated test)                                                                                                                                                                     |
+| On-chain data limited to hashes, payments and state                   | `Executed(callsHash, checkId, …)` events; the Guardian stores no IPs or personal data                                                                            | code review; `apps/guardian/src/store.ts` schema                                                                                                                                                   |
+| Every mock behind an explicit flag, with a banner                     | `DEMO_MODE` gates `/v1/demo/check`, scripted scenarios and the agent control API; the dashboard banner follows the Guardian's `demoMode`                         | `apps/guardian/test/api.test.ts` (demo check), `apps/agent/src/cli.ts` refuses S2–S6 without `DEMO_MODE`                                                                                           |
+| Tests on every money path                                             | Foundry unit, fuzz and invariant tests                                                                                                                           | `forge coverage`: AgentVault 100% lines, statements, branches and functions                                                                                                                        |
 
 ## Legal notes (Vietnam)
 

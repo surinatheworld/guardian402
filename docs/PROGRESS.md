@@ -402,6 +402,50 @@ pnpm --filter @guardian402/guardian exec vitest run        → Tests 96 passed (
 pnpm --filter @guardian402/guardian exec vitest run --config vitest.fork.config.ts test/simulator.fork.test.ts → Tests 13 passed
 ```
 
+## P11 — Soát bảo mật, tài liệu, chạy thử từ repo sạch (xong 2026-11-07, nhánh `feat/p11-hardening`)
+
+Soát bảo mật AgentVault, đóng vai kiểm toán viên bên ngoài (làm trong phiên này, không phải một phiên riêng như PROMPTS.md gợi ý). Chi tiết trong `docs/THREAT_MODEL.md`, phần "Findings of the P11 review".
+
+| Mã | Mức | Vấn đề | Xử lý |
+| --- | --- | --- | --- |
+| F1 | Trung bình | Quyền approve cấp qua đường agent còn sót sau batch. Agent dùng phần còn sót để swap ở mức ≤ ngưỡng verdict mà không cần verdict, và đầu ra swap (`to`) có thể gửi đi bất cứ đâu, tới hạn mức ngày, mỗi ngày. Guardian cũng không xét `to` (eval m15 bị sót). | Đã sửa: vault thu hồi mọi quyền batch đã cấp ở cuối batch; RECIPIENT_NOT_ALLOWLISTED gắn cờ đầu ra swap không về vault. Test `test_Audit_F1_*` (fail trước khi sửa), test luật, eval m15. |
+| F2 | Thấp | Hạn mức ngày tính theo ngày UTC: quanh 00:00 UTC có thể chi gấp đôi hạn mức trong vài phút. | Chấp nhận; test `test_Audit_F2_*` ghi lại hành vi. |
+| F3 | Thông tin | Verdict gửi kèm batch không cần verdict vẫn dùng hết nonce. Chỉ agent gọi được `executeBatch`. | Chấp nhận (SPEC §16). |
+| F4 | Thông tin | Owner có thể cho phép một token không theo dõi làm target thường, khi đó chuyển token đó không có hạn mức. | Chấp nhận: do owner cấu hình. |
+
+Tài liệu mới: `README.md` (tiếng Anh + tóm tắt tiếng Việt, sơ đồ mermaid, quickstart, địa chỉ Fuji, danh sách mock, bảng "luật cuộc thi → nơi áp dụng → test chứng minh", ghi chú pháp lý Việt Nam), `docs/THREAT_MODEL.md`, `docs/DEMO_RUNBOOK.md`.
+
+Chạy thử từ repo sạch (clone vào thư mục tạm, làm đúng theo README):
+
+```
+clone --recurse-submodules: 13 s · pnpm install: 36 s · forge build + forge test: 21 s (146 passed) · pnpm test: 6 s (147 passed)
+pnpm eval: 32 s, cùng dấu vân tay bda43f738452d6ea với máy chính
+Phần B (5 khoá dùng một lần, chỉ trên fork): deploy:local + seed:local 9 s, mine-lookalike 2 s, `pnpm agent scenario all`: 6/6 khớp bảng §10 (86 s)
+```
+
+Lỗi tìm thấy khi chạy thử và đã sửa trong `scripts/contracts.mjs`: (1) `deploy:local` hỏng vì thư mục `contracts/deployments/` không có trong repo sạch; (2) facilitator tự chạy không có AVAX trên fork nên mọi lần thu phí thất bại (Guardian trả 402, không ai bị trừ tiền); (3) agent không có USDC trên fork để trả phí. Ngoài ra dashboard đọc địa chỉ nhái từ fixture thay vì chép cứng.
+
+Test:
+
+```
+cd contracts && forge test                          → 146 passed (thêm 5 test audit)
+forge coverage (src/AgentVault.sol)                 → 100% dòng, câu lệnh, nhánh, hàm
+pnpm -r test                                        → shared 33, agent 6, dashboard 6, guardian 97, eval 5 — tất cả pass
+pnpm eval (3 lần)                                   → TP 25 FP 0 TN 15 FN 0, cùng dấu vân tay bda43f738452d6ea
+```
+
+### Việc còn lại (đã biết)
+
+1. **AgentVault trên Fuji chưa có bản sửa F1.** Code trong repo đã sửa và đã test; muốn Fuji chạy bản mới thì phải deploy lại vault (địa chỉ mới, seed lại, verify lại, chuyển owner lại). Cần nhóm quyết định.
+2. **Chưa push lên GitHub** các phase P4–P11 (mọi nhánh đã merge vào `main` trên máy).
+3. Chưa kiểm tra thao tác của chủ ví trên dashboard (pause, thu hồi agent, đổi hạn mức) bằng một ví thật.
+4. Mục "A teammate has done the fresh-clone test" trong SPEC §14 cần một thành viên trong nhóm tự làm; lần chạy thử ở trên do agent làm.
+5. UNKNOWN_CONTRACT gắn cờ TRUNG BÌNH cả khi thu hồi quyền của hợp đồng lạ (eval b11), là cảnh báo thừa.
+6. Fork mô phỏng có thể chậm hơn Fuji vài phút, nên số dư trong lời giải thích có thể lệch vài giao dịch gần nhất.
+7. Chưa bật LLM thật cho phần giải thích (`LLM_PROVIDER=none`, chưa có API key); hiện dùng mẫu cố định.
+8. Chưa chọn giấy phép (license) cho repo.
+9. Checklist trước demo: ví `0x54A2…2888` vẫn cần `acceptOwnership` (xem bên dưới).
+
 ## Checklist trước demo
 
 - [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault (tx [0xe864b2e2…519d](https://testnet.snowtrace.io/tx/0xe864b2e2846874faeb6391d815cf327404ab234f858854c6a2fb694dc1f1519d)). Các bước:

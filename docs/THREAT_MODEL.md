@@ -5,15 +5,15 @@ Written in P11 (2026-11-07), together with a security review of AgentVault.
 
 ## Assets
 
-| Asset | Where | Why it matters |
-| --- | --- | --- |
-| Funds in AgentVault (USDC, AVAX, mWAVAX) | on-chain, owner's vault | the thing an attacker wants to move |
-| Agent key (`AGENT_PK`) | agent process | can call `executeBatch`; pays x402 fees from a small balance |
-| Guardian signer key (`GUARDIAN_SIGNER_PK`) | Guardian process | signs verdicts; holds no funds |
-| Owner key / wallet | owner's browser wallet (Core, MetaMask) | full control: withdraw, pause, policy |
-| Facilitator key (`FACILITATOR_PK`, self-hosted only) | facilitator process | pays settlement gas; holds a little AVAX |
-| Verdict nonce and policy | AgentVault storage | replay protection and limits |
-| Check history | Guardian SQLite | audit trail; no personal data, no IPs |
+| Asset                                                | Where                                   | Why it matters                                               |
+| ---------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------ |
+| Funds in AgentVault (USDC, AVAX, mWAVAX)             | on-chain, owner's vault                 | the thing an attacker wants to move                          |
+| Agent key (`AGENT_PK`)                               | agent process                           | can call `executeBatch`; pays x402 fees from a small balance |
+| Guardian signer key (`GUARDIAN_SIGNER_PK`)           | Guardian process                        | signs verdicts; holds no funds                               |
+| Owner key / wallet                                   | owner's browser wallet (Core, MetaMask) | full control: withdraw, pause, policy                        |
+| Facilitator key (`FACILITATOR_PK`, self-hosted only) | facilitator process                     | pays settlement gas; holds a little AVAX                     |
+| Verdict nonce and policy                             | AgentVault storage                      | replay protection and limits                                 |
+| Check history                                        | Guardian SQLite                         | audit trail; no personal data, no IPs                        |
 
 ## Actors
 
@@ -96,12 +96,12 @@ Lookalike recipients and spenders are flagged by `ADDRESS_POISONING` (4+4 hex ch
 
 Review of `contracts/src/AgentVault.sol` acting as an outside auditor. Each finding has a test in `contracts/test/AgentVault.audit.t.sol`.
 
-| Id | Severity | Finding | Status | Proof |
-| --- | --- | --- | --- | --- |
-| F1 | Medium | Agent-path approvals outlived their batch. With a leftover allowance, the agent could run swaps at or below the verdict threshold with no verdict, and an allowlisted router's swap takes an output recipient the vault does not check, so the output could go anywhere, up to the daily cap every day. The Guardian also did not check the swap recipient (eval case m15 was a false negative). | Fixed: the vault revokes every approval the batch granted at the end of the batch; `RECIPIENT_NOT_ALLOWLISTED` flags swap output that does not go to the vault or an allowlisted address. | `test_Audit_F1_*` (failed before the fix), `apps/guardian/test/rules.test.ts` "swap whose output goes outside the allowlist", eval m15 |
-| F2 | Low | The daily cap is per UTC day, so up to 2× the cap can leave within minutes around 00:00 UTC. | Accepted (simple and predictable; each batch still needs a verdict above the threshold). | `test_Audit_F2_CapResetsAtUtcMidnight` documents it |
-| F3 | Info | A verdict sent with a batch that does not need one is still checked and uses up the nonce. Only the agent can call `executeBatch`, so nobody else can burn nonces. | Accepted (SPEC §16). | existing tests in `AgentVault.t.sol` |
-| F4 | Info | The owner can allowlist an untracked token as a generic target; its transfers then have no cap. | Accepted: owner configuration. Track every token the vault holds. | — |
+| Id  | Severity | Finding                                                                                                                                                                                                                                                                                                                                                                                          | Status                                                                                                                                                                                    | Proof                                                                                                                                  |
+| --- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| F1  | Medium   | Agent-path approvals outlived their batch. With a leftover allowance, the agent could run swaps at or below the verdict threshold with no verdict, and an allowlisted router's swap takes an output recipient the vault does not check, so the output could go anywhere, up to the daily cap every day. The Guardian also did not check the swap recipient (eval case m15 was a false negative). | Fixed: the vault revokes every approval the batch granted at the end of the batch; `RECIPIENT_NOT_ALLOWLISTED` flags swap output that does not go to the vault or an allowlisted address. | `test_Audit_F1_*` (failed before the fix), `apps/guardian/test/rules.test.ts` "swap whose output goes outside the allowlist", eval m15 |
+| F2  | Low      | The daily cap is per UTC day, so up to 2× the cap can leave within minutes around 00:00 UTC.                                                                                                                                                                                                                                                                                                     | Accepted (simple and predictable; each batch still needs a verdict above the threshold).                                                                                                  | `test_Audit_F2_CapResetsAtUtcMidnight` documents it                                                                                    |
+| F3  | Info     | A verdict sent with a batch that does not need one is still checked and uses up the nonce. Only the agent can call `executeBatch`, so nobody else can burn nonces.                                                                                                                                                                                                                               | Accepted (SPEC §16).                                                                                                                                                                      | existing tests in `AgentVault.t.sol`                                                                                                   |
+| F4  | Info     | The owner can allowlist an untracked token as a generic target; its transfers then have no cap.                                                                                                                                                                                                                                                                                                  | Accepted: owner configuration. Track every token the vault holds.                                                                                                                         | —                                                                                                                                      |
 
 The Fuji deployment from P2 runs the code before the F1 fix. The new code is tested locally and in the eval; redeploying to Fuji is a team decision (see `docs/PROGRESS.md`).
 
