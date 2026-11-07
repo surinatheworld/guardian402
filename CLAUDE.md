@@ -98,9 +98,13 @@ Available now:
 - `pnpm --filter @guardian402/guardian fixtures:rules` — capture real `SimResult` fixtures for the rule tests into `apps/guardian/test/fixtures/rules/` (needs `pnpm fork`)
 - `pnpm --filter @guardian402/guardian test:fork` — simulator integration tests (`*.fork.test.ts`); needs `pnpm fork` running. Resets the fork to the latest Fuji block first and uses the seeded Fuji deployment. Each run makes many calls to the public Fuji RPC, which rate-limits (HTTP 429 / Cloudflare 1015): avoid running it in a tight loop
 
+- `pnpm dev:guardian` — Guardian API on http://127.0.0.1:4402 (`NETWORK=local`: everything on the fork; `NETWORK=fuji` with `CHAIN_RPC_URL` = Fuji: vault read on Fuji, simulation on the fork reset from Fuji)
+- `pnpm facilitator` — self-hosted x402 facilitator on http://127.0.0.1:4022, settling on `FACILITATOR_RPC_URL` (default `CHAIN_RPC_URL`); needs `FACILITATOR_PK` with a little AVAX. Point the Guardian at it with `FACILITATOR_URL=http://127.0.0.1:4022`
+- `pnpm --filter @guardian402/guardian pay-check [check|cosign]` — one paid S1 call from the agent wallet; prints the settlement link
+
 Planned (not created yet):
 
-- `pnpm dev:guardian` / `pnpm dev:agent` / `pnpm dev:dashboard`
+- `pnpm dev:agent` / `pnpm dev:dashboard`
 - `pnpm eval` — run the eval set and write `eval/report.md`
 
 ## Key constants (details and sources in docs/SPEC.md §2)

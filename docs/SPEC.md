@@ -496,7 +496,7 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 - [x] `forge test` green, including fuzz and invariant tests; AgentVault coverage ≥ 95%.
 - [x] `pnpm test:crosscheck` green (TypeScript-signed verdict accepted by Solidity; every mutation rejected).
 - [x] Contracts deployed and verified on Fuji; addresses committed in `packages/shared`.
-- [ ] `/v1/check` and `/v1/cosign` behind x402 on Fuji; at least one real settlement visible on Snowtrace; a test proves a 400 response is not charged.
+- [x] `/v1/check` and `/v1/cosign` behind x402 on Fuji; at least one real settlement visible on Snowtrace; a test proves a 400 response is not charged.
 - [x] All 8 rules implemented with unit tests.
 - [x] Explainer with LLM and template fallback; the architecture test passes.
 - [ ] Scenarios S1–S6 run on the local fork and S1, S2, S4 on Fuji, with links; S4 ends in `RiskTooHigh`.
@@ -561,3 +561,9 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
     - `LLM_PROVIDER` is `none` or `anthropic` (official `@anthropic-ai/sdk`, default model `claude-opus-5-5`, JSON structured output). Current Claude models reject sampling parameters, so "low temperature" becomes `effort: "low"`; the SDK client runs with `maxRetries: 0` so the 1.5 s budget holds.
     - MEDIUM text is also rejected when it claims either end ("an toàn"/"safe" or "nguy hiểm"/"dangerous").
     - The explainer input is built outside `src/explain` (`src/explain-input.ts`) from the diff, the findings and trusted labels (vault and known-contracts names).
+  - §6 Guardian API (P7):
+    - Storage uses Node's built-in `node:sqlite` (Node ≥ 22.13) instead of `better-sqlite3`: the native build of `better-sqlite3` failed on Node 24 on the team's Windows machine. Same tables as §6.5, plus `simulationJson` on `checks`.
+    - The payment row's `checkId` comes from the buffered response body in `onAfterSettle` (`transportContext.responseBody`).
+    - The API listens on 127.0.0.1:4402 (`GUARDIAN_PORT`); the self-hosted facilitator on 127.0.0.1:4022.
+    - After every fork reset the Guardian simulates one S1 batch to warm the fork cache; without it the first check after a reset hit the 800 ms budget and came back HIGH (`SIMULATION_FAILED`).
+    - 2026-11-07: the public facilitator returned `502 upstream_rpc_unavailable` for Fuji settlements; the Fuji settlement was made through the self-hosted facilitator (FACILITATOR_PK `0x9e85…F911`, funded with 0.05 AVAX). No funds moved on the failed attempts.
