@@ -1,0 +1,176 @@
+{
+  "name": "poisoned-approval",
+  "description": "S3: approve max uint to a lookalike of the router",
+  "sim": {
+    "vault": "0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99",
+    "calls": [
+      {
+        "target": "0x5425890298aed601595a70AB815c96711a31Bc65",
+        "value": {
+          "$bigint": "0"
+        },
+        "data": "0x095ea7b3000000000000000000000000e209badc0ffee0ddf00dbadc0ffee0ddf00d71d9ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    ],
+    "success": true,
+    "timedOut": false,
+    "gasUsed": {
+      "$bigint": "55785"
+    },
+    "forkBlock": {
+      "$bigint": "60674805"
+    },
+    "tokenDeltas": [
+      {
+        "token": "0x5425890298aed601595a70AB815c96711a31Bc65",
+        "symbol": "USDC",
+        "decimals": 6,
+        "before": {
+          "$bigint": "50000000"
+        },
+        "after": {
+          "$bigint": "50000000"
+        },
+        "delta": {
+          "$bigint": "0"
+        }
+      },
+      {
+        "token": "0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5",
+        "symbol": "mWAVAX",
+        "decimals": 18,
+        "before": {
+          "$bigint": "0"
+        },
+        "after": {
+          "$bigint": "0"
+        },
+        "delta": {
+          "$bigint": "0"
+        }
+      }
+    ],
+    "nativeBefore": {
+      "$bigint": "1000000000000000000"
+    },
+    "nativeAfter": {
+      "$bigint": "999944214999553720"
+    },
+    "nativeDelta": {
+      "$bigint": "0"
+    },
+    "approvals": [
+      {
+        "token": "0x5425890298aed601595a70AB815c96711a31Bc65",
+        "owner": "0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99",
+        "spender": "0xe209BaDC0FFEe0Ddf00DBADc0fFEe0DDf00D71D9",
+        "amount": {
+          "$bigint": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+        },
+        "unlimited": true
+      }
+    ],
+    "approvalsForAll": [],
+    "transfers": [],
+    "durationMs": 461.52670000000035
+  },
+  "ctx": {
+    "vault": "0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99",
+    "policy": {
+      "owner": "0x6678788309Ac06a05c584A05fe52181CcB4E3b72",
+      "agent": "0x7bD676072d0e34880F7003d8DA817F54ebB68ff7",
+      "guardian": "0xF1ff0D01D4B2fA90BCb234747b8409831A3C2359",
+      "paused": false,
+      "verdictNonce": {
+        "$bigint": "0"
+      },
+      "maxAgentRisk": 0,
+      "day": {
+        "$bigint": "20764"
+      },
+      "tokens": [
+        {
+          "token": "0x5425890298aed601595a70AB815c96711a31Bc65",
+          "dailyCap": {
+            "$bigint": "20000000"
+          },
+          "maxApproval": {
+            "$bigint": "10000000"
+          },
+          "verdictThreshold": {
+            "$bigint": "1000000"
+          },
+          "spentToday": {
+            "$bigint": "0"
+          },
+          "balance": {
+            "$bigint": "50000000"
+          }
+        }
+      ],
+      "nativeDailyCap": {
+        "$bigint": "100000000000000000"
+      },
+      "nativeVerdictThreshold": {
+        "$bigint": "10000000000000000"
+      },
+      "nativeSpentToday": {
+        "$bigint": "0"
+      },
+      "nativeBalance": {
+        "$bigint": "0"
+      },
+      "targets": [
+        {
+          "target": "0xe20967C615e442991D468ed7f797edcAeA1771d9",
+          "selectors": ["0x85e858b9"]
+        }
+      ],
+      "recipients": [
+        "0x64281A1b566EB95Ac50c42282Cc257DBD518fB50",
+        "0xe20967C615e442991D468ed7f797edcAeA1771d9"
+      ]
+    },
+    "knownContracts": {
+      "0x32cb61054e31678e6afa6731b0dc70d330a1ab99": {
+        "name": "AgentVault",
+        "kind": "vault"
+      },
+      "0x5425890298aed601595a70ab815c96711a31bc65": {
+        "name": "USD Coin",
+        "kind": "token"
+      },
+      "0x8004a818bfb912233c491871b3d84c89a494bd9e": {
+        "name": "ERC-8004 IdentityRegistry",
+        "kind": "registry"
+      },
+      "0x8004b663056a597dffe9eccc1965a193b7388713": {
+        "name": "ERC-8004 ReputationRegistry",
+        "kind": "registry"
+      },
+      "0xc2439b70b85cf5fbd5a7da935567e476bfc97ba5": {
+        "name": "Mock Wrapped AVAX (DEMO)",
+        "kind": "token"
+      },
+      "0xe20967c615e442991d468ed7f797edcaea1771d9": {
+        "name": "MockRouter (DEMO)",
+        "kind": "router"
+      },
+      "0xeebaac693aa19308ba859b3d668e3794310e66ae": {
+        "name": "MockOracle (DEMO)",
+        "kind": "oracle"
+      }
+    },
+    "contracts": ["0x5425890298aed601595a70AB815c96711a31Bc65"],
+    "addressBook": [],
+    "demoMode": false,
+    "oracle": {
+      "base": "0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5",
+      "baseDecimals": 18,
+      "quote": "0x5425890298aed601595a70AB815c96711a31Bc65",
+      "price": {
+        "$bigint": "25000000"
+      }
+    }
+  }
+}

@@ -212,6 +212,46 @@ Câu hỏi mở:
 
 Mock: không có. Simulator chạy trên fork của Fuji thật và dùng deployment đã seed trên Fuji.
 
+## P5 — Rule engine (xong 2026-11-07, nhánh `feat/p5-rules`)
+
+- `apps/guardian/src/rules`: 8 rule của SPEC §8, mỗi rule là hàm thuần `(sim, ctx, cfg) => Finding[]` (`checks.ts`), `aggregate()` (HIGH = 60, MEDIUM = 25, tối đa 100), `runRules()` chạy theo thứ tự `RULE_IDS`.
+- Ngưỡng ở `apps/guardian/config/rules.json`. Registry contract đã biết: `config/known-contracts.{fuji,local}.json`, sinh bằng `pnpm known-contracts` từ địa chỉ đã deploy (USDC, mWAVAX, oracle, router, vault, hai registry ERC-8004).
+- `apps/guardian/src/context.ts`: đọc `getPolicy()`, giá MockOracle và danh sách địa chỉ có code. Đây là chỗ duy nhất đầu vào của rule chạm tới chain; rule không gọi mạng (có test kiến trúc).
+- Tra explorer cho `UNKNOWN_CONTRACT`: tắt mặc định (`explorerLookup.enabled = false`), chỉ đọc `ctx.explorer` do pipeline điền; test và eval không bật.
+- Fixture: 14 `SimResult` thật chụp trên fork bằng `pnpm --filter @guardian402/guardian fixtures:rules` (`apps/guardian/test/fixtures/rules/*.json`). Hai fixture chỉnh context (ghi rõ trong file): `medium-slippage` (giá tham chiếu hạ 4,7%) và `cap-nearly-spent` (đã tiêu 19/20 USDC trong ngày).
+
+Kết quả trên fixture thật:
+
+| Fixture | Risk | Rule bắn |
+| --- | --- | --- |
+| normal-swap (S1) | LOW | — |
+| bad-slippage (S4) | HIGH | ABNORMAL_SLIPPAGE (3000 bps), không rule tĩnh nào |
+| drain-to-attacker (S2) | HIGH | POLICY_PRECHECK, DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED |
+| poisoned-approval (S3) | HIGH | POLICY_PRECHECK, UNLIMITED_APPROVAL, ADDRESS_POISONING |
+| medium-slippage | MEDIUM | ABNORMAL_SLIPPAGE (498 bps) |
+| reverting-swap | HIGH | SIMULATION_FAILED |
+| unknown-contract-call / -approval | HIGH | POLICY_PRECHECK, UNKNOWN_CONTRACT (MEDIUM / HIGH) |
+
+| ruleId | test trên fixture | dương / âm |
+| --- | --- | --- |
+| SIMULATION_FAILED | 3 (+ timeout, không lộ chuỗi revert) | 1 / 2 |
+| POLICY_PRECHECK | 11 (+ pause, thu hồi agent, hạn mức ngày) | 6 / 5 |
+| UNLIMITED_APPROVAL | 6 (+ ApprovalForAll, giải mã calldata khi mô phỏng lỗi) | 3 / 3 |
+| UNKNOWN_CONTRACT | 5 (+ MEDIUM/HIGH, EOA, cờ explorer) | 2 / 3 |
+| ADDRESS_POISONING | 4 (+ 3/3 ở DEMO) | 1 / 3 |
+| DRAIN_PATTERN | 4 (+ biên đúng 50%) | 2 / 2 |
+| ABNORMAL_SLIPPAGE | 4 (+ MEDIUM, thiếu oracle) | 2 / 2 |
+| RECIPIENT_NOT_ALLOWLISTED | 4 | 2 / 2 |
+
+```
+pnpm --filter @guardian402/guardian exec vitest run
+ Test Files  2 passed (2)
+      Tests  74 passed (74)      (rules 64, decode 10)
+pnpm typecheck, pnpm lint, pnpm format:check → sạch
+```
+
+Mock: không có (rule chỉ đọc kết quả mô phỏng và context).
+
 ## Checklist trước demo
 
 - [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault (tx [0xe864b2e2…519d](https://testnet.snowtrace.io/tx/0xe864b2e2846874faeb6391d815cf327404ab234f858854c6a2fb694dc1f1519d)). Các bước:

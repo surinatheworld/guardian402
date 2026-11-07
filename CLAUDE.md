@@ -94,6 +94,8 @@ Available now:
 - `pnpm redeploy-mocks:fuji` / `pnpm swap-router:fuji <oldRouter>` — replace mWAVAX and MockRouter (verified in the same run), then move the vault allowlist from the old router to the new one
 - `pnpm abi` — `forge build`, then regenerate `packages/shared/src/abi/*.ts` (committed)
 - `pnpm test:crosscheck` — sign a verdict in TypeScript, write `contracts/test/fixtures/verdict.json`, run `VerdictCrossCheck.t.sol`
+- `pnpm known-contracts` — regenerate `apps/guardian/config/known-contracts.{fuji,local}.json` from the deployed addresses (run after a deploy)
+- `pnpm --filter @guardian402/guardian fixtures:rules` — capture real `SimResult` fixtures for the rule tests into `apps/guardian/test/fixtures/rules/` (needs `pnpm fork`)
 - `pnpm --filter @guardian402/guardian test:fork` — simulator integration tests (`*.fork.test.ts`); needs `pnpm fork` running. Resets the fork to the latest Fuji block first and uses the seeded Fuji deployment. Each run makes many calls to the public Fuji RPC, which rate-limits (HTTP 429 / Cloudflare 1015): avoid running it in a tight loop
 
 Planned (not created yet):

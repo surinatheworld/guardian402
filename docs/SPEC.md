@@ -493,11 +493,11 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 
 ## 14. Definition of done (MVP)
 
-- [ ] `forge test` green, including fuzz and invariant tests; AgentVault coverage ≥ 95%.
-- [ ] `pnpm test:crosscheck` green (TypeScript-signed verdict accepted by Solidity; every mutation rejected).
-- [ ] Contracts deployed and verified on Fuji; addresses committed in `packages/shared`.
+- [x] `forge test` green, including fuzz and invariant tests; AgentVault coverage ≥ 95%.
+- [x] `pnpm test:crosscheck` green (TypeScript-signed verdict accepted by Solidity; every mutation rejected).
+- [x] Contracts deployed and verified on Fuji; addresses committed in `packages/shared`.
 - [ ] `/v1/check` and `/v1/cosign` behind x402 on Fuji; at least one real settlement visible on Snowtrace; a test proves a 400 response is not charged.
-- [ ] All 8 rules implemented with unit tests.
+- [x] All 8 rules implemented with unit tests.
 - [ ] Explainer with LLM and template fallback; the architecture test passes.
 - [ ] Scenarios S1–S6 run on the local fork and S1, S2, S4 on Fuji, with links; S4 ends in `RiskTooHigh`.
 - [ ] Dashboard pages working against Fuji, with the DEMO MODE banner.
@@ -551,3 +551,9 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
     - Fork health: the lag check (fork block timestamp vs latest Fuji block, > 120 s) and the 5-minute reset run on a background timer (`Simulator.start()`, every 15 s, under the mutex), not inside a request. Per request only local checks run: the vault must have code (else reset once), and one local block is kept above the fork block. The first check of a process always resets the fork, in case a previous process died mid-simulation and left its snapshot unreverted.
     - Anvil drops upstream state fetched inside a snapshot when it is reverted. The Simulator traces each simulated transaction with `prestateTracer` and reads the same accounts and slots again outside the snapshot, after the result is returned (cache only; results do not depend on it).
     - The 800 ms timeout includes the time waiting for the mutex. A timed-out run keeps the mutex until its snapshot is reverted.
+  - §8 Rule engine (P5):
+    - `POLICY_PRECHECK` also flags a paused vault and a revoked agent (zero `agent`), both of which make `executeBatch` revert.
+    - `UNKNOWN_CONTRACT` only considers addresses that have code (read into `Context.contracts` before the rules run); an EOA such as a lookalike address is left to `ADDRESS_POISONING`.
+    - `DRAIN_PATTERN` for native AVAX compares with `getPolicy().nativeBalance`, because the simulator tops the vault up with a gas buffer inside the snapshot.
+    - `UNLIMITED_APPROVAL` and `RECIPIENT_NOT_ALLOWLISTED` read `approve`/`transfer` calldata as well when the simulation failed (no logs).
+    - Finding evidence never contains revert strings or other untrusted text.

@@ -1,0 +1,30 @@
+{
+  "0x32cb61054e31678e6afa6731b0dc70d330a1ab99": {
+    "name": "AgentVault",
+    "kind": "vault"
+  },
+  "0x5425890298aed601595a70ab815c96711a31bc65": {
+    "name": "USD Coin",
+    "kind": "token"
+  },
+  "0x8004a818bfb912233c491871b3d84c89a494bd9e": {
+    "name": "ERC-8004 IdentityRegistry",
+    "kind": "registry"
+  },
+  "0x8004b663056a597dffe9eccc1965a193b7388713": {
+    "name": "ERC-8004 ReputationRegistry",
+    "kind": "registry"
+  },
+  "0xc2439b70b85cf5fbd5a7da935567e476bfc97ba5": {
+    "name": "Mock Wrapped AVAX (DEMO)",
+    "kind": "token"
+  },
+  "0xe20967c615e442991d468ed7f797edcaea1771d9": {
+    "name": "MockRouter (DEMO)",
+    "kind": "router"
+  },
+  "0xeebaac693aa19308ba859b3d668e3794310e66ae": {
+    "name": "MockOracle (DEMO)",
+    "kind": "oracle"
+  }
+}
