@@ -15,6 +15,6 @@
       "args": ["{usdc}", "{mWAVAX}", "5000000", "0", "0", "{attacker}"]
     }
   ],
-  "expectedRules": [],
-  "note": "Không luật nào xét tham số `to` của swapExactIn. USDC chỉ đi tới router (được phép), còn mWAVAX nhận được đi thẳng tới kẻ tấn công, nên Guardian không thấy dòng tiền nào rời vault tới địa chỉ lạ. AgentVault cũng không đọc tham số này. Hướng sửa: một luật yêu cầu người nhận đầu ra của swap qua router đã biết phải là vault hoặc địa chỉ trong danh sách cho phép (để sau MVP, ghi trong danh sách việc còn lại)."
+  "expectedRules": ["RECIPIENT_NOT_ALLOWLISTED"],
+  "note": "Lần chạy đầu bỏ sót case này: không luật nào xét tham số `to` của swapExactIn, và AgentVault cũng không. Đã sửa trong đợt soát bảo mật P11 (phát hiện F1): RECIPIENT_NOT_ALLOWLISTED gắn cờ swap qua router đã biết có đầu ra không về vault hoặc địa chỉ được phép, và AgentVault thu hồi quyền chưa dùng hết ở cuối mỗi batch."
 }
