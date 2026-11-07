@@ -30,7 +30,8 @@
     "facilitator": "pnpm --filter @guardian402/guardian facilitator",
     "agent": "pnpm --filter @guardian402/agent agent",
     "dev:agent": "pnpm --filter @guardian402/agent dev",
-    "mine-lookalike": "bash scripts/mine-lookalike.sh"
+    "mine-lookalike": "bash scripts/mine-lookalike.sh",
+    "dev:dashboard": "pnpm --filter @guardian402/dashboard dev"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

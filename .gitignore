@@ -28,3 +28,6 @@ Thumbs.db
 
 # Foundry deploy output; the committed copy lives in packages/shared/src/addresses
 contracts/deployments
+
+# Next.js generated types
+next-env.d.ts

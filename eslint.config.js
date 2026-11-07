@@ -22,5 +22,9 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ["apps/dashboard/**/*.{ts,tsx}"],
+    languageOptions: { globals: { ...globals.browser } },
+  },
   prettier,
 );
