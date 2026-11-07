@@ -338,7 +338,9 @@ export const abnormalSlippage: Rule = (sim, ctx, cfg) => {
       expected = (amountIn * o.price) / unit;
     else continue;
     if (expected === 0n) continue;
+    // Only this call's output: two swaps through the same router to the same recipient must not add up.
     const realized = sim.transfers
+      .filter((t) => t.callIndex === undefined || t.callIndex === index)
       .filter((t) => lc(t.token) === lc(tokenOut) && lc(t.from) === lc(call.target) && lc(t.to) === lc(to))
       .reduce((s, t) => s + t.amount, 0n);
     if (!sim.success && realized === 0n) continue; // SIMULATION_FAILED covers it

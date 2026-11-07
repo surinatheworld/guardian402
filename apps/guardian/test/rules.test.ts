@@ -106,6 +106,32 @@ describe("rule details", () => {
     expect(Number(finding?.evidence.slippageBps)).toBeLessThan(1000);
   });
 
+  it("ABNORMAL_SLIPPAGE judges each swap on its own output (found by eval case m20)", () => {
+    const bad = fx("bad-slippage");
+    const normal = fx("normal-swap");
+    const router = must(bad.sim.calls[1]).target.toLowerCase();
+    const outputOf = (f: RuleFixture) => f.sim.transfers.filter((t) => t.from.toLowerCase() === router);
+    // One batch: approve, a normal swap (pool 0), then the manipulated swap (pool 1), same router and recipient.
+    const mixed = (tag: boolean): RuleFixture => ({
+      ...bad,
+      sim: {
+        ...bad.sim,
+        calls: [must(bad.sim.calls[0]), must(normal.sim.calls[1]), must(bad.sim.calls[1])],
+        transfers: [
+          ...outputOf(normal).map((t) => (tag ? { ...t, callIndex: 1 } : t)),
+          ...outputOf(bad).map((t) => (tag ? { ...t, callIndex: 2 } : t)),
+        ],
+      },
+    });
+    const [finding] = fire("ABNORMAL_SLIPPAGE", mixed(true));
+    expect(finding).toMatchObject({
+      severity: "HIGH",
+      evidence: { callIndex: 2, poolId: 1, slippageBps: 3000 },
+    });
+    // Without call indexes (old fixtures) both outputs add up and hide the bad swap: the bug the eval found.
+    expect(fire("ABNORMAL_SLIPPAGE", mixed(false))).toEqual([]);
+  });
+
   it("ABNORMAL_SLIPPAGE needs the oracle reference", () => {
     const f = fx("bad-slippage");
     const { oracle: _drop, ...ctx } = f.ctx;

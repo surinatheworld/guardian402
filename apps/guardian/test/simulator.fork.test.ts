@@ -77,8 +77,8 @@ describe("Simulator on the fork", () => {
     ]);
     expect(r.transfers).toEqual(
       expect.arrayContaining([
-        { token: a.usdc, from: a.vault, to: a.router, amount: 2_000_000n },
-        { token: a.mWAVAX, from: a.router, to: a.vault, amount: expectedOut },
+        { token: a.usdc, from: a.vault, to: a.router, amount: 2_000_000n, callIndex: 1 },
+        { token: a.mWAVAX, from: a.router, to: a.vault, amount: expectedOut, callIndex: 1 },
       ]),
     );
     expect(r.nativeDelta).toBe(0n);
@@ -88,7 +88,9 @@ describe("Simulator on the fork", () => {
   it("transfer to an attacker: transfer decoded, delta exact", async () => {
     const r = await sim.simulate(a.vault, [transfer(ATTACKER, 5_000_000n)], [a.usdc]);
     expect(r.success).toBe(true);
-    expect(r.transfers).toEqual([{ token: a.usdc, from: a.vault, to: ATTACKER, amount: 5_000_000n }]);
+    expect(r.transfers).toEqual([
+      { token: a.usdc, from: a.vault, to: ATTACKER, amount: 5_000_000n, callIndex: 0 },
+    ]);
     expect(r.tokenDeltas.find((d) => d.token === a.usdc)?.delta).toBe(-5_000_000n);
     expect(await usdcOf(ATTACKER)).toBe(0n);
   });
