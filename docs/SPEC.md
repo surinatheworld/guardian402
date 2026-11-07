@@ -499,7 +499,7 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 - [x] `/v1/check` and `/v1/cosign` behind x402 on Fuji; at least one real settlement visible on Snowtrace; a test proves a 400 response is not charged.
 - [x] All 8 rules implemented with unit tests.
 - [x] Explainer with LLM and template fallback; the architecture test passes.
-- [ ] Scenarios S1–S6 run on the local fork and S1, S2, S4 on Fuji, with links; S4 ends in `RiskTooHigh`.
+- [x] Scenarios S1–S6 run on the local fork and S1, S2, S4 on Fuji, with links; S4 ends in `RiskTooHigh`.
 - [ ] Dashboard pages working against Fuji, with the DEMO MODE banner.
 - [ ] Eval: ≥ 40 cases, report generated and reproducible.
 - [ ] README (fresh clone to running demo in ≤ 15 minutes), `docs/THREAT_MODEL.md`, `docs/DEMO_RUNBOOK.md`, complete `.env.example` files.
@@ -567,3 +567,10 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
     - The API listens on 127.0.0.1:4402 (`GUARDIAN_PORT`); the self-hosted facilitator on 127.0.0.1:4022.
     - After every fork reset the Guardian simulates one S1 batch to warm the fork cache; without it the first check after a reset hit the 800 ms budget and came back HIGH (`SIMULATION_FAILED`).
     - 2026-11-07: the public facilitator returned `502 upstream_rpc_unavailable` for Fuji settlements; the Fuji settlement was made through the self-hosted facilitator (FACILITATOR_PK `0x9e85…F911`, funded with 0.05 AVAX). No funds moved on the failed attempts.
+  - §10 Demo agent (P8):
+    - The verdict deadline is `max(latest block timestamp, Guardian clock) + 60 s`. The vault compares it with `block.timestamp`; a fork's clock can lag the wall clock (and an idle fork's latest block can be minutes old), so neither source alone was safe.
+    - S5's expired-verdict step waits for chain time to pass the deadline (on the fork one block is mined per poll). The fork clock is never moved forward: a fork clock ahead of the wall clock makes the x402 payment authorizations the agent signs afterwards fail `validBefore`.
+    - Batches the vault will reject are still sent (gas limit 600k) so the revert is on the explorer; the revert reason is read first with `eth_call`.
+    - S3's lookalike matches 3+3 hex characters of the MockRouter (DEMO; the rule runs 3/3 in DEMO mode, 4/4 otherwise). The S3 vault revert is `RecipientNotAllowed(lookalike)`.
+    - The Guardian also reports `POLICY_PRECHECK` for S2, S3 and S6 (the vault policy would reject them); the §10 table lists the minimum expected rules.
+    - On Fuji the fork used for simulation can trail Fuji by up to one reset interval, so a balance shown in an explanation can differ from Fuji by the last few transactions (S2 on Fuji showed 96% instead of 100%).

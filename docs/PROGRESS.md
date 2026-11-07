@@ -313,6 +313,41 @@ Fuji thật:
 
 Mock: facilitator tự chạy (DEMO), dùng khi facilitator công khai không chạy được.
 
+## P8 — Agent demo và kịch bản S1–S6 (xong 2026-11-07, nhánh `feat/p8-agent`)
+
+- `apps/agent/src`: `planner.ts` (DCA an toàn theo luật cố định; planner "bị chèn lệnh" DEMO đọc `fixtures/feed.json`, không dùng LLM), `guardian.ts` (gọi `/v1/check` và `/v1/cosign` qua `@x402/fetch`, trần 0,02 USDC mỗi lần), `vault.ts` (gửi `executeBatch`; batch sẽ bị từ chối vẫn được gửi để thấy revert trên explorer, lý do revert đọc trước bằng `eth_call`), `scenarios.ts` (S1–S6, so với bảng §10, ghi `apps/agent/data/attempts.jsonl`), `cli.ts`, `server.ts` (control API 127.0.0.1:4403, chỉ khi `DEMO_MODE=true`).
+- `scripts/mine-lookalike.sh`: đào địa chỉ nhái MockRouter bằng `cast wallet vanity`, 3+3 ký tự (DEMO). Kết quả `0xE20b…d1d9` trong `apps/agent/fixtures/lookalike.json`, khoá bị bỏ, không bao giờ nạp tiền.
+- Sửa Guardian: hạn verdict = max(thời gian block mới nhất, đồng hồ máy) + 60 s. Trước đó S1 trên fork bị `VerdictExpired` vì đồng hồ fork lệch với đồng hồ máy.
+
+Lệnh: `pnpm agent scenario <S1..S6|all>`, `pnpm dev:agent`, `pnpm mine-lookalike`.
+
+Test:
+
+```
+pnpm --filter @guardian402/agent test                → Tests 6 passed (planner, bảng mong đợi)
+pnpm --filter @guardian402/guardian exec vitest run  → Tests 94 passed
+pnpm typecheck                                       → xong, không lỗi
+```
+
+Fork (`NETWORK=local DEMO_MODE=true pnpm agent scenario all`, Guardian + facilitator tự chạy trỏ vào fork): cả 6 kịch bản khớp bảng §10.
+
+| Kịch bản | Guardian | Vault |
+| --- | --- | --- |
+| S1 | THẤP 0/100 | thực hiện |
+| S2 | CAO 100/100 · POLICY_PRECHECK, DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED | `RecipientNotAllowed` |
+| S3 | CAO 100/100 · POLICY_PRECHECK, UNLIMITED_APPROVAL, ADDRESS_POISONING | `RecipientNotAllowed` |
+| S4 | CAO 60/100 · ABNORMAL_SLIPPAGE | `RiskTooHigh` |
+| S5 | THẤP (verdict của S1) | `InvalidVerdict`, rồi `VerdictExpired` |
+| S6 | CAO 60/100 · POLICY_PRECHECK | `Paused` |
+
+Fuji thật (Guardian `NETWORK=fuji`, facilitator tự chạy trên Fuji):
+
+- S1: phí x402 [0x6f89455b…6379](https://testnet.snowtrace.io/tx/0x6f89455b0bab097d256085877d7be649276b07356830aa692c0ef03d507b6379), vault thực hiện [0x44910d57…cdd0](https://testnet.snowtrace.io/tx/0x44910d57e3e684c35e7bad39b20f613ec433cb31775e8a52ddfa0bbfca09cdd0).
+- S2: phí [0x0b3b9bbe…c90a](https://testnet.snowtrace.io/tx/0x0b3b9bbed9b85bd2fc679825fed1e050b442750e7e9531373037823f6b7fc90a), vault từ chối `RecipientNotAllowed` [0x4f5f7efa…315b](https://testnet.snowtrace.io/tx/0x4f5f7efa2ed37f093af3521895c7019abff4b90c23dc9b7e810e19dbde98315b).
+- S4: phí [0x4ddbb816…b906](https://testnet.snowtrace.io/tx/0x4ddbb816b786a6b02a7d024ffcb66e13571ceb00197ab7b3e9345c056efdb906), vault từ chối `RiskTooHigh` [0x05c4d7ba…fcb7](https://testnet.snowtrace.io/tx/0x05c4d7baab719f31c036aacf112c550480cba96aa14214b170c8b7613997fcb7).
+
+Mock (DEMO): planner bị chèn lệnh (kịch bản cố định), bản tin `feed.json`, địa chỉ nhái 3+3 ký tự, facilitator tự chạy.
+
 ## Checklist trước demo
 
 - [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault (tx [0xe864b2e2…519d](https://testnet.snowtrace.io/tx/0xe864b2e2846874faeb6391d815cf327404ab234f858854c6a2fb694dc1f1519d)). Các bước:
