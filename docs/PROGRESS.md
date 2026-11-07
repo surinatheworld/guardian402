@@ -282,6 +282,37 @@ pnpm --filter @guardian402/guardian exec vitest run
 Chưa thử với LLM thật: `.env.local` chưa có `LLM_API_KEY` (đang `LLM_PROVIDER=none`). Các nhánh lỗi của `LlmExplainer` đã test bằng LLM giả.
 Mock: không có.
 
+## P7 — Guardian API có thu phí x402 (xong 2026-11-07, nhánh `feat/p7-api`)
+
+- `apps/guardian/src`: `pipeline.ts` (zod → policy, cache 10 s, nonce đọc mới mỗi lần → mô phỏng 800 ms → rule → giải thích → ký verdict khi cosign → lưu → trả lời), `app.ts` (Express 5, các endpoint §6.1), `x402.ts` (`paymentMiddleware` + `x402ResourceServer` + `HTTPFacilitatorClient` + `ExactEvmScheme` của `@x402/*` 2.28.0, giá Fuji USDC dạng AssetAmount), `sign/` (khoá `GUARDIAN_SIGNER_PK`, luôn ký mức rủi ro thật, hạn 60 s), `store.ts` (SQLite có migration, không lưu IP), `facilitator.ts` (facilitator tự chạy theo mẫu của starter), `server.ts`.
+- Mỗi khoản thanh toán được lưu kèm `checkId`, lấy từ body phản hồi trong hook `onAfterSettle`.
+- `/v1/demo/check` chỉ có khi `DEMO_MODE=true`, giới hạn 30 lần/phút. CORS chỉ cho `DASHBOARD_ORIGIN`.
+- Sau mỗi lần reset fork (5 phút một lần), Guardian chạy thử một batch S1 để nạp sẵn dữ liệu. Không có bước này, lần check đầu sau reset bị quá 800 ms và ra HIGH (`SIMULATION_FAILED`).
+
+Lệnh: `pnpm dev:guardian`, `pnpm facilitator`, `pnpm --filter @guardian402/guardian pay-check [check|cosign]`.
+
+Test:
+
+```
+pnpm --filter @guardian402/guardian exec vitest run          → Tests 94 passed (api 7, explain 13, rules 64, decode 10)
+pnpm --filter @guardian402/guardian test:fork (api.fork.test.ts, facilitator tự chạy trỏ vào fork)
+  ✓ /v1/check: 402 khi chưa trả, 200 sau khi trả 0,005 USDC cho PAY_TO; có dòng payment kèm checkId
+  ✓ body sai → 400, không có USDC nào bị chuyển (không tính phí)
+  ✓ /v1/cosign S1 (LOW): executeBatch với verdict chạy thành công trên fork
+  ✓ /v1/cosign S4 (HIGH, trượt giá): vault revert RiskTooHigh
+  [latency] /v1/check có trả phí (402 + ký + verify + pipeline + settle), 20 lần: p50 828 ms, p95 1284 ms
+  [latency] riêng pipeline (latencyMs), cùng 20 lần: p50 307 ms, p95 362 ms
+  Tests 5 passed (5)
+```
+
+Fuji thật:
+
+- Facilitator công khai `facilitator.ultravioletadao.xyz` lỗi lúc thử (3 lần trả `502 upstream_rpc_unavailable`). Không có giao dịch nào lên chain, agent không mất tiền.
+- Chuyển sang facilitator tự chạy trên Fuji. Ví trả gas mới `0x9e857D50D16405D150F3fcE1d22f3FC43821F911` (khoá `FACILITATOR_PK` trong `.env.local`), nạp 0,05 AVAX từ ví deploy: [0xc4deb438…687e](https://testnet.snowtrace.io/tx/0xc4deb4389cbdfc965f258bb4c7a2cde82cf666de01b4230aed0bd09a47b4687e).
+- Một `/v1/check` có trả phí từ ví agent, kết quả LOW, settlement: [0xaba2f279…cb7d](https://testnet.snowtrace.io/tx/0xaba2f279d559eea89db94801abef1359e2abb6400fd5071c252325e9d448cb7d). Trước khi có bước nạp sẵn dữ liệu, một lần trả phí khác cũng settle ([0xbabac703…8dd9](https://testnet.snowtrace.io/tx/0xbabac70371951b8b17ed41add8da1e508b577e1fc0110e781261aef403b68dd9)) nhưng mô phỏng quá giờ.
+
+Mock: facilitator tự chạy (DEMO), dùng khi facilitator công khai không chạy được.
+
 ## Checklist trước demo
 
 - [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault (tx [0xe864b2e2…519d](https://testnet.snowtrace.io/tx/0xe864b2e2846874faeb6391d815cf327404ab234f858854c6a2fb694dc1f1519d)). Các bước:

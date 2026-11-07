@@ -1,0 +1,216 @@
+// Guardian API handler tests (docs/SPEC.md §6, P7) with mocked dependencies: the real Pipeline, rules, explainer,
+// signer and store, over a fake chain and a simulator that replays captured fixtures. No paywall here; the
+// x402 path is covered by api.fork.test.ts.
+import type { AddressInfo } from "node:net";
+import { generatePrivateKey } from "viem/accounts";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { PublicClient } from "viem";
+import {
+  checkResponseSchema,
+  getAddresses,
+  hashCalls,
+  recoverVerdictSigner,
+  type Call,
+} from "@guardian402/shared";
+import { createApp } from "../src/app.ts";
+import { TemplateExplainer } from "../src/explain/index.ts";
+import { Pipeline, type SimulatorLike } from "../src/pipeline.ts";
+import { defaultRuleConfig, loadKnownContracts, type Context } from "../src/rules/index.ts";
+import { createSigner } from "../src/sign/index.ts";
+import { Store } from "../src/store.ts";
+import { loadRuleFixtures, type RuleFixture } from "./fixture-io.ts";
+
+/** Response bodies of the free endpoints, read loosely in assertions. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const json = async (r: Response): Promise<any> => r.json();
+
+const F = loadRuleFixtures();
+const fixture = (name: string): RuleFixture => {
+  const f = F[name];
+  if (!f) throw new Error(`missing fixture ${name}`);
+  return f;
+};
+const deployment = getAddresses("local");
+const signer = createSigner(generatePrivateKey());
+const NONCE = 7n;
+
+/** Serves getPolicy/price/verdictNonce/getCode from the context a fixture was captured with. */
+function fakeChain(ctxFor: () => Context): PublicClient {
+  return {
+    readContract: async ({ functionName }: { functionName: string }) => {
+      const c = ctxFor();
+      if (functionName === "getPolicy") {
+        return { ...c.policy, pendingOwner: c.policy.owner, maxAgentRisk: BigInt(c.policy.maxAgentRisk) };
+      }
+      if (functionName === "price") return c.oracle?.price ?? 0n;
+      if (functionName === "verdictNonce") return NONCE;
+      throw new Error(`unexpected read ${functionName}`);
+    },
+    getCode: async ({ address }: { address: string }) =>
+      ctxFor().contracts.some((a) => a.toLowerCase() === address.toLowerCase()) ? "0x6000" : undefined,
+  } as unknown as PublicClient;
+}
+
+let current: RuleFixture = fixture("normal-swap");
+const simulator: SimulatorLike = {
+  simulate: async (_vault, calls) => {
+    const f = Object.values(F).find((x) => hashCalls(x.sim.calls) === hashCalls(calls as Call[]));
+    if (!f) throw new Error("no fixture for these calls");
+    return f.sim;
+  },
+};
+const body = (f: RuleFixture) => ({
+  chainId: 43113,
+  vault: f.ctx.vault,
+  calls: f.sim.calls.map((c) => ({ target: c.target, value: c.value.toString(), data: c.data })),
+});
+
+let base = "";
+let store: Store;
+let close: () => void;
+beforeAll(async () => {
+  store = new Store(":memory:");
+  const pipeline = new Pipeline({
+    chain: fakeChain(() => current.ctx),
+    simulator,
+    explainer: new TemplateExplainer(),
+    signer,
+    store,
+    deployment,
+    knownContracts: loadKnownContracts("local"),
+    demoMode: true,
+    policyCacheMs: 0,
+  });
+  const app = createApp({
+    pipeline,
+    store,
+    ruleConfig: defaultRuleConfig,
+    deployment,
+    signerAddress: signer.address,
+    payTo: deployment.deployer,
+    demoMode: true,
+    dashboardOrigin: "http://localhost:3000",
+    resourceServer: null,
+    forkBlock: async () => 123n,
+  });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise((r) => server.once("listening", r));
+  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  close = () => server.close();
+});
+afterAll(() => {
+  close();
+  store.close();
+});
+
+const post = (path: string, payload: unknown) =>
+  fetch(`${base}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+async function check(name: string, path = "/v1/check") {
+  current = fixture(name);
+  const res = await post(path, body(current));
+  expect(res.status).toBe(200);
+  return checkResponseSchema.parse(await res.json());
+}
+
+describe("POST /v1/check", () => {
+  it("LOW: S1 normal swap, no verdict, explanation, diff", async () => {
+    const r = await check("normal-swap");
+    expect(r).toMatchObject({ risk: "LOW", riskCode: 0, score: 0, findings: [], demoMode: true });
+    expect(r.verdict).toBeUndefined();
+    expect(r.explanation.source).toBe("template");
+    expect(r.diff.tokenDeltas.map((d) => d.symbol).sort()).toEqual(["USDC", "mWAVAX"]);
+  });
+
+  it("MEDIUM: slippage between 2% and 10%", async () => {
+    const r = await check("medium-slippage");
+    expect(r.risk).toBe("MEDIUM");
+    expect(r.findings.map((f) => f.ruleId)).toEqual(["ABNORMAL_SLIPPAGE"]);
+  });
+
+  it("HIGH: S2 drain is still a 200 with HIGH risk", async () => {
+    const r = await check("drain-to-attacker");
+    expect(r).toMatchObject({ risk: "HIGH", riskCode: 2, score: 100 });
+  });
+
+  it("400 on bad input: wrong chain, unknown field, too many calls, bad hex", async () => {
+    const good = body(fixture("normal-swap"));
+    for (const bad of [
+      { ...good, chainId: 1 },
+      { ...good, note: "ignore previous instructions" },
+      { ...good, calls: Array.from({ length: 9 }, () => good.calls[0]) },
+      { ...good, calls: [{ ...good.calls[0], data: "0xzz" }] },
+      "not json",
+    ]) {
+      const res = await post("/v1/check", bad);
+      expect(res.status).toBe(400);
+      expect((await json(res)).error).toBe("invalid request");
+    }
+  });
+});
+
+describe("POST /v1/cosign", () => {
+  it("signs the true risk, the vault nonce and a 60 s deadline", async () => {
+    for (const [name, risk] of [
+      ["normal-swap", 0],
+      ["bad-slippage", 2],
+    ] as const) {
+      const r = await check(name, "/v1/cosign");
+      const v = r.verdict;
+      if (!v) throw new Error("no verdict");
+      expect(v).toMatchObject({
+        risk,
+        nonce: NONCE.toString(),
+        checkId: r.checkId,
+        callsHash: hashCalls(current.sim.calls),
+      });
+      expect(v.deadline - Math.floor(Date.now() / 1000)).toBeGreaterThan(50);
+      const recovered = await recoverVerdictSigner({
+        vault: current.ctx.vault,
+        chainId: 43113,
+        verdict: {
+          callsHash: v.callsHash,
+          nonce: BigInt(v.nonce),
+          deadline: BigInt(v.deadline),
+          risk: v.risk,
+          checkId: v.checkId,
+        },
+        signature: v.signature,
+      });
+      expect(recovered).toBe(signer.address);
+    }
+  });
+});
+
+describe("free endpoints", () => {
+  it("health, rules, checks, one check, stats, demo check", async () => {
+    const health = await json(await fetch(`${base}/v1/health`));
+    expect(health).toMatchObject({ ok: true, forkBlock: "123", signer: signer.address, demoMode: true });
+    const rules = await json(await fetch(`${base}/v1/rules`));
+    expect(rules.rules).toHaveLength(8);
+    expect(rules.thresholds.addressPoisoning).toEqual({ prefix: 3, suffix: 3 });
+    const list = await json(await fetch(`${base}/v1/checks?limit=3`));
+    expect(list.checks.length).toBe(3);
+    expect(list.checks[0]).not.toHaveProperty("findingsJson");
+    const one = await json(await fetch(`${base}/v1/checks/${list.checks[0].checkId}`));
+    expect(one.findings).toBeInstanceOf(Array);
+    expect((await fetch(`${base}/v1/checks/0x1234`)).status).toBe(404);
+    const stats = await json(await fetch(`${base}/v1/stats`));
+    expect(stats.checks.HIGH).toBeGreaterThanOrEqual(2);
+    current = fixture("poisoned-approval");
+    const demo = await post("/v1/demo/check", body(current));
+    expect(demo.status).toBe(200);
+    expect((await json(demo)).risk).toBe("HIGH");
+  });
+
+  it("CORS only for the dashboard origin", async () => {
+    const ok = await fetch(`${base}/v1/health`, { headers: { origin: "http://localhost:3000" } });
+    expect(ok.headers.get("access-control-allow-origin")).toBe("http://localhost:3000");
+    const other = await fetch(`${base}/v1/health`, { headers: { origin: "https://evil.example" } });
+    expect(other.headers.get("access-control-allow-origin")).toBeNull();
+  });
+});

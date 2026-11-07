@@ -1,0 +1,166 @@
+// The check pipeline (docs/SPEC.md §6.3): validate → vault context → simulate → rules → explain →
+// (cosign only) sign → store → respond. Used by /v1/check, /v1/cosign, /v1/demo/check and the eval runner.
+import { randomBytes } from "node:crypto";
+import { encodePacked, keccak256, toHex, type Address, type PublicClient } from "viem";
+import {
+  agentVaultAbi,
+  checkRequestSchema,
+  FUJI_CHAIN_ID,
+  hashCalls,
+  type Call,
+  type CheckRequest,
+  type CheckResponse,
+  type Deployment,
+} from "@guardian402/shared";
+import { buildContext, readOracle, readPolicy, withCode } from "./context.ts";
+import { toDiff } from "./diff.ts";
+import { explainInput } from "./explain-input.ts";
+import type { Explainer } from "./explain/types.ts";
+import { aggregate, defaultRuleConfig, runRules } from "./rules/index.ts";
+import type { KnownContract, OracleReference, PolicySnapshot, RuleConfig } from "./rules/types.ts";
+import type { VerdictSigner } from "./sign/index.ts";
+import type { SimResult } from "./sim/types.ts";
+import type { Store } from "./store.ts";
+
+export type Endpoint = "check" | "cosign" | "demo";
+
+/** The simulator as the pipeline sees it (the real one, or a stub in unit tests). */
+export type SimulatorLike = {
+  simulate(vault: Address, calls: readonly Call[], trackedTokens?: readonly Address[]): Promise<SimResult>;
+};
+
+export type PipelineDeps = {
+  chain: PublicClient;
+  simulator: SimulatorLike;
+  explainer: Explainer;
+  signer: VerdictSigner;
+  store?: Store;
+  deployment: Deployment;
+  knownContracts: Record<string, KnownContract>;
+  ruleConfig?: RuleConfig;
+  demoMode: boolean;
+  /** Policy and oracle cache; the vault nonce is never cached (SPEC §6.3 step 2). */
+  policyCacheMs?: number;
+  now?: () => number;
+};
+
+export class InputError extends Error {
+  constructor(readonly details: unknown) {
+    super("invalid request");
+  }
+}
+
+type Cached<T> = { at: number; value: T };
+
+export class Pipeline {
+  readonly #d: PipelineDeps & { ruleConfig: RuleConfig; policyCacheMs: number; now: () => number };
+  readonly #policy = new Map<string, Cached<PolicySnapshot>>();
+  #oracle: Cached<OracleReference> | undefined;
+
+  constructor(deps: PipelineDeps) {
+    this.#d = { ruleConfig: defaultRuleConfig, policyCacheMs: 10_000, now: Date.now, ...deps };
+  }
+
+  /** Throws InputError on a body that does not match CheckRequest (→ 400, the payment is not settled). */
+  parse(body: unknown): CheckRequest {
+    const parsed = checkRequestSchema.safeParse(body);
+    if (!parsed.success) throw new InputError(parsed.error.flatten());
+    return parsed.data;
+  }
+
+  async run(req: CheckRequest, endpoint: Endpoint): Promise<CheckResponse> {
+    const d = this.#d;
+    const started = performance.now();
+    const calls: Call[] = req.calls.map((c) => ({ target: c.target, value: BigInt(c.value), data: c.data }));
+    const callsHash = hashCalls(calls);
+    const checkId = keccak256(
+      encodePacked(
+        ["bytes32", "address", "uint256", "bytes16"],
+        [callsHash, req.vault, BigInt(d.now()), toHex(randomBytes(16))],
+      ),
+    );
+
+    // 2. Vault context. A vault this Guardian does not know still gets checked against its own policy.
+    const [policy, oracle] = await Promise.all([this.#readPolicy(req.vault), this.#readOracle()]);
+    // 3. Simulate (800 ms budget inside the simulator; a timeout becomes SIMULATION_FAILED).
+    const sim = await d.simulator.simulate(
+      req.vault,
+      calls,
+      policy.tokens.map((t) => t.token),
+    );
+    const touched = [
+      ...calls.map((c) => c.target),
+      ...sim.approvals.map((a) => a.spender),
+      ...sim.transfers.map((t) => t.to),
+    ];
+    const ctx = buildContext({
+      vault: req.vault,
+      policy,
+      knownContracts: d.knownContracts,
+      contracts: await withCode(d.chain, touched),
+      oracle,
+      addressBook: d.store?.paidRecipients(req.vault) ?? [],
+      demoMode: d.demoMode,
+    });
+    // 4. Rules (pure).
+    const findings = runRules(sim, ctx, d.ruleConfig);
+    const { risk, riskCode, score } = aggregate(findings, d.ruleConfig);
+    // 5. Explain (1.5 s budget inside the explainer; falls back to templates).
+    const explanation = await d.explainer.explain(explainInput(sim, findings, risk, ctx));
+    // 6. Cosign: always the true risk, nonce read now (never cached).
+    let verdict: CheckResponse["verdict"];
+    if (endpoint === "cosign") {
+      const nonce = await d.chain.readContract({
+        address: req.vault,
+        abi: agentVaultAbi,
+        functionName: "verdictNonce",
+      });
+      verdict = await d.signer.sign({
+        vault: req.vault,
+        chainId: FUJI_CHAIN_ID,
+        callsHash,
+        nonce,
+        risk,
+        checkId,
+        now: d.now(),
+      });
+    }
+    const res: CheckResponse = {
+      checkId,
+      risk,
+      riskCode,
+      score,
+      findings,
+      simulation: {
+        success: sim.success,
+        ...(sim.revertReason ? { revertReason: sim.revertReason } : {}),
+        gasUsed: sim.gasUsed.toString(),
+        forkBlock: sim.forkBlock.toString(),
+      },
+      diff: toDiff(sim),
+      explanation,
+      ...(verdict ? { verdict } : {}),
+      latencyMs: Math.round(performance.now() - started),
+      demoMode: d.demoMode,
+    };
+    // 7. Store.
+    d.store?.insertCheck(endpoint, req.vault, callsHash, res, d.now());
+    return res;
+  }
+
+  async #readPolicy(vault: Address): Promise<PolicySnapshot> {
+    const key = vault.toLowerCase();
+    const hit = this.#policy.get(key);
+    if (hit && this.#d.now() - hit.at < this.#d.policyCacheMs) return hit.value;
+    const value = await readPolicy(this.#d.chain, vault);
+    this.#policy.set(key, { at: this.#d.now(), value });
+    return value;
+  }
+
+  async #readOracle(): Promise<OracleReference> {
+    if (this.#oracle && this.#d.now() - this.#oracle.at < this.#d.policyCacheMs) return this.#oracle.value;
+    const value = await readOracle(this.#d.chain, this.#d.deployment);
+    this.#oracle = { at: this.#d.now(), value };
+    return value;
+  }
+}
