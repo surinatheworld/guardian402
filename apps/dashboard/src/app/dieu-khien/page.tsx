@@ -306,7 +306,12 @@ function Scenarios() {
   const agent = useAgentHealth();
   const [results, setResults] = useState<Attempt[]>([]);
   const run = useMutation({
-    mutationFn: (id: string) => getJson<Attempt>(`${AGENT_URL}/scenario/${id}`, { method: "POST" }),
+    // The header forces a CORS preflight that only the dashboard origin passes (apps/agent/src/control.ts).
+    mutationFn: (id: string) =>
+      getJson<Attempt>(`${AGENT_URL}/scenario/${id}`, {
+        method: "POST",
+        headers: { "x-guardian402-demo": "1" },
+      }),
     onSuccess: (a) => setResults((r) => [a, ...r].slice(0, 6)),
   });
 
