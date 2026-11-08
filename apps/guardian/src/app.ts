@@ -20,6 +20,16 @@ export type AppDeps = {
   payTo: Address;
   demoMode: boolean;
   dashboardOrigin: string;
+  /**
+   * P13 (docs/THREAT_MODEL.md, F6): true while too many checks wait for the fork. New checks then get 503
+   * before any payment is taken, so a caller who pays for many checks cannot make everyone else time out.
+   */
+  busy?: () => boolean;
+  /**
+   * P13: accepted Host headers (host:port, lower case). Blocks DNS rebinding of the local API; a public
+   * deployment behind a proxy lists its own host name. Undefined = no check (unit tests).
+   */
+  allowedHosts?: ReadonlySet<string>;
   /** null = no paywall (unit tests only). */
   resourceServer: x402ResourceServer | null;
   forkBlock: () => Promise<bigint>;
@@ -50,6 +60,17 @@ export function createApp(d: AppDeps) {
   app.disable("x-powered-by");
   app.use(express.json({ limit: "64kb" }));
 
+  if (d.allowedHosts) {
+    const hosts = d.allowedHosts;
+    app.use((req, res, next) => {
+      if (!hosts.has((req.headers.host ?? "").toLowerCase())) {
+        res.status(403).json({ error: "forbidden host" });
+        return;
+      }
+      next();
+    });
+  }
+
   // CORS for the dashboard origin only (free GET endpoints and the demo check).
   app.use((req, res, next) => {
     if (req.headers.origin === d.dashboardOrigin) {
@@ -64,6 +85,19 @@ export function createApp(d: AppDeps) {
     }
     next();
   });
+
+  // Before the paywall: a busy Guardian answers 503 and nobody is charged.
+  if (d.busy) {
+    const busy = d.busy;
+    app.use(["/v1/check", "/v1/cosign", "/v1/demo/check"], (req, res, next) => {
+      if (req.method === "POST" && busy()) {
+        res.setHeader("Retry-After", "5");
+        res.status(503).json({ error: "busy, try again in a few seconds" });
+        return;
+      }
+      next();
+    });
+  }
 
   if (d.resourceServer) {
     app.use(
@@ -88,8 +122,9 @@ export function createApp(d: AppDeps) {
         return;
       }
       d.log?.error({ err: (e as Error).message, endpoint }, "check failed");
-      // ≥ 400: the x402 middleware does not settle, so the caller is not charged.
-      res.status(502).json({ error: "check failed", details: (e as Error).message });
+      // ≥ 400: the x402 middleware does not settle, so the caller is not charged. The cause stays in the
+      // log: an internal message (RPC URLs, node errors) is not for callers (P13).
+      res.status(502).json({ error: "check failed" });
     }
   };
 
