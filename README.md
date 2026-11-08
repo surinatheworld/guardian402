@@ -139,6 +139,8 @@ values and holds no key: the owner signs with a browser wallet.
 | `pnpm dev:dashboard`                                       | dashboard on :3000                                       |
 | `pnpm eval`                                                | 40-case eval, writes `eval/report.md`                    |
 | `pnpm erc8004:fuji`                                        | register the Guardian on ERC-8004 (bonus B1)             |
+| `pnpm mcp` · `pnpm mcp:example`                            | paid MCP server (bonus B2) and an agent that pays it     |
+| `pnpm bench:guardian`                                      | latency of the Guardian pipeline (free DEMO endpoint)    |
 
 The full list, with options, is in [CLAUDE.md](CLAUDE.md).
 
@@ -172,6 +174,26 @@ cast call 0x8004A818BFB912233c491871b3d84c89A494BD9e "tokenURI(uint256)(string)"
 
 The dashboard shows it on the Tổng quan page. Set `GUARDIAN_PUBLIC_URL` and run `pnpm erc8004:fuji` again to
 advertise a public Guardian endpoint instead of this repository.
+
+## MCP server (bonus B2)
+
+`apps/guardian-mcp` serves the Guardian's two checks as MCP tools, paid per call over x402 with `@x402/mcp`:
+`check_transaction` (0.005 USDC) and `cosign_transaction` (0.01 USDC, with the signed verdict). It runs the same
+pipeline as the HTTP API, in process, and charges nothing for a failed or invalid check.
+
+```bash
+FORK_PORT=8546 pnpm fork
+```
+
+```bash
+NETWORK=fuji MCP_FORK_RPC_URL=http://127.0.0.1:8546 FACILITATOR_URL=http://127.0.0.1:4022 DEMO_MODE=true pnpm mcp:example
+```
+
+The example agent starts the server over stdio, is asked for 0.005 USDC, pays from `AGENT_PK` (it refuses anything
+above 0.02 USDC) and prints the risk and the settlement. Run on Fuji on 2026-11-09: risk LOW, payment
+[0x64a5e6bb…](https://testnet.snowtrace.io/tx/0x64a5e6bb319f77d9a55b31cb29ed8554323a6c031852bfc7766a1783ef9f68cf).
+Any MCP client can start `pnpm mcp`; a client without an x402 wallet receives the payment requirement instead of a
+result.
 
 ## What is mocked (DEMO MODE)
 

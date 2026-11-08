@@ -108,6 +108,11 @@ Review of `contracts/src/AgentVault.sol` acting as an outside auditor. Each find
 
 AgentVault on Fuji was redeployed with the F1 fix on 2026-11-08 (`0x3f6a5852788ff6a46d924C407976bB89487f7651`); after scenario S1 on Fuji its allowance to the router is 0. The first vault (`0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99`) was emptied and paused.
 
+## Dependencies (P14)
+
+- `pnpm audit --prod`: 1 advisory left (was 8). `zod` 3.25.76 inside `@x402/core` 2.28.0 (pinned by the project) can exhaust memory on oversized collections; x402 parses only the payment header with it, which Node caps at 16 KB. Our own code uses `zod` 4.6.7 (patched); request bodies are capped at 64 KB.
+- The wallet SDKs that `@wagmi/connectors` pulls in (WalletConnect, MetaMask SDK, Coinbase, Safe, Porto, Gemini) are removed with pnpm overrides: the dashboard uses only injected wallets. `ws` is pinned to 8.21.3.
+
 ## Residual risks
 
 Operational: every key sits in plain text in `.env.local` on one laptop, and the deployer key holds four roles on Fuji (deployer, x402 `PAY_TO`, the treasury the vault may pay, owner of ERC-8004 agent 295). Acceptable on testnet; a real deployment splits them and keeps the owner key in a hardware wallet.

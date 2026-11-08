@@ -64,6 +64,7 @@ guardian402/
 │   └── script/
 ├── packages/shared/           # ABIs, addresses, EIP-712 types, zod schemas, constants
 ├── apps/guardian/             # Guardian API: x402 paywall, simulator, rules, explainer, signer, store
+├── apps/guardian-mcp/         # bonus B2: the Guardian's checks as paid MCP tools (x402)
 ├── apps/agent/                # demo agent, scripted scenarios, local control API
 ├── apps/dashboard/            # Next.js dashboard (Vietnamese UI)
 ├── eval/                      # labelled cases, runner, report
@@ -79,7 +80,7 @@ Available now:
 
 - `git submodule update --init --recursive` — fetch `contracts/lib` (OpenZeppelin v5.7.0, forge-std v1.17.0) after a fresh clone
 - `pnpm install`
-- `pnpm fork` — start an Anvil fork of Fuji on `http://127.0.0.1:8545` with `--hardfork cancun` (`scripts/fork.mjs`). `ANVIL_RUNNER=auto|native|docker`; `auto` uses native `anvil` if it runs, else the `ghcr.io/foundry-rs/foundry:v1.8.5` Docker image (needed where Windows Smart App Control blocks `anvil.exe`; on Windows, WSL2 is recommended, see README)
+- `pnpm fork` — start an Anvil fork of Fuji on `http://127.0.0.1:8545` with `--hardfork cancun` (`scripts/fork.mjs`). `ANVIL_RUNNER=auto|native|docker`; `auto` uses native `anvil` if it runs, else the `ghcr.io/foundry-rs/foundry:v1.8.5` Docker image (needed where Windows Smart App Control blocks `anvil.exe`; on Windows, WSL2 is recommended, see README). `FORK_PORT=8546 pnpm fork` starts a second fork (for the MCP server). The fork's upstream (`FUJI_RPC_URL`) must keep recent state: PublicNode does not ("missing trie node" a few minutes after a reset), the official RPC does
 - `cd contracts && forge build` / `cd contracts && forge test -vvv` — contract build and tests (unit, fuzz, invariant)
 - `cd contracts && forge coverage --report summary --no-match-coverage "(test|script)/"` — coverage of `src/`
 - `pnpm test` (same as `pnpm -r test`) — TypeScript tests in every workspace package
@@ -92,7 +93,7 @@ Available now:
 - `pnpm verify:fuji` — verify the Fuji contracts on Routescan / testnet.snowtrace.io
 - `pnpm handoff:fuji` — start the Ownable2Step transfer of AgentVault to the team lead's wallet
 - `pnpm redeploy-mocks:fuji` / `pnpm swap-router:fuji <oldRouter>` — replace mWAVAX and MockRouter (verified in the same run), then move the vault allowlist from the old router to the new one
-- `pnpm redeploy-vault:fuji` — deploy a new AgentVault with the current code (verified in the same run) and keep the mocks; if `OWNER_PK` owns the old vault it is emptied to the owner and paused first. Then run `pnpm seed:fuji`, `pnpm handoff:fuji` and `pnpm known-contracts`
+- `pnpm redeploy-vault:fuji` — deploy a new AgentVault with the current code (verified in the same run) and keep the mocks; if `OWNER_PK` owns the old vault it is emptied to the owner and paused first. Then run `pnpm seed:fuji`, `pnpm handoff:fuji` and `pnpm known-contracts`. It also points `local.json` at the new vault, because the fork tests and `local` mode use the seeded Fuji deployment
 - `pnpm abi` — `forge build`, then regenerate `packages/shared/src/abi/*.ts` (committed)
 - `pnpm test:crosscheck` — sign a verdict in TypeScript, write `contracts/test/fixtures/verdict.json`, run `VerdictCrossCheck.t.sol`
 - `pnpm known-contracts` — regenerate `apps/guardian/config/known-contracts.{fuji,local}.json` from the deployed addresses (run after a deploy)
@@ -111,6 +112,11 @@ Available now:
 - `pnpm --filter @guardian402/dashboard build` — production build of the dashboard
 
 - `pnpm erc8004:fuji` — bonus B1: register the Guardian on the official ERC-8004 IdentityRegistry on Fuji (`0x8004A818…4BD9e`) with `DEPLOYER_PK`, store the `registration-v1` file as a base64 data-URI agentURI, and write `packages/shared/src/addresses/erc8004.fuji.json`. Idempotent: reuses the recorded agentId and sends `setAgentURI` only when the file changed. Optional `GUARDIAN_PUBLIC_URL` (public Guardian base URL to advertise; default: the GitHub repo)
+
+- `pnpm bench:guardian [runs]` — latency of the Guardian pipeline on the free DEMO endpoint `/v1/demo/check` with the S1 batch (default 10 runs; needs a Guardian with `DEMO_MODE=true` on `GUARDIAN_URL`)
+- `pnpm mcp` — bonus B2: the Guardian as a paid MCP server over stdio (`apps/guardian-mcp`): tools `check_transaction` (0.005 USDC) and `cosign_transaction` (0.01 USDC), paid over x402. Same env as the Guardian; refuses to start on the fork of a running Guardian API: start `FORK_PORT=8546 pnpm fork` and set `MCP_FORK_RPC_URL=http://127.0.0.1:8546`. History in `GUARDIAN_MCP_DB`
+- `pnpm mcp:example [check|cosign]` — an agent (`AGENT_PK`) starts the MCP server, pays for one tool call on the S1 batch and prints the risk and the settlement link; refuses any payment above 0.02 USDC
+- `pnpm --filter @guardian402/guardian-mcp test` — MCP tool tests (payment asked, paid call settled, failures not charged)
 
 - `pnpm eval` — run the 40 labelled cases in `eval/cases/` through the Guardian pipeline on a fresh fork and write `eval/report.md` and `eval/report.json`. Needs `pnpm fork` and `cd contracts && forge build`. It resets the fork and deploys its own vault and mocks there: stop any Guardian using the same fork first. Same cases → same fingerprint in the report (latency varies)
 

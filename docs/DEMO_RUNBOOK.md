@@ -56,7 +56,7 @@ FACILITATOR_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc pnpm facilitator
 ```
 
 ```bash
-NETWORK=fuji CHAIN_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc FACILITATOR_URL=http://127.0.0.1:4022 DEMO_MODE=true pnpm dev:guardian
+NETWORK=fuji CHAIN_RPC_URL=https://avalanche-fuji-c-chain-rpc.publicnode.com FACILITATOR_URL=http://127.0.0.1:4022 DEMO_MODE=true pnpm dev:guardian
 ```
 
 ```bash
@@ -72,7 +72,8 @@ Then:
 - [ ] `curl http://127.0.0.1:4402/v1/health` shows `"ok":true`, `"network":"fuji"`, `"demoMode":true`.
 - [ ] `curl http://127.0.0.1:4022/supported` answers (facilitator reachable).
 - [ ] http://localhost:3000 shows the yellow DEMO MODE banner, the vault balances, and "✓ khớp guardian của vault".
-- [ ] Warm-up: run S1 once from the Điều khiển page (or `pnpm agent scenario S1`), 5 minutes before going on stage. The first check after the Guardian starts is slower.
+- [ ] Warm-up: run S1 once from the Điều khiển page (or `pnpm agent scenario S1`), 5 minutes before going on stage. Since P14 a cold first check is retried instead of failing, so this is a rehearsal, not a fix.
+- [ ] Optional speed check: `pnpm bench:guardian 10` → p50 about 250 ms with the Guardian reading Fuji through PublicNode (measured 2026-11-09; 733 ms through the official RPC). Keep `FUJI_RPC_URL` (the fork's upstream) on the official RPC: PublicNode drops older state and breaks the fork a few minutes after a reset.
 - [ ] Do not run `pnpm eval` during the demo: it resets the fork.
 
 ## The 3 minutes
@@ -86,17 +87,17 @@ Then:
 | 2:20–2:40 | Doanh thu page             | Every check was paid: count, total, settlement links.                                                                                                                                       |
 | 2:40–3:00 | Đã chặn page, eval numbers | Everything that was stopped, with reasons. Eval: 40 synthetic cases, report in `eval/report.md`.                                                                                            |
 
-Optional if there is time: S6 (owner pauses, the agent is blocked) and Kiểm tra giao dịch with the S3 preset (lookalike address).
+Optional if there is time: S6 (owner pauses, the agent is blocked), Kiểm tra giao dịch with the S3 preset (lookalike address), and the MCP agent paying for a check (`pnpm mcp:example`, see README "MCP server").
 
 The same scenarios from a terminal: `NETWORK=fuji CHAIN_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc DEMO_MODE=true pnpm agent scenario S1` (then S2, S4).
 
 ## Fallback
 
-| Problem                                             | Do this                                                                                                                                                  |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Public facilitator fails (`502`, settlement errors) | The commands above already use the self-hosted facilitator. If even that fails, check `FACILITATOR_PK` has AVAX.                                         |
-| Fuji RPC rate-limited (HTTP 429, Cloudflare 1015)   | Set `FUJI_RPC_URL` and `CHAIN_RPC_URL` to a provider URL with a key, restart the Guardian and the agent.                                                 |
-| Guardian returns `SIMULATION_FAILED` on S1          | Fork was cold or lagging: wait 20 s and run S1 again; if it repeats, restart `pnpm fork` and the Guardian.                                               |
-| A scenario says "KHÔNG KHỚP"                        | Read the line: usually low balances (checklist) or a paused vault. Unpause from Điều khiển.                                                              |
-| Anything else, or the network is down               | Play the backup video recorded the night before (S1, S2, S4 and the dashboard), and show the Snowtrace links in `docs/PROGRESS.md` (P8 and P9 sections). |
-| Docker is not running (Windows)                     | Start Docker Desktop, then `pnpm fork` again.                                                                                                            |
+| Problem                                             | Do this                                                                                                                                                                                             |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public facilitator fails (`502`, settlement errors) | The commands above already use the self-hosted facilitator. If even that fails, check `FACILITATOR_PK` has AVAX.                                                                                    |
+| Fuji RPC rate-limited (HTTP 429, Cloudflare 1015)   | Reads already fall back to the other public endpoint. If the fork itself is starved, set `FUJI_RPC_URL` to a provider URL with a key (archive or full state), restart `pnpm fork` and the Guardian. |
+| Guardian returns `SIMULATION_FAILED` on S1          | Fork was cold or lagging: wait 20 s and run S1 again; if it repeats, restart `pnpm fork` and the Guardian.                                                                                          |
+| A scenario says "KHÔNG KHỚP"                        | Read the line: usually low balances (checklist) or a paused vault. Unpause from Điều khiển.                                                                                                         |
+| Anything else, or the network is down               | Play the backup video recorded the night before (S1, S2, S4 and the dashboard), and show the Snowtrace links in `docs/PROGRESS.md` (P8 and P9 sections).                                            |
+| Docker is not running (Windows)                     | Start Docker Desktop, then `pnpm fork` again.                                                                                                                                                       |

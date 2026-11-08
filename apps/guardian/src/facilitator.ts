@@ -2,12 +2,12 @@
 // the E2E tests (pointed at the fork) and as the demo fallback when the public facilitator is down.
 // It pays settlement gas from FACILITATOR_PK, so keep a little AVAX in that wallet.
 import express from "express";
-import { createWalletClient, http, publicActions, type Hex } from "viem";
+import { createWalletClient, publicActions, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { x402Facilitator } from "@x402/core/facilitator";
 import { toFacilitatorEvmSigner } from "@x402/evm";
 import { registerExactEvmScheme } from "@x402/evm/exact/facilitator";
-import { FUJI_CAIP2, fujiChain } from "@guardian402/shared";
+import { FUJI_CAIP2, fujiChain, rpcTransport } from "@guardian402/shared";
 
 export function createFacilitatorApp(opts: {
   rpcUrl: string;
@@ -15,9 +15,11 @@ export function createFacilitatorApp(opts: {
   log?: (line: string) => void;
 }) {
   const account = privateKeyToAccount(opts.privateKey);
-  const wallet = createWalletClient({ account, chain: fujiChain, transport: http(opts.rpcUrl) }).extend(
-    publicActions,
-  );
+  const wallet = createWalletClient({
+    account,
+    chain: fujiChain,
+    transport: rpcTransport(opts.rpcUrl),
+  }).extend(publicActions);
   const signer = toFacilitatorEvmSigner({
     address: account.address,
     getCode: (args) => wallet.getCode(args),

@@ -26,6 +26,7 @@ import {
 } from "viem";
 import { fujiChain, type Call } from "@guardian402/shared";
 import { decodeLogs, decodeRevert, extractRevertData, netTransferDelta } from "./decode.ts";
+import { runWithBudget } from "./budget.ts";
 import { Mutex } from "./mutex.ts";
 import type { SimResult, TokenDelta } from "./types.ts";
 
@@ -37,7 +38,12 @@ export type SimulatorOptions = {
    * chain the vault runs on (local mode): resetting would erase the local deployment.
    */
   upstreamRpcUrl?: string;
+  /** Budget of one run, counted from the moment it holds the fork (src/sim/budget.ts). */
   timeoutMs?: number;
+  /** Cap on a whole check: waiting for the fork plus every attempt. */
+  maxWaitMs?: number;
+  /** Extra attempts after a run times out; the retry usually runs on a warm fork. */
+  retries?: number;
   maxLagSeconds?: number;
   resetIntervalMs?: number;
   /** Period of the background fork maintenance started by `start()`. */
@@ -53,6 +59,8 @@ export type SimulatorOptions = {
 
 const DEFAULTS = {
   timeoutMs: 800,
+  maxWaitMs: 10_000,
+  retries: 1,
   maxLagSeconds: 120,
   resetIntervalMs: 5 * 60_000,
   healthCheckIntervalMs: 15_000,
@@ -83,6 +91,7 @@ export class Simulator {
   #lastReset: number;
   #lastForkBlock = 0n;
   #timer: NodeJS.Timeout | undefined;
+  #maintaining = false;
 
   constructor(options: SimulatorOptions) {
     this.#opts = { ...DEFAULTS, knownTokens: [], ...options };
@@ -105,7 +114,8 @@ export class Simulator {
 
   /**
    * Never throws: a timeout or any error becomes `success: false`, which the rules turn into
-   * SIMULATION_FAILED. On timeout the run keeps the mutex until its snapshot is reverted.
+   * SIMULATION_FAILED. The time budget counts from the moment the run holds the fork, and a run that times
+   * out is retried once (src/sim/budget.ts). A timed-out run keeps the mutex until its snapshot is reverted.
    */
   async simulate(
     vault: Address,
@@ -113,29 +123,26 @@ export class Simulator {
     trackedTokens: readonly Address[] = [],
   ): Promise<SimResult> {
     const started = performance.now();
-    const run = this.#mutex.run(() => this.#simulateLocked(vault, calls, trackedTokens, started));
-    run.catch(() => undefined);
-    let timer: NodeJS.Timeout | undefined;
-    const timeout = new Promise<"timeout">((resolve) => {
-      timer = setTimeout(() => resolve("timeout"), this.#opts.timeoutMs);
-    });
-    try {
-      const outcome = await Promise.race([run, timeout]);
-      if (outcome === "timeout") {
-        return this.#failure(
-          vault,
-          calls,
-          started,
-          `simulation timed out after ${this.#opts.timeoutMs} ms`,
-          true,
-        );
-      }
-      return outcome;
-    } catch (error) {
-      return this.#failure(vault, calls, started, `simulation error: ${(error as Error).message}`, false);
-    } finally {
-      clearTimeout(timer);
+    const outcome = await runWithBudget(
+      this.#mutex,
+      () => this.#simulateLocked(vault, calls, trackedTokens, started),
+      { timeoutMs: this.#opts.timeoutMs, maxWaitMs: this.#opts.maxWaitMs, retries: this.#opts.retries },
+    );
+    if (outcome.kind === "done") return outcome.value;
+    if (outcome.kind === "error") {
+      return this.#failure(
+        vault,
+        calls,
+        started,
+        `simulation error: ${(outcome.error as Error).message}`,
+        false,
+      );
     }
+    const reason =
+      outcome.phase === "queue"
+        ? `simulation waited more than ${this.#opts.maxWaitMs} ms for the fork`
+        : `simulation timed out after ${this.#opts.timeoutMs} ms (${outcome.attempts} attempts)`;
+    return this.#failure(vault, calls, started, reason, true);
   }
 
   /**
@@ -143,23 +150,23 @@ export class Simulator {
    * or if it was never reset by this process; then the vault must have code on the fork.
    */
   async ensureForkHealthy(vault: Address): Promise<void> {
-    await this.#mutex.run(async () => {
-      await this.#maintain();
-      await this.#checkVault(vault);
-    });
+    await this.#maintain();
+    await this.#mutex.run(() => this.#checkVault(vault));
   }
 
   /**
-   * Runs fork maintenance in the background (only with an upstream): every `healthCheckIntervalMs`, under the
-   * mutex, the lag and interval checks of `ensureForkHealthy`. Kept out of `simulate()` so that a request never
-   * waits for upstream calls or a reset.
+   * Runs fork maintenance in the background (only with an upstream): every `healthCheckIntervalMs`, the lag and
+   * interval checks of `ensureForkHealthy`. The upstream calls run outside the mutex (P14), so checks never wait
+   * for Fuji; only a reset takes the fork.
    */
   start(): void {
     if (!this.#upstream || this.#timer) return;
     this.#timer = setInterval(() => {
-      this.#mutex
-        .run(() => this.#maintain())
-        .catch((error: unknown) => this.#opts.onMaintenanceError?.(error));
+      if (this.#maintaining) return; // the previous run is still talking to a slow upstream
+      this.#maintaining = true;
+      this.#maintain()
+        .catch((error: unknown) => this.#opts.onMaintenanceError?.(error))
+        .finally(() => (this.#maintaining = false));
     }, this.#opts.healthCheckIntervalMs);
     this.#timer.unref();
   }
@@ -182,7 +189,9 @@ export class Simulator {
       lagSeconds = Number(latest.timestamp - forkBlock.timestamp);
     }
     const due = Date.now() - this.#lastReset >= this.#opts.resetIntervalMs;
-    if (lagSeconds > this.#opts.maxLagSeconds || due) await this.#reset(latest.number);
+    if (lagSeconds > this.#opts.maxLagSeconds || due) {
+      await this.#mutex.run(() => this.#reset(latest.number));
+    }
   }
 
   async #reset(blockNumber?: bigint): Promise<void> {

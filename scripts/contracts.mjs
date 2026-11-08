@@ -94,15 +94,19 @@ if (action === "verify") {
     ...JSON.parse(readFileSync(file, "utf8")),
     ...JSON.parse(readFileSync(join(FORGE_DEPLOYMENTS, `${network}-vault.json`), "utf8")),
   };
-  writeFileSync(
-    file,
-    `${JSON.stringify(merged, null, 2)}
-`,
-  );
+  writeFileSync(file, `${JSON.stringify(merged, null, 2)}\n`);
   syncAddresses("toForge");
   console.log(
     `[contracts] new vault ${merged.vault} written to packages/shared/src/addresses/${network}.json`,
   );
+  if (network === "fuji") {
+    // The fork tests and `local` mode use the seeded Fuji deployment: keep local.json on the same vault (P14).
+    const localFile = join(SHARED_ADDRESSES, "local.json");
+    const local = JSON.parse(readFileSync(localFile, "utf8"));
+    const next = { ...local, vault: merged.vault, startBlock: merged.startBlock };
+    writeFileSync(localFile, `${JSON.stringify(next, null, 2)}\n`);
+    console.log("[contracts] local.json follows the new vault; run `pnpm known-contracts` next");
+  }
 } else if (action === "swap-router") {
   run("forge", [
     "script",

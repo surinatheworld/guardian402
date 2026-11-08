@@ -38,3 +38,19 @@ describe("constants", () => {
     );
   });
 });
+
+describe("RPC fallback (P14)", async () => {
+  const { FUJI_RPC_FALLBACK_URL, rpcUrls } = await import("../src/rpc.ts");
+  it("adds the other public Fuji endpoints behind a remote primary", () => {
+    expect(rpcUrls("https://my-provider.example/key")).toEqual([
+      "https://my-provider.example/key",
+      "https://api.avax-test.network/ext/bc/C/rpc",
+      FUJI_RPC_FALLBACK_URL,
+    ]);
+    expect(rpcUrls(FUJI_RPC_FALLBACK_URL)).toHaveLength(2);
+  });
+  it("never falls back away from a local fork", () => {
+    expect(rpcUrls("http://127.0.0.1:8545")).toEqual(["http://127.0.0.1:8545"]);
+    expect(rpcUrls("http://localhost:8545")).toEqual(["http://localhost:8545"]);
+  });
+});

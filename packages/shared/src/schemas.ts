@@ -52,7 +52,7 @@ export const findingSchema = z.object({
   ruleId: ruleIdSchema,
   severity: riskLevelSchema,
   title: z.string(),
-  evidence: z.record(z.union([z.string(), z.number(), z.boolean()])),
+  evidence: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
 });
 
 export const simulationSchema = z.object({
