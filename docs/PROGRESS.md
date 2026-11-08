@@ -469,6 +469,15 @@ pnpm eval (2 lần)                         → chặn = CAO: TP 25 FP 0 TN 15 F
                                             cùng dấu vân tay e33a546d912896a1
 ```
 
+## B1 — Danh tính ERC-8004 (xong 2026-11-09, nhánh `feat/b1-erc8004`)
+
+- Registry chính thức trên Fuji (README của `erc-8004/erc-8004-contracts`, mục "Avalanche Testnet"): IdentityRegistry `0x8004A818BFB912233c491871b3d84c89A494BD9e`, có code (proxy), `name()` = "AgentIdentity". ABI chép từ `abis/IdentityRegistry.json` của repo chính thức, commit `b9e466c2`, vào `packages/shared/src/erc8004/identityRegistryAbi.ts`.
+- `packages/shared/src/erc8004/registration.ts`: schema zod của file `registration-v1` (theo `ERC8004SPEC.md`), hàm tạo file của Guardian, mã hoá/giải mã data URI. Test `packages/shared/test/erc8004.test.ts` (6 test): đủ trường bắt buộc, `agentRegistry` = `eip155:43113:<IdentityRegistry>`, đọc lại được từ data URI, từ chối file thiếu trường, và file đã lưu khớp agentId.
+- Lệnh `pnpm erc8004:fuji` (`scripts/erc8004.ts`): `register()` bằng ví deployer, rồi `setAgentURI(agentId, data:application/json;base64,…)`. Chạy lại không gửi giao dịch nếu không có gì đổi.
+- Kết quả trên Fuji: **agentId 295**, chủ sở hữu `0x6428…fB50` (deployer). Đăng ký [0x6d22083e…](https://testnet.snowtrace.io/tx/0x6d22083e006da209338f289b5389f1486902233f859bcfe00b179512b8658001), agentURI [0xf6f78bcf…](https://testnet.snowtrace.io/tx/0xf6f78bcf70ab3d62eb2eaa04d5f202e042cd5c83d1736a93cb1c029bda2471e1). `cast call … "tokenURI(uint256)(string)" 295` giải mã ra đúng file; lần chạy thứ hai in "agentURI already up to date".
+- Dashboard: thẻ "Danh tính ERC-8004" ở trang Tổng quan (agentId, registry, chủ sở hữu, dịch vụ, link giao dịch).
+- Chưa làm: luồng ValidationRegistry cho verdict CAO (tuỳ chọn trong SPEC §13.1). Endpoint công bố đang là link GitHub vì Guardian chưa có địa chỉ công khai; repo đang private nên người ngoài chưa mở được link này.
+
 ## Checklist trước demo
 
 - [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault mới `0x3f6a5852788ff6a46d924C407976bB89487f7651` (tx [0xed5a391b…b28e](https://testnet.snowtrace.io/tx/0xed5a391be502ad3f2d042885e5871bea507ac1fa3a0d1784a001a27bc5c4b28e)). Vault cũ `0x32cb…Ab99` đã rút hết tiền và tạm dừng, không cần accept nữa. Các bước:
