@@ -113,6 +113,8 @@ Available now:
 
 - `pnpm erc8004:fuji` — bonus B1: register the Guardian on the official ERC-8004 IdentityRegistry on Fuji (`0x8004A818…4BD9e`) with `DEPLOYER_PK`, store the `registration-v1` file as a base64 data-URI agentURI, and write `packages/shared/src/addresses/erc8004.fuji.json`. Idempotent: reuses the recorded agentId and sends `setAgentURI` only when the file changed. Optional `GUARDIAN_PUBLIC_URL` (public Guardian base URL to advertise; default: the GitHub repo)
 
+- `pnpm --filter @guardian402/guardian llm:compare <provider:model>... [--gap ms] [--verbose]` — run the 14 rule fixtures through each LLM explainer (e.g. `gemini:gemini-3.5-flash-lite groq:<model>`) and print how often the LLM text was used, p50/max latency and fallback reasons. Keys from `.env.local`: `<PROVIDER>_API_KEY` or `LLM_API_KEY` for the provider in `LLM_PROVIDER`. `--gap 4500` stays under a 15 requests/minute free tier
+
 - `pnpm bench:guardian [runs]` — latency of the Guardian pipeline on the free DEMO endpoint `/v1/demo/check` with the S1 batch (default 10 runs; needs a Guardian with `DEMO_MODE=true` on `GUARDIAN_URL`)
 - `pnpm mcp` — bonus B2: the Guardian as a paid MCP server over stdio (`apps/guardian-mcp`): tools `check_transaction` (0.005 USDC) and `cosign_transaction` (0.01 USDC), paid over x402. Same env as the Guardian; refuses to start on the fork of a running Guardian API: start `FORK_PORT=8546 pnpm fork` and set `MCP_FORK_RPC_URL=http://127.0.0.1:8546`. History in `GUARDIAN_MCP_DB`
 - `pnpm mcp:example [check|cosign]` — an agent (`AGENT_PK`) starts the MCP server, pays for one tool call on the S1 batch and prints the risk and the settlement link; refuses any payment above 0.02 USDC

@@ -516,6 +516,25 @@ pnpm eval                                   → TP 25 FP 0 TN 15 FN 0 (cả hai 
 
 Ví sau P14: vault khoảng 32 USDC (mỗi S1 tốn 2 USDC), agent khoảng 9,8 USDC. Nạp thêm USDC cho owner từ faucet Circle rồi `pnpm seed:fuji` nếu muốn vault đủ 50.
 
+## Gemini cho phần giải thích (2026-11-09, nhánh `feat/gemini-explainer`)
+
+- `LLM_PROVIDER=gemini`: gọi thẳng REST `generateContent` của Gemini (không dùng SDK), key gửi trong header `x-goog-api-key`, ra JSON theo `responseSchema`. Model mặc định `gemini-3.5-flash-lite`: đo 0,86–1,3 s, vừa ngân sách 1,5 s. `gemini-3.5-flash` chậm quá (3–10 s); các model 3.x lite từ chối `thinkingBudget` nên không gửi cấu hình thinking.
+- **Lỗi tìm ra khi chạy thật:** prompt gửi số thô (`"2000000"`, decimals 6) nên model viết "2.000.000 USDC". Sửa: prompt chỉ còn số đã đổi ("2 USDC", "unlimited", "0.01 AVAX"); bỏ số thô của luật trượt giá (diff đã có), đổi `slippageBps` thành `slippagePercent`. Bằng chứng của luật và dấu vân tay eval không đổi.
+- **Lỗi thứ hai:** 4/14 câu tiếng Việt không dấu ("Muc do rui ro: THAP"). Sửa: prompt đòi tiếng Việt có dấu; câu tiếng Việt không có dấu nào thì quay về mẫu (`no-diacritics`).
+- Chạy thật 14 fixture của luật qua Gemini: 14/14 do LLM viết, đúng số tiền, đúng mức rủi ro. Một lần trước khi sửa, bộ chặn `contradicts-risk` đã bắt một câu nói ngược mức CAO và quay về mẫu.
+- Gói miễn phí: 15 yêu cầu/phút cho mỗi model. Vượt quá thì Gemini trả 429 và Guardian dùng câu mẫu (khoảng 200 ms), kiểm tra vẫn chạy bình thường. Đủ cho demo; `pnpm eval` không dùng LLM.
+- Key chỉ nằm trong `.env.local` (git-ignore). Key đã được dán vào chat: nên tạo key mới sau hackathon.
+- **Nhà cung cấp kiểu OpenAI** (`openai-compat.ts`): một bộ chuyển cho Groq, OpenRouter, Cerebras, Mistral, GitHub Models, Gemini (cổng tương thích) hoặc URL tự chọn (`LLM_BASE_URL`, ví dụ Ollama). `pnpm --filter @guardian402/guardian llm:compare` so các nhà cung cấp trên 14 fixture.
+- So sánh thật (14 fixture, cách nhau 4,5 s):
+
+  ```
+  gemini:gemini-3.5-flash-lite            llm 13/14  p50 1075 ms  max 1225 ms  fallback: timeout×1
+  gemini-openai:gemini-3.5-flash-lite     llm 14/14  p50 1038 ms  max 1207 ms
+  gemini-openai:gemma-4-26b-a4b-it        llm  0/14  (quá 1,5 s: timeout×12, lỗi×2)
+  ```
+
+  Groq, OpenRouter, Cerebras chưa chạy: chưa có key.
+
 ## Checklist trước demo
 
 - [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault mới `0x3f6a5852788ff6a46d924C407976bB89487f7651` (tx [0xed5a391b…b28e](https://testnet.snowtrace.io/tx/0xed5a391be502ad3f2d042885e5871bea507ac1fa3a0d1784a001a27bc5c4b28e)). Vault cũ `0x32cb…Ab99` đã rút hết tiền và tạm dừng, không cần accept nữa. Các bước:
