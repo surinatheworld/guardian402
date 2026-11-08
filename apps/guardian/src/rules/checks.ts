@@ -214,7 +214,13 @@ export const unknownContract: Rule = (sim, ctx, cfg) => {
     ...vaultTransfers(sim, ctx).map((t) => lc(t.to)),
   ]);
   const seen = new Set<string>();
-  const candidates = [...sim.calls.map((c) => c.target), ...vaultApprovals(sim, ctx).map((a) => a.spender)];
+  // Revoking an approval (approve to 0) only lowers exposure, so its spender is not a candidate (eval b11).
+  const candidates = [
+    ...sim.calls.map((c) => c.target),
+    ...vaultApprovals(sim, ctx)
+      .filter((a) => a.amount > 0n)
+      .map((a) => a.spender),
+  ];
   const out: Finding[] = [];
   for (const addr of candidates) {
     const key = lc(addr);

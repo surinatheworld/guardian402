@@ -24,6 +24,7 @@
     "abi": "node scripts/gen-abi.mjs",
     "test:crosscheck": "tsx scripts/gen-verdict-fixture.ts && cd contracts && forge test --match-contract VerdictCrossCheck -vv",
     "redeploy-mocks:fuji": "node scripts/contracts.mjs redeploy-mocks fuji",
+    "redeploy-vault:fuji": "node scripts/contracts.mjs redeploy-vault fuji",
     "swap-router:fuji": "node scripts/contracts.mjs swap-router fuji",
     "known-contracts": "node scripts/gen-known-contracts.mjs",
     "dev:guardian": "pnpm --filter @guardian402/guardian dev",

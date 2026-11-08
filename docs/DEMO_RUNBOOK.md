@@ -7,7 +7,7 @@ Addresses (from `packages/shared/src/addresses/fuji.json`):
 
 |                     | Address                                      |
 | ------------------- | -------------------------------------------- |
-| AgentVault          | `0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99` |
+| AgentVault          | `0x3f6a5852788ff6a46d924C407976bB89487f7651` |
 | MockRouter (DEMO)   | `0xe20967C615e442991D468ed7f797edcAeA1771d9` |
 | mWAVAX (DEMO)       | `0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5` |
 | USDC (Circle, Fuji) | `0x5425890298aed601595a70AB815c96711a31Bc65` |
@@ -26,7 +26,7 @@ Set the shell variables once:
 ```bash
 RPC=https://api.avax-test.network/ext/bc/C/rpc
 USDC=0x5425890298aed601595a70AB815c96711a31Bc65
-VAULT=0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99
+VAULT=0x3f6a5852788ff6a46d924C407976bB89487f7651
 ROUTER=0xe20967C615e442991D468ed7f797edcAeA1771d9
 MWAVAX=0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5
 AGENT=$(cast wallet address --private-key "$AGENT_PK")

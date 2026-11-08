@@ -436,23 +436,46 @@ pnpm eval (3 lần)                                   → TP 25 FP 0 TN 15 FN 0,
 
 ### Việc còn lại (đã biết)
 
-1. **AgentVault trên Fuji chưa có bản sửa F1.** Code trong repo đã sửa và đã test; muốn Fuji chạy bản mới thì phải deploy lại vault (địa chỉ mới, seed lại, verify lại, chuyển owner lại). Cần nhóm quyết định.
-2. **Chưa push lên GitHub** các phase P4–P11 (mọi nhánh đã merge vào `main` trên máy).
-3. Chưa kiểm tra thao tác của chủ ví trên dashboard (pause, thu hồi agent, đổi hạn mức) bằng một ví thật.
-4. Mục "A teammate has done the fresh-clone test" trong SPEC §14 cần một thành viên trong nhóm tự làm; lần chạy thử ở trên do agent làm.
-5. UNKNOWN_CONTRACT gắn cờ TRUNG BÌNH cả khi thu hồi quyền của hợp đồng lạ (eval b11), là cảnh báo thừa.
-6. Fork mô phỏng có thể chậm hơn Fuji vài phút, nên số dư trong lời giải thích có thể lệch vài giao dịch gần nhất.
-7. Chưa bật LLM thật cho phần giải thích (`LLM_PROVIDER=none`, chưa có API key); hiện dùng mẫu cố định.
-8. Chưa chọn giấy phép (license) cho repo.
-9. Checklist trước demo: ví `0x54A2…2888` vẫn cần `acceptOwnership` (xem bên dưới).
+Cập nhật 2026-11-08 sau P12 (mục "P12" bên dưới): đã deploy lại vault có bản sửa F1, đã sửa b11, đã thêm license MIT.
+
+1. Chưa kiểm tra thao tác của chủ ví trên dashboard (pause, thu hồi agent, đổi hạn mức) bằng một ví thật.
+2. Mục "A teammate has done the fresh-clone test" trong SPEC §14 cần một thành viên trong nhóm tự làm; lần chạy thử ở P11 do agent làm.
+3. Fork mô phỏng có thể chậm hơn Fuji vài phút, nên số dư trong lời giải thích có thể lệch vài giao dịch gần nhất.
+4. Chưa bật LLM thật cho phần giải thích (`LLM_PROVIDER=none`, chưa có API key); hiện dùng mẫu cố định.
+5. Ví `0x54A2…2888` cần `acceptOwnership` trên vault **mới** (xem checklist bên dưới).
+6. Video demo dự phòng chưa quay.
+7. Trên GitHub, nhánh mặc định vẫn là `chore/p0-skeleton`; đổi sang `main` trong Settings → General → Default branch.
+
+## P12 — Deploy lại vault có bản sửa F1, sửa b11, license (xong 2026-11-08, nhánh `feat/p12-finish`)
+
+- Lệnh mới `pnpm redeploy-vault:fuji` (`contracts/script/RedeployVault.s.sol`): nếu OWNER_PK còn là owner của vault cũ thì rút hết USDC/AVAX về owner và tạm dừng vault cũ, rồi deploy AgentVault mới (giữ nguyên mock) và verify ngay. Địa chỉ mới được gộp vào `packages/shared/src/addresses/fuji.json` (thêm `previousVault`, `startBlock` mới).
+- `Seed.s.sol`: nếu owner không đủ USDC thì nạp phần đang có (trước đây bỏ qua hẳn).
+- Fuji:
+  - Vault cũ `0x32cb…Ab99`: rút 46 USDC [0xe513b1bd…a336](https://testnet.snowtrace.io/tx/0xe513b1bd226971a6b42f15df9020f9c26ceaef0878c68aba51d5a2320ffca336), pause [0x9f3cad3f…4dd5](https://testnet.snowtrace.io/tx/0x9f3cad3fe9bf6f64e306058e59fbd33eaeb110b3b4608ef1f75343031cd64dd5).
+  - Vault mới [0x3f6a5852788ff6a46d924C407976bB89487f7651](https://testnet.snowtrace.io/address/0x3f6a5852788ff6a46d924C407976bB89487f7651): deploy [0x47cca265…4414](https://testnet.snowtrace.io/tx/0x47cca26546583d555096da7ed2ba1d2683f91cc21813f5b9490e1176a6664414), Routescan `Pass - Verified`.
+  - Seed: 12 giao dịch, tất cả status 1; vault có 46 USDC (owner chỉ có 46, cần 50: nạp thêm 4 USDC từ faucet nếu muốn đủ). Handoff [0xed5a391b…b28e](https://testnet.snowtrace.io/tx/0xed5a391be502ad3f2d042885e5871bea507ac1fa3a0d1784a001a27bc5c4b28e) → `pendingOwner = 0x54A2…2888`.
+- Kịch bản trên Fuji với vault mới (Guardian `NETWORK=fuji`, facilitator tự chạy):
+  - S1: lần đầu `SIMULATION_FAILED` (fork lạnh, quá 800 ms, đúng như runbook dặn chạy khởi động); lần hai rủi ro THẤP, phí [0xe21ebd45…ba95](https://testnet.snowtrace.io/tx/0xe21ebd45e773418f9e2dbfbc45f9060f2d4b9922795d0658098a916999eeba95), vault [0xa046887e…b0](https://testnet.snowtrace.io/tx/0xa046887ef2b6ddc4af133bb33fbd0f849721dcda6c13b49ea9ffb4e3236918b0). Sau đó `allowance(vault, router) = 0`: bản sửa F1 chạy đúng trên Fuji.
+  - S2: CAO 100/100, phí [0xdca222ed…8927](https://testnet.snowtrace.io/tx/0xdca222edb902d3215dba0f0c202aa2cad2ade981558dfa260b7ebbbf4db78927), vault revert `RecipientNotAllowed` [0x32e5db9c…cfa](https://testnet.snowtrace.io/tx/0x32e5db9c8713220fec298b21ca56527db38ea33ffb1be6c51914f648fc123cfa).
+  - S4: CAO 60/100 (ABNORMAL_SLIPPAGE), phí [0x063d0c65…421d](https://testnet.snowtrace.io/tx/0x063d0c651f88c26294d07868a6fa7c8a8518bc605ee75c4d32315333ba27421d), vault revert `RiskTooHigh` [0x78e1a302…e9b](https://testnet.snowtrace.io/tx/0x78e1a302154ba01a96e34b9a87504695ec7e4d8bb55ca7bab47e65cfc8fc4e9b).
+- UNKNOWN_CONTRACT bỏ qua spender của lệnh thu hồi quyền (approve 0); thêm test trong `rules.test.ts`. Eval: b11 từ TRUNG BÌNH xuống THẤP.
+- License MIT (`LICENSE`), khớp header SPDX của Solidity.
+
+Test:
+
+```
+pnpm --filter @guardian402/guardian test  → 98 passed
+pnpm eval (2 lần)                         → chặn = CAO: TP 25 FP 0 TN 15 FN 0; chặn ≥ TRUNG BÌNH: TP 25 FP 0 TN 15 FN 0
+                                            cùng dấu vân tay e33a546d912896a1
+```
 
 ## Checklist trước demo
 
-- [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault (tx [0xe864b2e2…519d](https://testnet.snowtrace.io/tx/0xe864b2e2846874faeb6391d815cf327404ab234f858854c6a2fb694dc1f1519d)). Các bước:
+- [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault mới `0x3f6a5852788ff6a46d924C407976bB89487f7651` (tx [0xed5a391b…b28e](https://testnet.snowtrace.io/tx/0xed5a391be502ad3f2d042885e5871bea507ac1fa3a0d1784a001a27bc5c4b28e)). Vault cũ `0x32cb…Ab99` đã rút hết tiền và tạm dừng, không cần accept nữa. Các bước:
   1. Trong Core hoặc MetaMask, chọn ví `0x54A2…2888` và mạng Avalanche Fuji C-Chain (chain id 43113). Ví cần một ít AVAX testnet để trả gas.
-  2. Mở https://testnet.snowtrace.io/address/0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99 (AgentVault, đã verify), chọn tab **Contract** rồi **Write Contract**.
+  2. Mở https://testnet.snowtrace.io/address/0x3f6a5852788ff6a46d924C407976bB89487f7651 (AgentVault, đã verify), chọn tab **Contract** rồi **Write Contract**.
   3. Bấm **Connect to Web3** và kết nối ví `0x54A2…2888`.
   4. Mở hàm **acceptOwnership** (không có tham số) → **Write** → xác nhận giao dịch trong ví.
   5. Kiểm tra trong tab **Read Contract**: `owner()` = `0x54A2276F134d3Cfaa7572BC326092fABa6352888` và `pendingOwner()` = `0x0000000000000000000000000000000000000000`. Hoặc chạy:
-     `cast call 0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99 "owner()(address)" --rpc-url https://api.avax-test.network/ext/bc/C/rpc`
+     `cast call 0x3f6a5852788ff6a46d924C407976bB89487f7651 "owner()(address)" --rpc-url https://api.avax-test.network/ext/bc/C/rpc`
   6. Sau bước này OWNER_PK không còn quyền owner: pause/unpause, đổi cap, revoke agent làm từ ví `0x54A2…2888` (dashboard, trang Điều khiển).

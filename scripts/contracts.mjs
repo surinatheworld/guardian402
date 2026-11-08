@@ -4,6 +4,7 @@
 //   node scripts/contracts.mjs <deploy|seed|verify|handoff> <local|fuji>
 //   node scripts/contracts.mjs redeploy-mocks <local|fuji>       (new mWAVAX + MockRouter; verified on fuji)
 //   node scripts/contracts.mjs swap-router <local|fuji> <oldRouter>  (vault allowlist: old router → new router)
+//   node scripts/contracts.mjs redeploy-vault <local|fuji>       (new AgentVault, old one emptied and paused; verified on fuji)
 //
 // Loads secrets from the repo-root .env.local into the environment of forge/cast (never on the command line),
 // refuses to run unless the RPC answers chain id 43113 (Avalanche Fuji, or a fork of it), and in local mode
@@ -32,7 +33,7 @@ const VERIFY_FLAGS = [
   "43113",
 ];
 
-const ACTIONS = ["deploy", "seed", "verify", "handoff", "redeploy-mocks", "swap-router"];
+const ACTIONS = ["deploy", "seed", "verify", "handoff", "redeploy-mocks", "swap-router", "redeploy-vault"];
 const [action, network, extraArg] = process.argv.slice(2);
 if (!ACTIONS.includes(action) || !["local", "fuji"].includes(network)) {
   fail(`usage: node scripts/contracts.mjs <${ACTIONS.join("|")}> <local|fuji> [oldRouter]`);
@@ -77,6 +78,31 @@ if (action === "verify") {
     ...verify,
   ]);
   syncAddresses("toShared");
+} else if (action === "redeploy-vault") {
+  const verify = network === "fuji" ? ["--verify", ...VERIFY_FLAGS] : [];
+  run("forge", [
+    "script",
+    "script/RedeployVault.s.sol:RedeployVault",
+    "--rpc-url",
+    rpc,
+    "--broadcast",
+    "--slow",
+    ...verify,
+  ]);
+  const file = join(SHARED_ADDRESSES, `${network}.json`);
+  const merged = {
+    ...JSON.parse(readFileSync(file, "utf8")),
+    ...JSON.parse(readFileSync(join(FORGE_DEPLOYMENTS, `${network}-vault.json`), "utf8")),
+  };
+  writeFileSync(
+    file,
+    `${JSON.stringify(merged, null, 2)}
+`,
+  );
+  syncAddresses("toForge");
+  console.log(
+    `[contracts] new vault ${merged.vault} written to packages/shared/src/addresses/${network}.json`,
+  );
 } else if (action === "swap-router") {
   run("forge", [
     "script",
