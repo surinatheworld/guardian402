@@ -147,14 +147,15 @@ Verified on [testnet.snowtrace.io](https://testnet.snowtrace.io). Network: Avala
 
 | Contract          | Address                                                                                                                         |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| AgentVault        | [`0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99`](https://testnet.snowtrace.io/address/0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99) |
+| AgentVault        | [`0x3f6a5852788ff6a46d924C407976bB89487f7651`](https://testnet.snowtrace.io/address/0x3f6a5852788ff6a46d924C407976bB89487f7651) |
 | MockRouter (DEMO) | [`0xe20967C615e442991D468ed7f797edcAeA1771d9`](https://testnet.snowtrace.io/address/0xe20967C615e442991D468ed7f797edcAeA1771d9) |
 | MockOracle (DEMO) | [`0xeebAac693aA19308bA859b3D668e3794310e66AE`](https://testnet.snowtrace.io/address/0xeebAac693aA19308bA859b3D668e3794310e66AE) |
 | mWAVAX (DEMO)     | [`0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5`](https://testnet.snowtrace.io/address/0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5) |
 | USDC (Circle)     | [`0x5425890298aed601595a70AB815c96711a31Bc65`](https://testnet.snowtrace.io/address/0x5425890298aed601595a70AB815c96711a31Bc65) |
 
-The deployed AgentVault predates the P11 fix that revokes unused approvals at the end of each batch (finding F1 in
-the threat model); the code in this repository has the fix.
+AgentVault was redeployed on 2026-11-08 with the P11 fix that revokes unused approvals at the end of each batch
+(finding F1 in the threat model), using `pnpm redeploy-vault:fuji`. The first vault,
+[`0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99`](https://testnet.snowtrace.io/address/0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99), was emptied and paused.
 
 ## What is mocked (DEMO MODE)
 
@@ -196,5 +197,5 @@ Declared at the start of the pitch, and shown as a DEMO MODE banner in the dashb
 
 ## License
 
-No license file yet: the team chooses one before making the repository public. The Solidity sources carry
-`SPDX-License-Identifier: MIT` headers. `vendor/x402-starter` is Team1's starter, kept as a read-only reference.
+[MIT](LICENSE), matching the `SPDX-License-Identifier: MIT` headers of the Solidity sources. `vendor/x402-starter` is
+Team1's starter, kept as a read-only reference under its own terms.

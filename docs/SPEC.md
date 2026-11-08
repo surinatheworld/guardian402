@@ -594,3 +594,4 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
     - The Fuji AgentVault deployed in P2 does not have the F1 fix. Redeploying it is a team decision.
     - `pnpm deploy:local` creates `contracts/deployments/` (missing in a fresh clone); `pnpm seed:local` also funds `FACILITATOR_PK` with test AVAX and mints 5 test USDC to the agent on the fork. Both found by the fresh-clone test.
     - Dashboard: the S3 preset reads the lookalike from `apps/agent/fixtures/lookalike.json` instead of a copy.
+- 2026-11-08 — P12: AgentVault redeployed on Fuji with the F1 fix (`0x3f6a5852788ff6a46d924C407976bB89487f7651`, `pnpm redeploy-vault:fuji`); the first vault was emptied and paused. `UNKNOWN_CONTRACT` ignores the spender of a revocation (approve to 0); eval b11 LOW, fingerprint `e33a546d912896a1`. License: MIT.

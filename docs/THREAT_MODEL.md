@@ -103,12 +103,11 @@ Review of `contracts/src/AgentVault.sol` acting as an outside auditor. Each find
 | F3  | Info     | A verdict sent with a batch that does not need one is still checked and uses up the nonce. Only the agent can call `executeBatch`, so nobody else can burn nonces.                                                                                                                                                                                                                               | Accepted (SPEC §16).                                                                                                                                                                      | existing tests in `AgentVault.t.sol`                                                                                                   |
 | F4  | Info     | The owner can allowlist an untracked token as a generic target; its transfers then have no cap.                                                                                                                                                                                                                                                                                                  | Accepted: owner configuration. Track every token the vault holds.                                                                                                                         | —                                                                                                                                      |
 
-The Fuji deployment from P2 runs the code before the F1 fix. The new code is tested locally and in the eval; redeploying to Fuji is a team decision (see `docs/PROGRESS.md`).
+AgentVault on Fuji was redeployed with the F1 fix on 2026-11-08 (`0x3f6a5852788ff6a46d924C407976bB89487f7651`); after scenario S1 on Fuji its allowance to the router is 0. The first vault (`0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99`) was emptied and paused.
 
 ## Residual risks
 
 - Funds up to the daily cap per day can move to allowlisted recipients with a compromised agent key and a Guardian that misjudges a batch. The eval set is synthetic and written by the team; 100% recall on it is not a guarantee.
 - An allowlisted protocol is trusted within the approved amount of one batch.
 - Fork lag (up to a few minutes) can make a simulation stale.
-- `UNKNOWN_CONTRACT` raises MEDIUM on the revocation of an approval to an unknown contract (eval case b11): harmless but noisy.
 - DEMO parts (mock oracle, mock router, scripted attacks, 3+3 lookalikes, self-hosted facilitator) are not production components.
