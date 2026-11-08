@@ -2,7 +2,7 @@
 // a mismatch is reported as such, never hidden by changing the expectation.
 import { appendFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { createPublicClient, createWalletClient, erc20Abi, http, type Hex, type PublicClient } from "viem";
+import { createPublicClient, createWalletClient, erc20Abi, type Hex, type PublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import {
   fujiChain,
@@ -13,6 +13,7 @@ import {
   type Deployment,
   type RiskLevel,
   type RuleId,
+  rpcTransport,
 } from "@guardian402/shared";
 import { AGENT_DIR, type AgentEnv } from "./env.ts";
 import { askGuardian, payingFetchFor, type GuardianResult } from "./guardian.ts";
@@ -101,13 +102,20 @@ export type Runner = ReturnType<typeof createRunner>;
 export function createRunner(env: AgentEnv, print: (line: string) => void = console.log) {
   const d: Deployment = getAddresses(env.NETWORK);
   const agent = privateKeyToAccount(env.AGENT_PK);
-  const chain = createPublicClient({ chain: fujiChain, transport: http(env.CHAIN_RPC_URL) }) as PublicClient;
-  const wallet = createWalletClient({ account: agent, chain: fujiChain, transport: http(env.CHAIN_RPC_URL) });
+  const chain = createPublicClient({
+    chain: fujiChain,
+    transport: rpcTransport(env.CHAIN_RPC_URL),
+  }) as PublicClient;
+  const wallet = createWalletClient({
+    account: agent,
+    chain: fujiChain,
+    transport: rpcTransport(env.CHAIN_RPC_URL),
+  });
   const owner = env.OWNER_PK
     ? createWalletClient({
         account: privateKeyToAccount(env.OWNER_PK),
         chain: fujiChain,
-        transport: http(env.CHAIN_RPC_URL),
+        transport: rpcTransport(env.CHAIN_RPC_URL),
       })
     : undefined;
   const payingFetch = payingFetchFor(agent);
