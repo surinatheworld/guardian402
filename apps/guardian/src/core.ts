@@ -76,6 +76,7 @@ export function createGuardianCore(env: Env, log: Logger): GuardianCore {
     LLM_PROVIDER: env.LLM_PROVIDER,
     LLM_MODEL: env.LLM_MODEL,
     LLM_API_KEY: env.LLM_API_KEY,
+    LLM_BASE_URL: env.LLM_BASE_URL,
     onFallback: (reason) => log.info({ reason }, "explainer fell back to the template"),
   });
   const pipeline = new Pipeline({

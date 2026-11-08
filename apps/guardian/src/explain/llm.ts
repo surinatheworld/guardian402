@@ -2,8 +2,8 @@
 // in plain words; it never sees calldata, revert strings or agent text, and its output can never change the
 // risk. Any error, timeout, invalid JSON or wording that contradicts the risk falls back to the template.
 import { z } from "zod";
-import type { Explanation, RiskLevel } from "@guardian402/shared";
-import { clip } from "./format.ts";
+import type { Explanation, Finding, RiskLevel } from "@guardian402/shared";
+import { amount, clip } from "./format.ts";
 import { TemplateExplainer } from "./template.ts";
 import { MAX_EXPLANATION_CHARS, type ExplainInput, type Explainer } from "./types.ts";
 
@@ -35,6 +35,8 @@ export const SYSTEM_PROMPT = [
   "The risk level is final: state it, and never change, soften or contradict it.",
   "No investment advice, no price predictions, no instructions to the user.",
   `Reply with JSON {"vi": "...", "en": "..."}: Vietnamese and English, plain text, at most ${MAX_EXPLANATION_CHARS} characters each.`,
+  'Write "vi" in standard Vietnamese with full diacritics (tiếng Việt có dấu), never in unaccented ASCII.',
+  "Copy amounts exactly as given; never convert or recompute them.",
 ].join(" ");
 
 const CONTRADICTIONS: Record<RiskLevel, RegExp> = {
@@ -48,13 +50,71 @@ export function contradictsRisk(text: string, risk: RiskLevel): boolean {
   return CONTRADICTIONS[risk].test(text);
 }
 
-/** The model's input: only the normalized diff, findings and trusted labels. */
+/** Vietnamese without any diacritic ("Muc do rui ro") reads badly; seen with Gemini on 2026-11-09. */
+export function missingDiacritics(vi: string): boolean {
+  return !/[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(vi);
+}
+
+const NATIVE = "0x0000000000000000000000000000000000000000";
+/** Evidence fields that hold raw units of the finding's `token`. */
+const TOKEN_AMOUNT_KEYS = ["amount", "outflow", "remaining", "balanceBefore", "maxApproval"];
+/** Slippage evidence holds raw amounts of two tokens it does not name; the diff already has them in tokens. */
+const RAW_SLIPPAGE_KEYS = ["amountIn", "expectedOut", "realizedOut", "minOut"];
+/** "Unlimited" approvals (2^256 - 1 or close) would print as a 70-digit number. */
+const UNLIMITED = 2n ** 128n;
+
+/**
+ * Raw units → "2 USDC" before the model sees them: given "2000000" and decimals 6, models sometimes wrote
+ * "2,000,000 USDC" (seen with Gemini on 2026-11-09). The model gets numbers it can copy, not compute.
+ */
+function readable(input: ExplainInput, token: string, raw: string): string {
+  try {
+    const v = BigInt(raw);
+    if (v >= UNLIMITED || -v >= UNLIMITED) return "unlimited";
+  } catch {
+    return raw;
+  }
+  return amount(input, token, raw, "en");
+}
+
+function readableEvidence(input: ExplainInput, evidence: Finding["evidence"]): Finding["evidence"] {
+  const out: Finding["evidence"] = {};
+  const token = typeof evidence.token === "string" ? evidence.token : undefined;
+  for (const [k, v] of Object.entries(evidence)) {
+    if (RAW_SLIPPAGE_KEYS.includes(k)) continue;
+    if (k === "slippageBps" && typeof v === "number") out.slippagePercent = v / 100;
+    else if (token && TOKEN_AMOUNT_KEYS.includes(k) && typeof v === "string")
+      out[k] = readable(input, token, v);
+    else out[k] = v;
+  }
+  return out;
+}
+
+/** The model's input: only the normalized diff, findings and trusted labels, with amounts in whole tokens. */
 export function buildUserPrompt(input: ExplainInput): string {
+  const d = input.diff;
   return JSON.stringify({
     risk: input.risk,
-    findings: input.findings.map((f) => ({ ruleId: f.ruleId, severity: f.severity, evidence: f.evidence })),
-    diff: input.diff,
-    tokens: input.tokens,
+    findings: input.findings.map((f) => ({
+      ruleId: f.ruleId,
+      severity: f.severity,
+      evidence: readableEvidence(input, f.evidence),
+    })),
+    diff: {
+      tokenDeltas: d.tokenDeltas.map((t) => ({ token: t.token, change: readable(input, t.token, t.delta) })),
+      nativeChange: readable(input, NATIVE, d.nativeDelta),
+      approvals: d.approvals.map((a) => ({
+        token: a.token,
+        spender: a.spender,
+        amount: a.unlimited ? "unlimited" : readable(input, a.token, a.amount),
+      })),
+      transfers: d.transfers.map((t) => ({
+        token: t.token,
+        from: t.from,
+        to: t.to,
+        amount: readable(input, t.token, t.amount),
+      })),
+    },
     names: input.names,
   });
 }
@@ -102,6 +162,7 @@ export class LlmExplainer implements Explainer {
       const en = clip(parsed.data.en);
       if (contradictsRisk(vi, input.risk) || contradictsRisk(en, input.risk))
         return this.#fall(input, "contradicts-risk");
+      if (missingDiacritics(vi)) return this.#fall(input, "no-diacritics");
       return { vi, en, source: "llm" };
     } catch (e) {
       return this.#fall(

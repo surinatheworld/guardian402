@@ -21,6 +21,7 @@ const schema = z.object({
   LLM_PROVIDER: z.string().default("none"),
   LLM_MODEL: z.string().optional(),
   LLM_API_KEY: z.string().optional(),
+  LLM_BASE_URL: z.string().url().optional(),
   DEMO_MODE: z
     .string()
     .default("false")
