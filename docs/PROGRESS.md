@@ -436,15 +436,14 @@ pnpm eval (3 lần)                                   → TP 25 FP 0 TN 15 FN 0,
 
 ### Việc còn lại (đã biết)
 
-Cập nhật 2026-11-08 sau P12 (mục "P12" bên dưới): đã deploy lại vault có bản sửa F1, đã sửa b11, đã thêm license MIT.
+Cập nhật 2026-11-09 sau P14.
 
 1. Chưa kiểm tra thao tác của chủ ví trên dashboard (pause, thu hồi agent, đổi hạn mức) bằng một ví thật.
-2. Mục "A teammate has done the fresh-clone test" trong SPEC §14 cần một thành viên trong nhóm tự làm; lần chạy thử ở P11 do agent làm.
-3. Fork mô phỏng có thể chậm hơn Fuji vài phút, nên số dư trong lời giải thích có thể lệch vài giao dịch gần nhất.
-4. Chưa bật LLM thật cho phần giải thích (`LLM_PROVIDER=none`, chưa có API key); hiện dùng mẫu cố định.
-5. Ví `0x54A2…2888` cần `acceptOwnership` trên vault **mới** (xem checklist bên dưới).
-6. Video demo dự phòng chưa quay.
-7. Trên GitHub, nhánh mặc định vẫn là `chore/p0-skeleton`; đổi sang `main` trong Settings → General → Default branch.
+2. Mục "A teammate has done the fresh-clone test" trong SPEC §14 cần một thành viên trong nhóm tự làm.
+3. Chưa bật LLM thật cho phần giải thích (`LLM_PROVIDER=none`); hiện dùng mẫu cố định.
+4. Ví `0x54A2…2888` cần `acceptOwnership` trên vault mới (xem checklist bên dưới).
+5. Nạp thêm USDC cho vault trước demo (còn khoảng 32 USDC).
+6. Fork mô phỏng có thể chậm hơn Fuji vài phút, nên số dư trong lời giải thích có thể lệch vài giao dịch gần nhất.
 
 ## P12 — Deploy lại vault có bản sửa F1, sửa b11, license (xong 2026-11-08, nhánh `feat/p12-finish`)
 
@@ -492,6 +491,30 @@ pnpm -r test → shared 39, agent 13 (+7 control.test.ts), dashboard 6, guardian
 ```
 
 Còn lại (vận hành, không sửa bằng code): mọi khoá nằm dạng chữ thường trong `.env.local`; ví deployer giữ 4 vai trên Fuji.
+
+## P14 — Tối ưu độ tin cậy, tốc độ, thư viện và MCP server (xong 2026-11-09, nhánh `feat/p14-polish`)
+
+- **Lỗi CAO oan khi fork lạnh.** Đồng hồ 800 ms trước đây tính từ lúc yêu cầu tới, kể cả lúc chờ fork (bảo trì 15 giây/lần gọi Fuji trong khoá, khởi động sau mỗi lần reset). Log cũ: mọi lần khởi động fork sau reset đều timeout (802–815 ms, `ok:false`). Sửa (`apps/guardian/src/sim/budget.ts`): 800 ms tính từ lúc lượt chạy giữ fork; một lần thử lại sau timeout; tối đa 10 giây cho cả chờ lẫn chạy; bảo trì gọi Fuji ngoài khoá. Sau sửa: khởi động lại Guardian rồi chạy S1 ngay → THẤP từ lần đầu; khởi động fork thành công (4,4 s và 5,9 s).
+- **RPC dự phòng** (`packages/shared/src/rpc.ts`): đọc trạng thái mới nhất (Guardian, agent, facilitator, dashboard) tự chuyển sang endpoint công cộng khác khi lỗi. Đo 20 yêu cầu dồn: PublicNode trung vị 174 ms, RPC chính thức 355 ms. Không dùng PublicNode cho fork: nó không giữ trạng thái cũ (`test:fork` báo "missing trie node").
+- `pnpm bench:guardian`: RPC chính thức p50 733 ms / p95 1176 ms → Guardian đọc qua PublicNode p50 253 ms / p95 727 ms (15/15 THẤP). `simulate()` trên fork p50 77 ms (P4: 292 ms). Eval p50 119 ms, cùng dấu vân tay `e33a546d912896a1`.
+- **Thư viện:** `pnpm audit --prod` từ 8 cảnh báo (4 cao) xuống 1 (zod 3 nằm trong `@x402/core` 2.28.0, bị giới hạn bởi header 16 KB). zod 4.6.7 cho mã của nhóm; bỏ các SDK ví thừa của wagmi (dashboard chỉ dùng ví trình duyệt); `ws` 8.21.3. Lockfile bớt khoảng 4.300 dòng. Dashboard build được.
+- **Bonus B2, MCP server** (`apps/guardian-mcp`): `check_transaction` (0,005 USDC) và `cosign_transaction` (0,01 USDC) qua `@x402/mcp` 2.28.0, chạy pipeline ngay trong tiến trình. Lõi Guardian tách thành `apps/guardian/src/core.ts` dùng chung cho API và MCP. `FORK_PORT` cho fork thứ hai. Client mẫu trên Fuji: được hỏi 0,005 USDC, trả, nhận THẤP; thanh toán [0x64a5e6bb…](https://testnet.snowtrace.io/tx/0x64a5e6bb319f77d9a55b31cb29ed8554323a6c031852bfc7766a1783ef9f68cf) (status 1).
+- **Lỗi có từ P12:** `local.json` vẫn trỏ vault cũ nên `test:fork` tự deploy bộ hợp đồng khác, router mới bị UNKNOWN_CONTRACT → 3 test fail. Sửa: `local.json` theo Fuji, tạo lại known-contracts; `redeploy-vault` từ nay tự cập nhật `local.json`.
+- Kịch bản trên Fuji với code P14 (chạy ngay sau khi khởi động Guardian):
+  - S1 THẤP: phí [0x643a46ff…](https://testnet.snowtrace.io/tx/0x643a46ffd11aec599ca2a98bc4e589d891e7943acbb0f5fba048dfc9b9f0c38e), vault [0xe139c1f6…](https://testnet.snowtrace.io/tx/0xe139c1f6e6082d8aa6a661200bd873adc5e7cb40de179d9a5fb646aa531a093d).
+  - S2 CAO 100/100: phí [0xf097b317…](https://testnet.snowtrace.io/tx/0xf097b317ea7295801d326cebfb1497c525a3bef2c8fe64c684790ebd3c56f916), vault revert `RecipientNotAllowed` [0x90fffa1b…](https://testnet.snowtrace.io/tx/0x90fffa1b5c8d5b37e7f54b90867a3b154de346629f90fb27030f3b717700e4d4).
+  - S4 CAO 60/100: phí [0x345c2a59…](https://testnet.snowtrace.io/tx/0x345c2a5961389cc4f802ecb8a44ccbb55071eff8e8d2e65f348231cc93743432), vault revert `RiskTooHigh` [0x398c7fd0…](https://testnet.snowtrace.io/tx/0x398c7fd03c7cd066f21ba47eb0236adb36fe410b0e6dba9cf031208e5c30337b).
+
+Test:
+
+```
+forge test                                  → 146 passed
+pnpm -r test                                → shared 41, agent 13, dashboard 6, guardian 108, guardian-mcp 6, eval 5
+pnpm --filter @guardian402/guardian test:fork → 18 passed
+pnpm eval                                   → TP 25 FP 0 TN 15 FN 0 (cả hai ngưỡng), dấu vân tay e33a546d912896a1
+```
+
+Ví sau P14: vault khoảng 32 USDC (mỗi S1 tốn 2 USDC), agent khoảng 9,8 USDC. Nạp thêm USDC cho owner từ faucet Circle rồi `pnpm seed:fuji` nếu muốn vault đủ 50.
 
 ## Checklist trước demo
 
