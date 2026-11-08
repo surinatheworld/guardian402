@@ -85,6 +85,12 @@ const app = createApp({
   payTo: env.PAY_TO,
   demoMode: env.DEMO_MODE,
   dashboardOrigin: env.DASHBOARD_ORIGIN,
+  busy: () => simulator.queueDepth >= env.MAX_QUEUED_CHECKS,
+  allowedHosts: new Set(
+    env.ALLOWED_HOSTS
+      ? env.ALLOWED_HOSTS.split(",").map((h) => h.trim().toLowerCase())
+      : ["127.0.0.1", "localhost", "[::1]"].map((h) => `${h}:${env.GUARDIAN_PORT}`),
+  ),
   resourceServer,
   forkBlock: () => fork.getBlockNumber(),
   log,

@@ -27,6 +27,10 @@ const schema = z.object({
     .transform((v) => v === "true" || v === "1"),
   GUARDIAN_PORT: z.coerce.number().int().positive().default(4402),
   DASHBOARD_ORIGIN: z.string().default("http://localhost:3000"),
+  // Accepted Host headers, comma-separated host:port; empty = this machine on GUARDIAN_PORT (P13).
+  ALLOWED_HOSTS: z.string().default(""),
+  // Checks allowed to wait for the fork before new ones get 503 (P13).
+  MAX_QUEUED_CHECKS: z.coerce.number().int().positive().default(8),
   // Relative paths are from the repo root, whatever directory the app starts in.
   GUARDIAN_DB: z
     .string()

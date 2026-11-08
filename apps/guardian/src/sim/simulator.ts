@@ -98,6 +98,11 @@ export class Simulator {
       : undefined;
   }
 
+  /** Simulations running or waiting for the fork (one runs at a time). */
+  get queueDepth(): number {
+    return this.#mutex.size;
+  }
+
   /**
    * Never throws: a timeout or any error becomes `success: false`, which the rules turn into
    * SIMULATION_FAILED. On timeout the run keeps the mutex until its snapshot is reverted.

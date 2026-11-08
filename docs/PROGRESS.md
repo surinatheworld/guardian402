@@ -478,6 +478,21 @@ pnpm eval (2 lần)                         → chặn = CAO: TP 25 FP 0 TN 15 F
 - Dashboard: thẻ "Danh tính ERC-8004" ở trang Tổng quan (agentId, registry, chủ sở hữu, dịch vụ, link giao dịch).
 - Chưa làm: luồng ValidationRegistry cho verdict CAO (tuỳ chọn trong SPEC §13.1). Endpoint công bố đang là link GitHub vì Guardian chưa có địa chỉ công khai; repo đang private nên người ngoài chưa mở được link này.
 
+## P13 — Vá lỗ hổng sau soát lần hai (xong 2026-11-09, nhánh `fix/p13-hardening`)
+
+- F5 (thấp): API điều khiển agent (cổng 4403) chạy kịch bản với bất kỳ POST nào; một trang web lạ đang mở trên máy có thể bấm hộ. Sửa: Host phải là máy này; POST phải có Origin của dashboard và header `X-Guardian402-Demo` (buộc CORS preflight, chỉ dashboard qua được). Code tách ra `apps/agent/src/control.ts`; dashboard gửi header này.
+- F6 (thấp): mọi lượt kiểm tra xếp hàng chung một fork; gửi dồn dập làm người khác bị timeout. Sửa: quá `MAX_QUEUED_CHECKS` (8) lượt đang chờ thì trả 503 + `Retry-After`, trước bước thu phí nên không ai bị trừ tiền.
+- F7 (thông tin): lỗi 502 trả nguyên thông báo nội bộ; Guardian nhận mọi Host. Sửa: 502 không kèm chi tiết (chỉ ghi log); Host phải nằm trong `ALLOWED_HOSTS` (mặc định: máy này trên `GUARDIAN_PORT`).
+- Kiểm tra trên dịch vụ đang chạy: Host giả (`evil.example`) → 403 ở cả 4402 và 4403; POST từ Origin lạ → 403; POST từ Origin dashboard nhưng thiếu header → 403; bấm S1 trên dashboard → rủi ro THẤP, khớp bảng kịch bản.
+
+Test:
+
+```
+pnpm -r test → shared 39, agent 13 (+7 control.test.ts), dashboard 6, guardian 103 (+5 hardening.test.ts), eval 5
+```
+
+Còn lại (vận hành, không sửa bằng code): mọi khoá nằm dạng chữ thường trong `.env.local`; ví deployer giữ 4 vai trên Fuji.
+
 ## Checklist trước demo
 
 - [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault mới `0x3f6a5852788ff6a46d924C407976bB89487f7651` (tx [0xed5a391b…b28e](https://testnet.snowtrace.io/tx/0xed5a391be502ad3f2d042885e5871bea507ac1fa3a0d1784a001a27bc5c4b28e)). Vault cũ `0x32cb…Ab99` đã rút hết tiền và tạm dừng, không cần accept nữa. Các bước:
