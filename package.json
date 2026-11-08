@@ -34,7 +34,10 @@
     "mine-lookalike": "bash scripts/mine-lookalike.sh",
     "dev:dashboard": "pnpm --filter @guardian402/dashboard dev",
     "eval": "pnpm --filter @guardian402/eval eval",
-    "erc8004:fuji": "tsx scripts/erc8004.ts fuji"
+    "erc8004:fuji": "tsx scripts/erc8004.ts fuji",
+    "bench:guardian": "tsx scripts/bench-guardian.ts",
+    "mcp": "pnpm --filter @guardian402/guardian-mcp start",
+    "mcp:example": "pnpm --filter @guardian402/guardian-mcp example"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -55,6 +58,18 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
-    ]
+    ],
+    "overrides": {
+      "@wagmi/connectors>@base-org/account": "-",
+      "@wagmi/connectors>@coinbase/wallet-sdk": "-",
+      "@wagmi/connectors>@gemini-wallet/core": "-",
+      "@wagmi/connectors>@metamask/sdk": "-",
+      "@wagmi/connectors>@safe-global/safe-apps-provider": "-",
+      "@wagmi/connectors>@safe-global/safe-apps-sdk": "-",
+      "@wagmi/connectors>@walletconnect/ethereum-provider": "-",
+      "@wagmi/connectors>cbw-sdk": "-",
+      "@wagmi/connectors>porto": "-",
+      "ws@>=8.0.0 <8.21.0": "8.21.3"
+    }
   }
 }
