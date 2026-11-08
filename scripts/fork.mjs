@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// `pnpm fork`: Anvil fork of Avalanche Fuji on http://127.0.0.1:8545 (docs/SPEC.md §7).
+// `pnpm fork`: Anvil fork of Avalanche Fuji on http://127.0.0.1:8545 (docs/SPEC.md §7). FORK_PORT picks
+// another port, e.g. a second fork for the MCP server (apps/guardian-mcp) next to the Guardian API's.
 //
 // Runs `anvil --fork-url $FUJI_RPC_URL --chain-id 43113 --port 8545 --hardfork cancun`.
 // Fuji runs the Cancun EVM (ACP-131); Anvil's default (latest) would simulate newer rules, and its EIP-2935
@@ -11,7 +12,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 
 const FOUNDRY_IMAGE = "ghcr.io/foundry-rs/foundry:v1.8.5";
-const PORT = "8545";
+const PORT = process.env.FORK_PORT || "8545";
 const CHAIN_ID = "43113";
 const HARDFORK = "cancun";
 
@@ -35,7 +36,7 @@ if (runner === "native" || (runner === "auto" && nativeWorks())) {
     "--rm",
     "--init",
     "--name",
-    "guardian402-fork",
+    PORT === "8545" ? "guardian402-fork" : `guardian402-fork-${PORT}`,
     "-p",
     `127.0.0.1:${PORT}:${PORT}`,
     "--entrypoint",
