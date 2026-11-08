@@ -138,6 +138,7 @@ values and holds no key: the owner signs with a browser wallet.
 | `pnpm dev:agent`                                           | agent control API on :4403 (DEMO only)                   |
 | `pnpm dev:dashboard`                                       | dashboard on :3000                                       |
 | `pnpm eval`                                                | 40-case eval, writes `eval/report.md`                    |
+| `pnpm erc8004:fuji`                                        | register the Guardian on ERC-8004 (bonus B1)             |
 
 The full list, with options, is in [CLAUDE.md](CLAUDE.md).
 
@@ -156,6 +157,21 @@ Verified on [testnet.snowtrace.io](https://testnet.snowtrace.io). Network: Avala
 AgentVault was redeployed on 2026-11-08 with the P11 fix that revokes unused approvals at the end of each batch
 (finding F1 in the threat model), using `pnpm redeploy-vault:fuji`. The first vault,
 [`0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99`](https://testnet.snowtrace.io/address/0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99), was emptied and paused.
+
+### ERC-8004 identity (bonus B1)
+
+The Guardian is agent **#295** on the official ERC-8004 IdentityRegistry on Fuji,
+[`0x8004A818BFB912233c491871b3d84c89A494BD9e`](https://testnet.snowtrace.io/address/0x8004A818BFB912233c491871b3d84c89A494BD9e), owned by the deployer
+wallet. Its registration file (`registration-v1`: name, description, services, `x402Support: true`, registrations) is
+stored on-chain as the agentURI, as a base64 JSON data URI. Register: [0x6d22083e…](https://testnet.snowtrace.io/tx/0x6d22083e006da209338f289b5389f1486902233f859bcfe00b179512b8658001),
+agentURI: [0xf6f78bcf…](https://testnet.snowtrace.io/tx/0xf6f78bcf70ab3d62eb2eaa04d5f202e042cd5c83d1736a93cb1c029bda2471e1). Read it back:
+
+```bash
+cast call 0x8004A818BFB912233c491871b3d84c89A494BD9e "tokenURI(uint256)(string)" 295 --rpc-url https://api.avax-test.network/ext/bc/C/rpc
+```
+
+The dashboard shows it on the Tổng quan page. Set `GUARDIAN_PUBLIC_URL` and run `pnpm erc8004:fuji` again to
+advertise a public Guardian endpoint instead of this repository.
 
 ## What is mocked (DEMO MODE)
 

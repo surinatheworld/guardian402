@@ -3,14 +3,18 @@
 import type { ReactNode } from "react";
 import { erc20Abi } from "viem";
 import { useReadContract } from "wagmi";
-import { AddressLink, Card, ErrorBox, Facts, Loading, PageHeader, Stat } from "@/components/ui";
+import { fromDataUri, getErc8004Record } from "@guardian402/shared";
+import { AddressLink, Card, ErrorBox, Facts, Loading, PageHeader, Stat, TxLink } from "@/components/ui";
 import { errorText, useGuardianHealth } from "@/lib/api";
-import { deployment, tokenMeta } from "@/lib/config";
+import { NETWORK, deployment, tokenMeta } from "@/lib/config";
 import { formatAmount, ZERO_ADDRESS } from "@/lib/format";
 import { RISK_LABEL } from "@/lib/labels";
 import { useVaultPolicy } from "@/lib/vault";
 
 const RISK_BY_CODE = ["LOW", "MEDIUM", "HIGH"] as const;
+// ERC-8004 identity of the Guardian on Fuji (bonus B1), written by `pnpm erc8004:fuji`.
+const IDENTITY = NETWORK === "fuji" ? getErc8004Record() : undefined;
+const IDENTITY_FILE = IDENTITY ? fromDataUri(IDENTITY.agentURI) : undefined;
 
 export default function Overview() {
   const policy = useVaultPolicy();
@@ -225,6 +229,48 @@ export default function Overview() {
           />
         ) : null}
       </Card>
+
+      {IDENTITY && IDENTITY_FILE ? (
+        <Card title="Danh tính ERC-8004">
+          <Facts
+            rows={[
+              [
+                "Agent",
+                <span key="id" className="flex flex-wrap items-baseline gap-2">
+                  <span className="rounded-full border border-line px-2 py-0.5 text-xs font-semibold">
+                    {IDENTITY_FILE.name} #{IDENTITY.agentId}
+                  </span>
+                  <span className="text-xs text-low">✓ đã đăng ký trên Fuji</span>
+                </span>,
+              ],
+              ["IdentityRegistry", <AddressLink key="r" address={IDENTITY.identityRegistry} />],
+              ["Chủ sở hữu danh tính", <AddressLink key="o" address={IDENTITY.owner} />],
+              ["Nhận thanh toán x402", IDENTITY_FILE.x402Support ? "Có" : "Không"],
+              [
+                "Dịch vụ công bố",
+                <ul key="s" className="flex flex-col gap-1">
+                  {IDENTITY_FILE.services.map((s) => (
+                    <li key={s.name} className="break-all text-xs">
+                      {s.name}: {s.endpoint}
+                    </li>
+                  ))}
+                </ul>,
+              ],
+              [
+                "Giao dịch",
+                <span key="tx" className="flex flex-wrap gap-3">
+                  <TxLink hash={IDENTITY.registerTx} label="đăng ký" />
+                  <TxLink hash={IDENTITY.uriTx} label="file mô tả" />
+                </span>,
+              ],
+            ]}
+          />
+          <p className="text-xs text-muted">
+            Sổ danh tính agent theo chuẩn ERC-8004: agent khác tra agentId này để tìm Guardian và đọc file mô
+            tả lưu ngay trên chain.
+          </p>
+        </Card>
+      ) : null}
     </>
   );
 }
