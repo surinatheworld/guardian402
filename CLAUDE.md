@@ -92,6 +92,7 @@ Available now:
 - `pnpm verify:fuji` — verify the Fuji contracts on Routescan / testnet.snowtrace.io
 - `pnpm handoff:fuji` — start the Ownable2Step transfer of AgentVault to the team lead's wallet
 - `pnpm redeploy-mocks:fuji` / `pnpm swap-router:fuji <oldRouter>` — replace mWAVAX and MockRouter (verified in the same run), then move the vault allowlist from the old router to the new one
+- `pnpm redeploy-vault:fuji` — deploy a new AgentVault with the current code (verified in the same run) and keep the mocks; if `OWNER_PK` owns the old vault it is emptied to the owner and paused first. Then run `pnpm seed:fuji`, `pnpm handoff:fuji` and `pnpm known-contracts`
 - `pnpm abi` — `forge build`, then regenerate `packages/shared/src/abi/*.ts` (committed)
 - `pnpm test:crosscheck` — sign a verdict in TypeScript, write `contracts/test/fixtures/verdict.json`, run `VerdictCrossCheck.t.sol`
 - `pnpm known-contracts` — regenerate `apps/guardian/config/known-contracts.{fuji,local}.json` from the deployed addresses (run after a deploy)

@@ -109,11 +109,11 @@ contract Seed is Script {
         if (vaultUsdc >= VAULT_USDC) return;
         uint256 need = VAULT_USDC - vaultUsdc;
         uint256 have = d.usdc.balanceOf(owner);
-        if (have >= need) {
-            require(d.usdc.transfer(address(d.vault), need), "USDC transfer failed");
-        } else {
-            console2.log("WARNING: owner holds too little USDC to fund the vault. Need / have (6 decimals):");
+        if (have < need) {
+            console2.log("WARNING: owner holds too little USDC to fund the vault fully. Need / have (6 decimals):");
             console2.log(need, have);
         }
+        uint256 amount = have < need ? have : need;
+        if (amount > 0) require(d.usdc.transfer(address(d.vault), amount), "USDC transfer failed");
     }
 }

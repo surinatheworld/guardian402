@@ -20,6 +20,8 @@ export const deploymentSchema = z.object({
   router: addressSchema,
   vault: addressSchema,
   cancunSmoke: addressSchema.optional(),
+  // AgentVault replaced by `pnpm redeploy-vault:<network>` (emptied and paused).
+  previousVault: addressSchema.optional(),
 });
 export type Deployment = z.infer<typeof deploymentSchema>;
 
