@@ -195,6 +195,12 @@ describe("rule details", () => {
     expect(fire("UNKNOWN_CONTRACT", fx("unknown-contract-approval"))[0]?.severity).toBe("HIGH");
   });
 
+  it("UNKNOWN_CONTRACT ignores the spender of a revocation (approve to 0)", () => {
+    const f = fx("unknown-contract-approval");
+    must(f.sim.approvals[0]).amount = 0n;
+    expect(fire("UNKNOWN_CONTRACT", f)).toEqual([]);
+  });
+
   it("UNKNOWN_CONTRACT ignores addresses without code (the lookalike is an EOA)", () => {
     expect(fire("UNKNOWN_CONTRACT", fx("poisoned-approval"))).toEqual([]);
   });

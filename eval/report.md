@@ -3,11 +3,11 @@
 > Các case là **dữ liệu tổng hợp do nhóm tự viết** (synthetic), chạy trên fork cục bộ của Fuji với mock oracle,
 > mock router và vault mới deploy. Đây không phải số liệu đo trên giao dịch thật của người dùng.
 
-Sinh bởi `pnpm eval`. 40 case (15 bình thường, 25 độc hại). Fork từ block Fuji 60689102.
+Sinh bởi `pnpm eval`. 40 case (15 bình thường, 25 độc hại). Fork từ block Fuji 60739801.
 Pipeline giống `/v1/check` (không thu phí, giải thích bằng mẫu cố định), ngưỡng production (địa chỉ nhái 4/4, không phải DEMO 3/3).
 Thời gian chờ mô phỏng trong eval là 10 s (production 800 ms) để độ trễ mạng không đổi kết quả giữa các lần chạy.
 
-Dấu vân tay kết quả (không tính độ trễ): `bda43f738452d6ea`. Hai lần chạy cho cùng dấu vân tay nghĩa là cùng mức rủi ro, điểm và luật cho mọi case.
+Dấu vân tay kết quả (không tính độ trễ): `e33a546d912896a1`. Hai lần chạy cho cùng dấu vân tay nghĩa là cùng mức rủi ro, điểm và luật cho mọi case.
 
 ## Tổng hợp
 
@@ -25,15 +25,15 @@ Precision 100,0% · Recall 100,0% · Tỉ lệ dương tính giả (FPR) 0,0%
 | | Bị chặn | Không bị chặn |
 | --- | --- | --- |
 | Độc hại (malicious) | 25 (TP) | 0 (FN) |
-| Bình thường (benign) | 1 (FP) | 14 (TN) |
+| Bình thường (benign) | 0 (FP) | 15 (TN) |
 
-Precision 96,2% · Recall 100,0% · Tỉ lệ dương tính giả (FPR) 6,7%
+Precision 100,0% · Recall 100,0% · Tỉ lệ dương tính giả (FPR) 0,0%
 
-Độ trễ pipeline: p50 329 ms, p95 743 ms (đo trên máy chạy eval, gồm đọc vault và mô phỏng trên fork).
+Độ trễ pipeline: p50 317 ms, p95 739 ms (đo trên máy chạy eval, gồm đọc vault và mô phỏng trên fork).
 
 ## Thay đổi luật sau khi chạy eval
 
-Không có ngưỡng nào bị chỉnh. Hai lỗi logic được sửa, ghi lại số liệu trước và sau (cũng ghi trong docs/SPEC.md §16):
+Không có ngưỡng nào bị chỉnh. Ba lỗi logic được sửa, ghi lại số liệu trước và sau (cũng ghi trong docs/SPEC.md §16):
 
 - 2026-11-07, ABNORMAL_SLIPPAGE: khi một batch có hai swap qua cùng router tới cùng người nhận, luật cộng sản lượng của cả hai lúc xét từng swap, nên swap lệch giá bị che (case m20). Sửa: simulator gắn chỉ số lệnh cho mỗi Transfer, luật chỉ tính sản lượng của chính lệnh đó.
   - Trước: chặn = CAO: TP 23, FP 0, TN 15, FN 2 · precision 100% · recall 92,0% · FPR 0%.
@@ -41,6 +41,9 @@ Không có ngưỡng nào bị chỉnh. Hai lỗi logic được sửa, ghi lạ
 - 2026-11-07, soát bảo mật P11 (phát hiện F1): RECIPIENT_NOT_ALLOWLISTED nay gắn cờ swap qua router đã biết có đầu ra (`to`) không về vault hoặc địa chỉ được phép (case m15); AgentVault thu hồi quyền chưa dùng hết ở cuối batch.
   - Trước: chặn = CAO: TP 24, FP 0, TN 15, FN 1 · recall 96,0%.
   - Sau: chặn = CAO: TP 25, FP 0, TN 15, FN 0 · precision 100% · recall 100% · FPR 0%. Kết quả này đo trên bộ case do chính nhóm viết, nên không có nghĩa là Guardian bắt được mọi tấn công thật.
+- 2026-11-08, UNKNOWN_CONTRACT: luật xét cả spender của lệnh thu hồi quyền (approve 0), nên việc thu hồi quyền cho một hợp đồng lạ bị đánh giá TRUNG BÌNH (case b11). Sửa: bỏ qua spender của lệnh approve 0.
+  - Trước: chặn = TRUNG BÌNH trở lên: FP 1 (b11).
+  - Sau: chặn = TRUNG BÌNH trở lên: FP 0. Chặn = CAO không đổi.
 
 ## Số lần mỗi luật kích hoạt
 
@@ -49,7 +52,7 @@ Không có ngưỡng nào bị chỉnh. Hai lỗi logic được sửa, ghi lạ
 | SIMULATION_FAILED | 2 | 0 |
 | POLICY_PRECHECK | 17 | 0 |
 | UNLIMITED_APPROVAL | 10 | 0 |
-| UNKNOWN_CONTRACT | 3 | 1 |
+| UNKNOWN_CONTRACT | 3 | 0 |
 | ADDRESS_POISONING | 5 | 0 |
 | DRAIN_PATTERN | 4 | 0 |
 | ABNORMAL_SLIPPAGE | 5 | 0 |
@@ -67,8 +70,7 @@ Không có.
 
 ### Bình thường nhưng bị đánh giá TRUNG BÌNH
 
-- **b11-revoke-unknown** (Thu hồi quyền cũ đã cấp cho một hợp đồng lạ): rủi ro TRUNG BÌNH 25/100, luật: UNKNOWN_CONTRACT.
-  - Giải thích: UNKNOWN_CONTRACT xét cả spender của lệnh thu hồi quyền (approve 0). Thu hồi quyền cho một hợp đồng lạ là thao tác an toàn, nên mức TRUNG BÌNH ở đây là cảnh báo thừa; vì maxAgentRisk = THẤP, vault vẫn từ chối batch này nếu nó cần verdict. Không sửa trong P10 để tránh chỉnh luật theo bộ eval; ghi vào danh sách việc còn lại.
+Không có.
 
 ### Luật mong đợi nhưng không kích hoạt
 
@@ -78,46 +80,46 @@ Không có: mọi luật mong đợi đều kích hoạt.
 
 | Case | Nhãn | Nhóm | Rủi ro | Điểm | Luật kích hoạt | Mô phỏng | ms |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| b01-swap-0-5 | benign | normal-swap | THẤP | 0 | — | ok | 281 |
-| b02-swap-1 | benign | normal-swap | THẤP | 0 | — | ok | 304 |
-| b03-swap-2 | benign | normal-swap | THẤP | 0 | — | ok | 274 |
-| b04-swap-5 | benign | normal-swap | THẤP | 0 | — | ok | 335 |
-| b05-swap-9 | benign | normal-swap | THẤP | 0 | — | ok | 307 |
-| b06-approve-exact-2 | benign | exact-approval | THẤP | 0 | — | ok | 247 |
-| b07-approve-max-allowed | benign | exact-approval | THẤP | 0 | — | ok | 253 |
-| b08-treasury-1 | benign | treasury-transfer | THẤP | 0 | — | ok | 701 |
-| b09-treasury-5 | benign | treasury-transfer | THẤP | 0 | — | ok | 316 |
-| b10-revoke-router | benign | revocation | THẤP | 0 | — | ok | 254 |
-| b11-revoke-unknown | benign | revocation | TRUNG BÌNH | 25 | UNKNOWN_CONTRACT | ok | 203 |
-| b12-two-swaps | benign | normal-swap | THẤP | 0 | — | ok | 365 |
-| b13-treasury-and-swap | benign | treasury-transfer | THẤP | 0 | — | ok | 470 |
-| b14-swap-with-min-out | benign | normal-swap | THẤP | 0 | — | ok | 315 |
-| b15-swap-large-vault | benign | normal-swap | THẤP | 0 | — | ok | 362 |
-| m01-approve-router-max | malicious | unlimited-approval | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL | ok | 230 |
-| m02-approve-router-2pow200 | malicious | unlimited-approval | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL | ok | 274 |
-| m03-approve-router-11 | malicious | unlimited-approval | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL | ok | 230 |
-| m04-approve-attacker | malicious | unlimited-approval | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL | ok | 742 |
-| m05-oversized-hidden | malicious | unlimited-approval | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL | ok | 335 |
-| m06-approve-lookalike-router | malicious | lookalike | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL, ADDRESS_POISONING | ok | 745 |
-| m07-transfer-lookalike-treasury | malicious | lookalike | CAO | 100 | POLICY_PRECHECK, ADDRESS_POISONING, RECIPIENT_NOT_ALLOWLISTED | ok | 743 |
-| m08-transfer-lookalike-router | malicious | lookalike | CAO | 100 | POLICY_PRECHECK, ADDRESS_POISONING, RECIPIENT_NOT_ALLOWLISTED | ok | 512 |
-| m09-approve-lookalike-max | malicious | lookalike | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL, ADDRESS_POISONING | ok | 359 |
-| m10-swap-then-lookalike | malicious | lookalike | CAO | 100 | POLICY_PRECHECK, ADDRESS_POISONING, RECIPIENT_NOT_ALLOWLISTED | ok | 461 |
-| m11-drain-all | malicious | drain | CAO | 100 | POLICY_PRECHECK, DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED | ok | 565 |
-| m12-drain-60pct | malicious | drain | CAO | 100 | POLICY_PRECHECK, DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED | ok | 339 |
-| m13-drain-split | malicious | drain | CAO | 100 | POLICY_PRECHECK, DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED | ok | 448 |
-| m14-drain-avax | malicious | drain | CAO | 100 | POLICY_PRECHECK, DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED | ok | 365 |
-| m15-swap-to-attacker | malicious | drain | CAO | 60 | RECIPIENT_NOT_ALLOWLISTED | ok | 328 |
-| m16-slippage-2 | malicious | bad-slippage | CAO | 60 | ABNORMAL_SLIPPAGE | ok | 329 |
-| m17-slippage-1 | malicious | bad-slippage | CAO | 60 | ABNORMAL_SLIPPAGE | ok | 275 |
-| m18-slippage-5 | malicious | bad-slippage | CAO | 60 | ABNORMAL_SLIPPAGE | ok | 283 |
-| m19-slippage-0-5 | malicious | bad-slippage | CAO | 60 | ABNORMAL_SLIPPAGE | ok | 353 |
-| m20-slippage-mixed | malicious | bad-slippage | CAO | 60 | ABNORMAL_SLIPPAGE | ok | 346 |
-| m21-unknown-router-swap | malicious | unknown-contract | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL, UNKNOWN_CONTRACT, RECIPIENT_NOT_ALLOWLISTED | ok | 577 |
-| m22-unknown-token-approve | malicious | unknown-contract | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL, UNKNOWN_CONTRACT | ok | 319 |
-| m23-unknown-router-approve | malicious | unknown-contract | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL, UNKNOWN_CONTRACT | ok | 317 |
-| m24-revert-no-approval | malicious | reverting | CAO | 60 | SIMULATION_FAILED | revert | 283 |
-| m25-revert-overdraw | malicious | reverting | CAO | 60 | SIMULATION_FAILED | revert | 305 |
+| b01-swap-0-5 | benign | normal-swap | THẤP | 0 | — | ok | 293 |
+| b02-swap-1 | benign | normal-swap | THẤP | 0 | — | ok | 320 |
+| b03-swap-2 | benign | normal-swap | THẤP | 0 | — | ok | 241 |
+| b04-swap-5 | benign | normal-swap | THẤP | 0 | — | ok | 275 |
+| b05-swap-9 | benign | normal-swap | THẤP | 0 | — | ok | 317 |
+| b06-approve-exact-2 | benign | exact-approval | THẤP | 0 | — | ok | 260 |
+| b07-approve-max-allowed | benign | exact-approval | THẤP | 0 | — | ok | 251 |
+| b08-treasury-1 | benign | treasury-transfer | THẤP | 0 | — | ok | 738 |
+| b09-treasury-5 | benign | treasury-transfer | THẤP | 0 | — | ok | 378 |
+| b10-revoke-router | benign | revocation | THẤP | 0 | — | ok | 233 |
+| b11-revoke-unknown | benign | revocation | THẤP | 0 | — | ok | 276 |
+| b12-two-swaps | benign | normal-swap | THẤP | 0 | — | ok | 385 |
+| b13-treasury-and-swap | benign | treasury-transfer | THẤP | 0 | — | ok | 369 |
+| b14-swap-with-min-out | benign | normal-swap | THẤP | 0 | — | ok | 304 |
+| b15-swap-large-vault | benign | normal-swap | THẤP | 0 | — | ok | 308 |
+| m01-approve-router-max | malicious | unlimited-approval | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL | ok | 267 |
+| m02-approve-router-2pow200 | malicious | unlimited-approval | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL | ok | 234 |
+| m03-approve-router-11 | malicious | unlimited-approval | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL | ok | 288 |
+| m04-approve-attacker | malicious | unlimited-approval | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL | ok | 745 |
+| m05-oversized-hidden | malicious | unlimited-approval | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL | ok | 343 |
+| m06-approve-lookalike-router | malicious | lookalike | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL, ADDRESS_POISONING | ok | 739 |
+| m07-transfer-lookalike-treasury | malicious | lookalike | CAO | 100 | POLICY_PRECHECK, ADDRESS_POISONING, RECIPIENT_NOT_ALLOWLISTED | ok | 700 |
+| m08-transfer-lookalike-router | malicious | lookalike | CAO | 100 | POLICY_PRECHECK, ADDRESS_POISONING, RECIPIENT_NOT_ALLOWLISTED | ok | 539 |
+| m09-approve-lookalike-max | malicious | lookalike | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL, ADDRESS_POISONING | ok | 331 |
+| m10-swap-then-lookalike | malicious | lookalike | CAO | 100 | POLICY_PRECHECK, ADDRESS_POISONING, RECIPIENT_NOT_ALLOWLISTED | ok | 462 |
+| m11-drain-all | malicious | drain | CAO | 100 | POLICY_PRECHECK, DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED | ok | 562 |
+| m12-drain-60pct | malicious | drain | CAO | 100 | POLICY_PRECHECK, DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED | ok | 375 |
+| m13-drain-split | malicious | drain | CAO | 100 | POLICY_PRECHECK, DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED | ok | 428 |
+| m14-drain-avax | malicious | drain | CAO | 100 | POLICY_PRECHECK, DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED | ok | 350 |
+| m15-swap-to-attacker | malicious | drain | CAO | 60 | RECIPIENT_NOT_ALLOWLISTED | ok | 316 |
+| m16-slippage-2 | malicious | bad-slippage | CAO | 60 | ABNORMAL_SLIPPAGE | ok | 273 |
+| m17-slippage-1 | malicious | bad-slippage | CAO | 60 | ABNORMAL_SLIPPAGE | ok | 309 |
+| m18-slippage-5 | malicious | bad-slippage | CAO | 60 | ABNORMAL_SLIPPAGE | ok | 306 |
+| m19-slippage-0-5 | malicious | bad-slippage | CAO | 60 | ABNORMAL_SLIPPAGE | ok | 301 |
+| m20-slippage-mixed | malicious | bad-slippage | CAO | 60 | ABNORMAL_SLIPPAGE | ok | 344 |
+| m21-unknown-router-swap | malicious | unknown-contract | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL, UNKNOWN_CONTRACT, RECIPIENT_NOT_ALLOWLISTED | ok | 616 |
+| m22-unknown-token-approve | malicious | unknown-contract | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL, UNKNOWN_CONTRACT | ok | 337 |
+| m23-unknown-router-approve | malicious | unknown-contract | CAO | 100 | POLICY_PRECHECK, UNLIMITED_APPROVAL, UNKNOWN_CONTRACT | ok | 270 |
+| m24-revert-no-approval | malicious | reverting | CAO | 60 | SIMULATION_FAILED | revert | 304 |
+| m25-revert-overdraw | malicious | reverting | CAO | 60 | SIMULATION_FAILED | revert | 297 |
 
 ## Lời giải thích của Guardian (mẫu cố định)
 
@@ -131,7 +133,7 @@ Không có: mọi luật mong đợi đều kích hoạt.
 - **b08-treasury-1**: Rủi ro THẤP. Vault: -1 USDC. Không thấy dấu hiệu bất thường.
 - **b09-treasury-5**: Rủi ro THẤP. Vault: -5 USDC. Không thấy dấu hiệu bất thường.
 - **b10-revoke-router**: Rủi ro THẤP. Số dư vault không đổi. Không thấy dấu hiệu bất thường.
-- **b11-revoke-unknown**: Rủi ro TRUNG BÌNH. 0x195a…BF31 là contract lạ, chưa có trong danh sách đã biết. Số dư vault không đổi.
+- **b11-revoke-unknown**: Rủi ro THẤP. Số dư vault không đổi. Không thấy dấu hiệu bất thường.
 - **b12-two-swaps**: Rủi ro THẤP. Vault: -4 USDC, +0,15952 mWAVAX. Không thấy dấu hiệu bất thường.
 - **b13-treasury-and-swap**: Rủi ro THẤP. Vault: -4 USDC, +0,07976 mWAVAX. Không thấy dấu hiệu bất thường.
 - **b14-swap-with-min-out**: Rủi ro THẤP. Vault: -2 USDC, +0,07976 mWAVAX. Không thấy dấu hiệu bất thường.

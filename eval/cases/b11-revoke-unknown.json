@@ -19,5 +19,5 @@
     ]
   },
   "expectedRules": [],
-  "note": "UNKNOWN_CONTRACT xét cả spender của lệnh thu hồi quyền (approve 0). Thu hồi quyền cho một hợp đồng lạ là thao tác an toàn, nên mức TRUNG BÌNH ở đây là cảnh báo thừa; vì maxAgentRisk = THẤP, vault vẫn từ chối batch này nếu nó cần verdict. Không sửa trong P10 để tránh chỉnh luật theo bộ eval; ghi vào danh sách việc còn lại."
+  "note": "Trước 2026-11-08, UNKNOWN_CONTRACT xét cả spender của lệnh thu hồi quyền (approve 0) nên case này bị đánh giá TRUNG BÌNH dù thu hồi quyền là thao tác an toàn. Sửa: luật bỏ qua spender của lệnh approve 0."
 }
