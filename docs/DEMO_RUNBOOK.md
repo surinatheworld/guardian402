@@ -17,7 +17,6 @@ Addresses (from `packages/shared/src/addresses/fuji.json`):
 - [ ] `git pull`, `pnpm install`, `cd contracts && forge build` on the demo laptop.
 - [ ] `.env.local` at the repo root has `AGENT_PK`, `OWNER_PK` (or the owner wallet in the browser), `GUARDIAN_SIGNER_PK`, `PAY_TO`, `FACILITATOR_PK`.
 - [ ] Run the checks below once and top up anything that is low.
-- [ ] Record the backup video (see "Fallback").
 
 ## Pre-demo checklist (15 minutes before)
 
@@ -99,5 +98,5 @@ The same scenarios from a terminal: `NETWORK=fuji CHAIN_RPC_URL=https://api.avax
 | Fuji RPC rate-limited (HTTP 429, Cloudflare 1015)   | Reads already fall back to the other public endpoint. If the fork itself is starved, set `FUJI_RPC_URL` to a provider URL with a key (archive or full state), restart `pnpm fork` and the Guardian. |
 | Guardian returns `SIMULATION_FAILED` on S1          | Fork was cold or lagging: wait 20 s and run S1 again; if it repeats, restart `pnpm fork` and the Guardian.                                                                                          |
 | A scenario says "KHÔNG KHỚP"                        | Read the line: usually low balances (checklist) or a paused vault. Unpause from Điều khiển.                                                                                                         |
-| Anything else, or the network is down               | Play the backup video recorded the night before (S1, S2, S4 and the dashboard), and show the Snowtrace links in `docs/PROGRESS.md` (P8 and P9 sections).                                            |
+| Anything else, or the network is down               | Show the Snowtrace links in `docs/PROGRESS.md` (P8 and P9 sections).                                                                                                                                |
 | Docker is not running (Windows)                     | Start Docker Desktop, then `pnpm fork` again.                                                                                                                                                       |

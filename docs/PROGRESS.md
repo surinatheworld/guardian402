@@ -7,7 +7,7 @@ Mỗi phase: tóm tắt, lệnh đã chạy, kết quả test (output thật), l
 - Monorepo pnpm 10.34.7: `packages/shared`, `apps/{guardian,agent,dashboard}`, `eval`; TypeScript 6.0.3 strict, vitest 5, ESLint 10, Prettier.
 - `contracts/`: Foundry 1.8.5, solc 0.8.28, `evm_version = "cancun"`, OpenZeppelin v5.7.0, forge-std v1.17.0.
 - `pnpm fork`: Anvil fork Fuji (native, hoặc Docker `ghcr.io/foundry-rs/foundry:v1.8.5` khi Windows chặn `anvil.exe`).
-- `.env.example` cho mọi biến của SPEC §3; starter x402 của Team1 trong `vendor/x402-starter/` (chỉ đọc).
+- `.env.example` cho mọi biến của SPEC §3; starter x402 của Team1 làm tài liệu tham khảo (đã bỏ khỏi repo).
 - Lệch khỏi spec: ghi ở SPEC §16 (Node ≥ 22.13, cancun + OZ 5.7.0, anvil qua Docker/WSL2).
 
 Kết quả nghiệm thu:
@@ -404,7 +404,7 @@ pnpm --filter @guardian402/guardian exec vitest run --config vitest.fork.config.
 
 ## P11 — Soát bảo mật, tài liệu, chạy thử từ repo sạch (xong 2026-11-07, nhánh `feat/p11-hardening`)
 
-Soát bảo mật AgentVault, đóng vai kiểm toán viên bên ngoài (làm trong phiên này, không phải một phiên riêng như PROMPTS.md gợi ý). Chi tiết trong `docs/THREAT_MODEL.md`, phần "Findings of the P11 review".
+Soát bảo mật AgentVault, đóng vai kiểm toán viên bên ngoài (làm trong phiên này, không phải một phiên riêng như kế hoạch phase gợi ý). Chi tiết trong `docs/THREAT_MODEL.md`, phần "Findings of the P11 review".
 
 | Mã | Mức | Vấn đề | Xử lý |
 | --- | --- | --- | --- |

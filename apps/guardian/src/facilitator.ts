@@ -1,4 +1,4 @@
-// Self-hosted x402 facilitator (docs/SPEC.md §6.4), following vendor/x402-starter/src/facilitator.mjs. Used by
+// Self-hosted x402 facilitator (docs/SPEC.md §6.4), following the Team1 x402 starter. Used by
 // the E2E tests (pointed at the fork) and as the demo fallback when the public facilitator is down.
 // It pays settlement gas from FACILITATOR_PK, so keep a little AVAX in that wallet.
 import express from "express";

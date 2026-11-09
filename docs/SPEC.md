@@ -39,7 +39,7 @@ The pitch talks about "6 risk signals". In this spec they are the six risk rules
 | AVAX faucet | Core testnet faucet, or `https://team1vn.xyz/faucet.html` | for gas |
 | x402 facilitator (default) | `https://facilitator.ultravioletadao.xyz` | used by the Team1 starter; pays settlement gas |
 | Other facilitators on Avalanche | PayAI, thirdweb, x402-rs (self-hosted) | listed in Avalanche Builder Hub x402 course |
-| Self-hosted facilitator | pattern in `vendor/x402-starter/src/facilitator.mjs` | needs `FACILITATOR_PK` with a little AVAX |
+| Self-hosted facilitator | pattern of the Team1 x402 starter | needs `FACILITATOR_PK` with a little AVAX |
 | ERC-8004 IdentityRegistry (Fuji) | `0x8004A818BFB912233c491871b3d84c89A494BD9e` | official `erc-8004-contracts` README |
 | ERC-8004 ReputationRegistry (Fuji) | `0x8004B663056A597Dffe9eCcC1965A193B7388713` | official README |
 | ERC-8004 ValidationRegistry (Fuji) | `0x8004Cb1BF31DAf7788923b405b754f57acEB4272` | listed by QuickNode docs, not by the official README — check `cast code` before using |

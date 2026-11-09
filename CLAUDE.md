@@ -16,7 +16,6 @@ The agent's funds live in `AgentVault`, a contract on Fuji. The vault only execu
 - Hackathon: Team1 Vietnam UniHack. Code freeze 2026-11-19, submission 2026-11-21 23:59 (UTC+7).
 - Network: Avalanche Fuji only (chain id 43113, CAIP-2 `eip155:43113`).
 - Full technical spec: `docs/SPEC.md`. Read the relevant section before every phase.
-- Phase-by-phase tasks: `PROMPTS.md`. Do one phase at a time.
 
 ## Non-negotiable rules (hackathon rules — breaking them costs points or disqualifies)
 
@@ -30,7 +29,7 @@ The agent's funds live in `AgentVault`, a contract on Fuji. The vault only execu
 
 ## Engineering rules
 
-- **Do not invent APIs.** For x402, read the installed source and types under `node_modules/@x402/*` (pinned to 2.28.0) and the Team1 starter in `vendor/x402-starter/`. For ERC-8004, use the ABIs from the official `erc-8004-contracts` repo. If something is still unclear, stop and ask the team.
+- **Do not invent APIs.** For x402, read the installed source and types under `node_modules/@x402/*` (pinned to 2.28.0). For ERC-8004, use the ABIs from the official `erc-8004-contracts` repo. If something is still unclear, stop and ask the team.
 - Pin dependency versions. Node >= 22.13, pnpm workspaces.
 - One branch per phase (`feat/p1-agentvault`, `feat/p2-…`, …), merged into `main` by pull request after the team reviews it.
 - Secrets live in `.env.local` files (git-ignored). Keep `.env.example` files complete and up to date. Never log private keys or full signatures of keys.
@@ -51,7 +50,6 @@ The agent's funds live in `AgentVault`, a contract on Fuji. The vault only execu
 ```
 guardian402/
 ├── CLAUDE.md                  # this file
-├── PROMPTS.md                 # phase prompts
 ├── README.md
 ├── docs/
 │   ├── SPEC.md                # technical spec (source of truth)
@@ -68,8 +66,7 @@ guardian402/
 ├── apps/agent/                # demo agent, scripted scenarios, local control API
 ├── apps/dashboard/            # Next.js dashboard (Vietnamese UI)
 ├── eval/                      # labelled cases, runner, report
-├── scripts/                   # fork, deploy, seed, lookalike-address mining
-└── vendor/x402-starter/       # read-only reference: Team1 x402 starter (do not edit)
+└── scripts/                   # fork, deploy, seed, lookalike-address mining
 ```
 
 ## Commands

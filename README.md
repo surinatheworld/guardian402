@@ -144,6 +144,21 @@ values and holds no key: the owner signs with a browser wallet.
 
 The full list, with options, is in [CLAUDE.md](CLAUDE.md).
 
+## Test results
+
+Run on 2026-11-09 (Foundry 1.8.5, Node 22+):
+
+| Suite                                                                   | Result                                                                                       |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `cd contracts && forge test`                                            | 146 passed, 0 failed (unit, fuzz, audit regressions, 7 invariants × 256 runs × 16,384 calls) |
+| `forge coverage --report summary --no-match-coverage "(test\|script)/"` | `AgentVault.sol`: 100% lines (203/203), statements, branches (57/57), functions              |
+| `pnpm test`                                                             | 186 passed: guardian 115, shared 41, agent 13, guardian-mcp 6, dashboard 6, eval 5           |
+| `pnpm typecheck` · `pnpm lint`                                          | clean                                                                                        |
+| `pnpm eval` (40 synthetic cases, see [eval/report.md](eval/report.md))  | 25/25 malicious blocked, 0/15 benign blocked                                                 |
+
+The eval row is taken from the committed `eval/report.md`; the fork tests (`test:fork`) and `pnpm eval` need
+`pnpm fork` and are not part of `pnpm test`.
+
 ## Fuji deployment
 
 Verified on [testnet.snowtrace.io](https://testnet.snowtrace.io). Network: Avalanche Fuji C-Chain, chain id 43113.
@@ -218,13 +233,23 @@ Declared at the start of the pitch, and shown as a DEMO MODE banner in the dashb
 | Every mock behind an explicit flag, with a banner                     | `DEMO_MODE` gates `/v1/demo/check`, scripted scenarios and the agent control API; the dashboard banner follows the Guardian's `demoMode`                         | `apps/guardian/test/api.test.ts` (demo check), `apps/agent/src/cli.ts` refuses S2–S6 without `DEMO_MODE`                                                                                           |
 | Tests on every money path                                             | Foundry unit, fuzz and invariant tests                                                                                                                           | `forge coverage`: AgentVault 100% lines, statements, branches and functions                                                                                                                        |
 
-## Legal notes (Vietnam)
+## Known limitations
 
-- Under current Vietnamese rules, crypto-assets are not legal tender and cannot be used as a means of payment.
-  Guardian402 runs only on Avalanche Fuji testnet with test tokens that have no value.
-- The product holds no user funds: each owner keeps funds in their own AgentVault and can withdraw at any time.
-- There is no token and no token sale.
-- Guardian402 gives no financial or investment advice. Its output is a technical risk assessment of a transaction.
+- `ABNORMAL_SLIPPAGE` and the swap-output check of `RECIPIENT_NOT_ALLOWLISTED` decode only `MockRouter.swapExactIn`;
+  swaps through other routers are covered by the generic rules (allowlist, approvals, drain, unknown contract) only.
+  The reference price comes from `MockOracle`.
+- The eval cases are synthetic and written by the team; 100% on them does not mean every real attack is caught.
+- `verdictNonce` is one counter per vault, so verdicts are used in order: two cosigns made in parallel share a nonce
+  and only the first one executes.
+- State can change between the simulation and the execution, within the verdict TTL (60 s). Residual risks are listed in
+  [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+- `GET /v1/checks` and `GET /v1/stats` need no authentication; the API listens on this machine only by default
+  (`ALLOWED_HOSTS`).
+
+## Scope
+
+Fuji testnet only, test tokens only. No token, no token sale, no custody: each owner keeps funds in their own
+AgentVault. The output is a technical risk assessment of a transaction, not financial advice.
 
 ## Windows
 
@@ -235,5 +260,4 @@ Declared at the start of the pitch, and shown as a DEMO MODE banner in the dashb
 
 ## License
 
-[MIT](LICENSE), matching the `SPDX-License-Identifier: MIT` headers of the Solidity sources. `vendor/x402-starter` is
-Team1's starter, kept as a read-only reference under its own terms.
+[MIT](LICENSE), matching the `SPDX-License-Identifier: MIT` headers of the Solidity sources.
