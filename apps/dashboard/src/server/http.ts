@@ -5,6 +5,8 @@ import { agentVaultAbi, FUJI_CHAIN_ID, fujiChain, rpcTransport } from "@guardian
 import { deployment, RPC_URL } from "@/lib/config";
 import { AccountError, Accounts, isAccountError, SESSION_TTL_MS, type SessionMethod } from "./accounts";
 import { getDb } from "./db";
+import { AgentApi, type AgentPrincipal } from "./agent-api";
+import { Policies } from "./policies";
 import { chainPort, guardianPort } from "./ports";
 import { Workspace } from "./workspace";
 
@@ -72,6 +74,20 @@ export function workspace(): Workspace {
     ],
   });
   return gw.__g402Workspace;
+}
+
+const gp = globalThis as { __g402Policies?: Policies; __g402AgentApi?: AgentApi };
+export function policies(): Policies {
+  gp.__g402Policies ??= new Policies(getDb(), { chain: chainPort, workspace: workspace() });
+  return gp.__g402Policies;
+}
+export function agentApi(): AgentApi {
+  gp.__g402AgentApi ??= new AgentApi(getDb(), {
+    chain: chainPort,
+    guardian: guardianPort,
+    policies: policies(),
+  });
+  return gp.__g402AgentApi;
 }
 
 type VaultParams = { params: Promise<Record<string, string>> };
@@ -177,6 +193,37 @@ export async function readJson(req: Request): Promise<Record<string, unknown>> {
   throw new AccountError(400, "bad_json", "Dữ liệu gửi lên không hợp lệ.");
 }
 
+/** Signed-in route that is not scoped to a vault (the user's policy library). */
+export function userRoute(
+  fn: (userId: string, params: Record<string, string>, req: Request) => Promise<unknown> | unknown,
+  status = 200,
+) {
+  return (req: Request, ctx: VaultParams) =>
+    handle(async () => {
+      if (req.method !== "GET" && req.method !== "HEAD") assertSameOrigin(req);
+      const { userId } = requireUser(req);
+      const body = await fn(userId, await ctx.params, req);
+      return Response.json(body ?? { ok: true }, { status, headers: { "Cache-Control": "no-store" } });
+    });
+}
+
+/**
+ * Route helper for the agent API: `Authorization: Bearer g402_…`, no cookies, no CORS (server-to-server).
+ * `fn` may return a Response (the Guardian proxy) or a JSON body.
+ */
+export function agentRoute(
+  fn: (p: AgentPrincipal, params: Record<string, string>, req: Request) => Promise<unknown> | unknown,
+) {
+  return (req: Request, ctx: VaultParams) =>
+    handle(async () => {
+      const p = agentApi().authenticate(req.headers.get("authorization"));
+      agentLimiter.take(`key:${p.keyId}`);
+      const out = await fn(p, await ctx.params, req);
+      if (out instanceof Response) return out;
+      return Response.json(out ?? { ok: true }, { headers: { "Cache-Control": "no-store" } });
+    });
+}
+
 /** At most `max` attempts per key in `windowMs` (in memory: one dashboard process). */
 export class RateLimiter {
   readonly #hits = new Map<string, number[]>();
@@ -196,6 +243,8 @@ export class RateLimiter {
   }
 }
 export const loginLimiter = new RateLimiter(10, 15 * 60 * 1000);
+/** Agent API calls per key (the Guardian has its own limits; this keeps a leaked key from hammering it). */
+const agentLimiter = new RateLimiter(120, 60_000);
 
 /** Runs a handler and turns AccountError into a JSON error response. */
 export async function handle(fn: () => Promise<Response> | Response): Promise<Response> {

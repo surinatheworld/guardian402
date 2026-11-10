@@ -42,6 +42,10 @@ const chainPort: ChainPort = {
     return chain.cap;
   },
   transaction: async (h) => chain.txs.get(h.toLowerCase()) ?? { found: false },
+  vaultPolicy: async () => {
+    throw new Error("not used here");
+  },
+  execution: async () => ({ found: false }),
 };
 const guardianPort: GuardianPort = {
   recentChecks: async () => {
@@ -133,8 +137,14 @@ describe("agents", () => {
   it("creates, lists with the on-chain flag, and protects the active agent", async () => {
     const v = ws.vault(userId, VAULT);
     const a = addr();
-    const created = ws.createAgent(v, { name: "DCA bot", address: a, strategy: "dca" });
-    expect(created).toMatchObject({ name: "DCA bot", address: a, strategy: "dca", status: "active" });
+    const created = ws.createAgent(v, { name: "DCA bot", address: a, description: "Mua mWAVAX mỗi ngày" });
+    expect(created).toMatchObject({
+      name: "DCA bot",
+      address: a,
+      description: "Mua mWAVAX mỗi ngày",
+      status: "active",
+    });
+    expect(created).not.toHaveProperty("strategy");
     expect(await err(() => ws.createAgent(v, { name: "dup", address: a }))).toBe("409 duplicate");
     expect(await err(() => ws.createAgent(v, { name: "me", address: chain.owner }))).toBe(
       "409 owner_as_agent",

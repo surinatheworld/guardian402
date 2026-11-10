@@ -68,19 +68,23 @@ describe("schema", () => {
     expect(tables).toEqual([
       "agents",
       "alert_rules",
+      "api_keys",
       "audit_events",
       "check_reviews",
       "contacts",
       "migrations",
       "notifications",
+      "policies",
+      "policy_assignments",
       "policy_changes",
+      "policy_versions",
       "sessions",
       "siwe_nonces",
       "users",
       "vaults",
       "wallets",
     ]);
-    expect((db.prepare("SELECT COUNT(*) AS n FROM migrations").get() as { n: number }).n).toBe(2);
+    expect((db.prepare("SELECT COUNT(*) AS n FROM migrations").get() as { n: number }).n).toBe(3);
     expect(() =>
       db
         .prepare(
