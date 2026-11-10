@@ -1,6 +1,6 @@
 # Dashboard backend API
 
-The dashboard (`apps/dashboard`, `pnpm dev:dashboard`) has a small backend: Next.js route handlers on its own
+The dashboard (`apps/dashboard`, `pnpm dev:dashboard`; pages **Tài khoản** `/tai-khoan` and **Quản lý vault** `/quan-ly`) has a small backend: Next.js route handlers on its own
 SQLite file (`ACCOUNT_DB`, default `apps/dashboard/data/accounts.db`). It holds off-chain identity and the owner's
 metadata around a vault. The Guardian API (`apps/guardian`, SPEC §6) is a separate service and is unchanged.
 

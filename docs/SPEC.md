@@ -472,6 +472,7 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 | Doanh thu | x402 payments count and sum, settlement links | `/v1/stats` |
 | Kiểm tra giao dịch | paste a calls JSON or pick a scenario, see the result | `/v1/demo/check` (DEMO only) |
 | Điều khiển | owner actions with wagmi: pause/unpause, revoke agent, change caps; scenario buttons (DEMO only) | AgentVault, agent control API |
+| Quản lý vault | per linked vault, five tabs: Agent (registry, live `agent()`), Danh bạ (address book, live allowlist, lookalike guard), Chính sách (draft → sign in the wallet → verified on chain), Cảnh báo (rules and notifications), Kiểm tra (reviews of Guardian checks); `#agent`, `#danh-ba`, `#chinh-sach`, `#canh-bao`, `#kiem-tra` open a tab | dashboard `/api/vaults/:vault/*` |
 | Tài khoản | sign in with email + password or with the wallet (SIWE, EIP-4361); profile, linked wallets, linked AgentVaults, security events | dashboard `/api/auth/*`, `/api/account/*`, AgentVault `owner()` |
 
 - Wallets: injected connector (Core, MetaMask) on Fuji.

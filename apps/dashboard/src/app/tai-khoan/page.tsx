@@ -4,10 +4,11 @@
 // keys; balances, policy and ownership are always read from the chain.
 import { Button } from "@heroui/react/button";
 import { useMutation } from "@tanstack/react-query";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 import { AddressLink, Card, Empty, ErrorBox, Facts, Loading, PageHeader } from "@/components/ui";
 import { WalletButton } from "@/components/shell";
+import { Field, INPUT, errorOf } from "@/components/form";
 import {
   accountApi,
   EVENT_LABEL,
@@ -18,21 +19,6 @@ import {
 } from "@/lib/account";
 import { deployment } from "@/lib/config";
 import { formatTime } from "@/lib/format";
-
-const INPUT = "min-h-[42px] rounded-lg border border-line bg-surface px-3 py-2 text-sm";
-
-function Field({ id, label, children }: { id: string; label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-const errorOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export default function AccountPage() {
   const me = useMe();
