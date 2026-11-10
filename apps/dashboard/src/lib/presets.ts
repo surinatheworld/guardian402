@@ -30,7 +30,7 @@ export type Preset = { id: string; label: string; calls: (d: Deployment, usdcBal
 export const PRESETS: Preset[] = [
   {
     id: "S0",
-    label: "S0 · Chuyển 1 USDC cho Treasury (an toàn)",
+    label: "S0 · Chuyển 1.5 USDC cho Treasury (an toàn)",
     calls: (d) => [
       {
         target: d.usdc,
@@ -38,7 +38,7 @@ export const PRESETS: Preset[] = [
         data: encodeFunctionData({
           abi: erc20Abi,
           functionName: "transfer",
-          args: [d.deployer, 1_000_000n],
+          args: [d.deployer, 1_500_000n],
         }),
       },
     ],
