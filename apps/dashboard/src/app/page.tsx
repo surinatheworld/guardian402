@@ -33,7 +33,6 @@ export default function Overview() {
       ? Number(((usdc.spentToday > usdc.dailyCap ? usdc.dailyCap : usdc.spentToday) * 100n) / usdc.dailyCap)
       : 0;
   // mWAVAX is what the vault receives from swaps; it is not a tracked token, so getPolicy() omits it.
-  const tracked = new Set(p?.tokens.map((t) => t.token.toLowerCase()));
   const mwavax = useReadContract({
     address: deployment.mWAVAX,
     abi: erc20Abi,
@@ -45,7 +44,10 @@ export default function Overview() {
   return (
     <>
       <div className="h3-page-head">
-        <PageHeader title="Tổng quan" lead="Tài sản, giới hạn và hoạt động của agent." />
+        <PageHeader
+          title="Tổng quan"
+          lead="Tài sản, giới hạn và hoạt động của agent. Tiền luôn nằm trong vault của chủ ví; Guardian chỉ ký verdict, không chuyển được tiền."
+        />
         <Link
           href="/kiem-tra"
           className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent px-5 text-sm font-semibold text-accent-fg hover:opacity-90"

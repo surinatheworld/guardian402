@@ -189,8 +189,12 @@ export function createRunner(env: AgentEnv, print: (line: string) => void = cons
           args: [recipient],
         });
 
-        print(`  Số dư trước: Vault = ${Number(vaultBefore) / 1e6} USDC, Treasury = ${Number(treasuryBefore) / 1e6} USDC`);
-        print(`  Intent: chuyển 1.5 USDC từ Vault đến người nhận hợp lệ (${recipient}) [vượt ngưỡng 1 USDC -> bắt buộc verdict]`);
+        print(
+          `  Số dư trước: Vault = ${Number(vaultBefore) / 1e6} USDC, Treasury = ${Number(treasuryBefore) / 1e6} USDC`,
+        );
+        print(
+          `  Intent: chuyển 1.5 USDC từ Vault đến người nhận hợp lệ (${recipient}) [vượt ngưỡng 1 USDC -> bắt buộc verdict]`,
+        );
         g = await ask("cosign", calls);
         printGuardian(g);
         if (g.response?.risk === "LOW") {
@@ -204,7 +208,9 @@ export function createRunner(env: AgentEnv, print: (line: string) => void = cons
               functionName: "balanceOf",
               args: [recipient],
             });
-            print(`  Số dư sau:  Vault = ${Number(vaultAfter) / 1e6} USDC (-1.5 USDC), Treasury = ${Number(treasuryAfter) / 1e6} USDC (+1.5 USDC)`);
+            print(
+              `  Số dư sau:  Vault = ${Number(vaultAfter) / 1e6} USDC (-1.5 USDC), Treasury = ${Number(treasuryAfter) / 1e6} USDC (+1.5 USDC)`,
+            );
             print(`  ✓ Xác nhận thay đổi số dư on-chain thành công.`);
           }
         } else {
