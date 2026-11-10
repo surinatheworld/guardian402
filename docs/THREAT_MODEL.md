@@ -14,6 +14,7 @@ Written in P11 (2026-11-07), together with a security review of AgentVault.
 | Facilitator key (`FACILITATOR_PK`, self-hosted only) | facilitator process                     | pays settlement gas; holds a little AVAX                     |
 | Verdict nonce and policy                             | AgentVault storage                      | replay protection and limits                                 |
 | Check history                                        | Guardian SQLite                         | audit trail; no personal data, no IPs                        |
+| User accounts (email, password hash, linked wallets) | dashboard SQLite (`ACCOUNT_DB`)         | off-chain only; scrypt hashes, session token hashes, no keys |
 
 ## Actors
 

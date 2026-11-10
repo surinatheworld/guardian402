@@ -472,10 +472,20 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 | Doanh thu | x402 payments count and sum, settlement links | `/v1/stats` |
 | Kiểm tra giao dịch | paste a calls JSON or pick a scenario, see the result | `/v1/demo/check` (DEMO only) |
 | Điều khiển | owner actions with wagmi: pause/unpause, revoke agent, change caps; scenario buttons (DEMO only) | AgentVault, agent control API |
+| Tài khoản | sign in with email + password or with the wallet (SIWE, EIP-4361); profile, linked wallets, linked AgentVaults, security events | dashboard `/api/auth/*`, `/api/account/*`, AgentVault `owner()` |
 
 - Wallets: injected connector (Core, MetaMask) on Fuji.
 - Every owner action opens a confirmation dialog that shows exactly what changes.
-- Every tx hash is a Snowtrace link. No secrets in the frontend; no backend of its own.
+- Every tx hash is a Snowtrace link. No secrets in the frontend.
+- Accounts (added 2026-11-10): the dashboard's only backend, Next.js route handlers on its own SQLite file
+  (`ACCOUNT_DB`, default `apps/dashboard/data/accounts.db`, `node:sqlite`). Tables: `users` (web2: email,
+  scrypt password hash, display name, locale, role, status), `wallets` (web3: chain id + address proven by a
+  SIWE signature; one account per address), `siwe_nonces` (single use, 5 min), `sessions` (only the SHA-256 of
+  the httpOnly cookie token, 7 days, no IP), `vaults` (linked only when the vault's on-chain `owner()` is one of
+  the user's wallets; the link follows on-chain ownership), `audit_events`. Never stored: keys, seed phrases,
+  signatures, balances, policy, agent. Rules: every state-changing request must come from the dashboard's own
+  origin; the last way to sign in cannot be removed; email/password sign-in is rate-limited (10 per 15 min).
+  No mailer yet, so emails stay unverified.
 
 ## 12. Eval (`eval/`)
 

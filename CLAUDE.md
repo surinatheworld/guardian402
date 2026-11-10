@@ -108,6 +108,7 @@ Available now:
 
 - `pnpm dev:dashboard` — Next.js dashboard on http://localhost:3000 (Vietnamese UI; settings in `apps/dashboard/.env.local`, see its `.env.example`). Reads Fuji (or the fork), the Guardian API and the agent control API from the browser; the Guardian's `DASHBOARD_ORIGIN` must be `http://localhost:3000`
 - `pnpm --filter @guardian402/dashboard build` — production build of the dashboard
+- Dashboard accounts (no separate command; part of `pnpm dev:dashboard`): `/tai-khoan` page and the route handlers `/api/auth/{register,login,logout,me,siwe/nonce,siwe/verify}` and `/api/account/{profile,password,wallets/:address,vaults,vaults/:address}`, on SQLite at `ACCOUNT_DB` (default `apps/dashboard/data/accounts.db`, git-ignored). Web2 email + scrypt password and web3 Sign-In with Ethereum (EIP-4361); vaults link only when their on-chain `owner()` is one of the user's wallets. Schema and rules in `apps/dashboard/src/server/`; tests in `apps/dashboard/test/accounts.test.ts`
 
 - `pnpm erc8004:fuji` — bonus B1: register the Guardian on the official ERC-8004 IdentityRegistry on Fuji (`0x8004A818…4BD9e`) with `DEPLOYER_PK`, store the `registration-v1` file as a base64 data-URI agentURI, and write `packages/shared/src/addresses/erc8004.fuji.json`. Idempotent: reuses the recorded agentId and sends `setAgentURI` only when the file changed. Optional `GUARDIAN_PUBLIC_URL` (public Guardian base URL to advertise; default: the GitHub repo)
 
