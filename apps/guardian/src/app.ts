@@ -71,13 +71,16 @@ export function createApp(d: AppDeps) {
     });
   }
 
-  // CORS for the dashboard origin only (free GET endpoints and the demo check).
+  // CORS for the dashboard origin only (free GET endpoints and the demo check). `DASHBOARD_ORIGIN=*` opens it to
+  // any origin, for a public hackathon demo: the API uses no cookies, so nothing ambient can be abused.
   app.use((req, res, next) => {
-    if (req.headers.origin === d.dashboardOrigin) {
-      res.setHeader("Access-Control-Allow-Origin", d.dashboardOrigin);
+    const anyOrigin = d.dashboardOrigin === "*";
+    if (anyOrigin || req.headers.origin === d.dashboardOrigin) {
+      res.setHeader("Access-Control-Allow-Origin", anyOrigin ? "*" : d.dashboardOrigin);
       res.setHeader("Vary", "Origin");
-      res.setHeader("Access-Control-Allow-Headers", "content-type");
+      res.setHeader("Access-Control-Allow-Headers", anyOrigin ? "*" : "content-type");
       res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      if (anyOrigin) res.setHeader("Access-Control-Expose-Headers", "*");
     }
     if (req.method === "OPTIONS") {
       res.status(204).end();
