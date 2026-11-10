@@ -486,6 +486,12 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
   signatures, balances, policy, agent. Rules: every state-changing request must come from the dashboard's own
   origin; the last way to sign in cannot be removed; email/password sign-in is rate-limited (10 per 15 min).
   No mailer yet, so emails stay unverified.
+- Vault workspace (added 2026-11-10, `docs/API.md`): per linked vault, an agent registry (live `agent()` flag;
+  the on-chain agent cannot be deleted), an address book (live allowlist flags; lookalikes of trusted addresses
+  refused, 3+3 characters), owner policy changes (draft → owner signs the returned call in the wallet → the server
+  verifies vault, calldata, sender and status on chain), alert rules and notifications (Guardian risk or rule per
+  check, daily cap usage per day) and reviews of Guardian checks. A vault that changes hands on chain loses the
+  previous owner's workspace before the link moves.
 
 ## 12. Eval (`eval/`)
 

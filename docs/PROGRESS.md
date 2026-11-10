@@ -544,6 +544,18 @@ Ví sau P14: vault khoảng 32 USDC (mỗi S1 tốn 2 USDC), agent khoảng 9,8 
 - Kiểm thử: 12 test mới (`apps/dashboard/test/accounts.test.ts`) trên DB trong bộ nhớ, gồm cả route handler. Chạy thật trên dev server: đăng ký qua giao diện; 13 bước SIWE/vault qua API đều đúng mã lỗi, đọc được `owner()` của vault Fuji (`0x6678…`).
 - Chưa có: gửi email xác minh/quên mật khẩu (chưa có dịch vụ mail), giao diện quản trị.
 
+## API backend quanh vault (2026-11-10, nhánh `feat/vault-workspace`)
+
+- 15 route mới dưới `/api/vaults/:vault/…` (tài liệu đầy đủ: `docs/API.md`), chỉ chủ tài khoản đã liên kết vault mới gọi được (người khác: 404), mọi thao tác ghi phải đến từ đúng dashboard (403).
+- **Agent**: danh sách agent của vault, có cờ trực tiếp "đang là agent trên chain"; không cho ví chủ làm agent; không xoá được agent đang hoạt động trên chain.
+- **Danh bạ**: địa chỉ hay giao dịch, kèm trạng thái allowlist đọc từ chain; chặn địa chỉ nhái (trùng 3 ký tự đầu và 3 ký tự cuối với địa chỉ tin cậy). Lần chạy thật đầu tiên đã bắt được lỗi: kiểm tra 4+4 để lọt địa chỉ nhái DEMO (chỉ trùng 3+3); đã sửa thành 3+3.
+- **Thay đổi chính sách**: soạn nháp → server trả đúng giao dịch để ví chủ ký → gửi mã giao dịch → server kiểm tra trên chain (đúng vault, đúng dữ liệu, đúng ví, thành công). Rút tiền không có ở đây: chuyển tiền vẫn do chủ làm trực tiếp trong ví.
+- **Cảnh báo**: theo mức rủi ro, theo luật Guardian, theo % hạn mức đã dùng trong ngày; không lặp, không làm hỏng khi Guardian/RPC tắt.
+- **Đánh giá lần kiểm tra**: đã xem / báo động nhầm / cần xử lý, kèm ghi chú.
+- Vault đổi chủ trên chain: dữ liệu của chủ cũ bị xoá trước khi liên kết chuyển sang chủ mới.
+- Kiểm thử: 12 test mới (`test/workspace.test.ts`, chain và Guardian giả), tổng dashboard 30/30. Chạy thật 22 bước với vault Fuji (đọc `owner()`, `agent()`, allowlist; calldata `pause` = `0x8456cb59`; giao dịch S1 thật bị từ chối vì sai dữ liệu). Chỉ ký thông điệp đăng nhập, không gửi giao dịch nào.
+- Chưa có giao diện cho các API này; mới có trang Tài khoản.
+
 ## Checklist trước demo
 
 - [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault mới `0x3f6a5852788ff6a46d924C407976bB89487f7651` (tx [0xed5a391b…b28e](https://testnet.snowtrace.io/tx/0xed5a391be502ad3f2d042885e5871bea507ac1fa3a0d1784a001a27bc5c4b28e)). Vault cũ `0x32cb…Ab99` đã rút hết tiền và tạm dừng, không cần accept nữa. Các bước:
