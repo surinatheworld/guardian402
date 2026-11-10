@@ -16,6 +16,20 @@ export const RULE_LABEL: Record<RuleId, string> = {
 
 export const ruleLabel = (id: string) => RULE_LABEL[id as RuleId] ?? id;
 
+/** `evidence.reason` of a POLICY_PRECHECK finding (apps/guardian/src/rules/checks.ts). */
+export const PRECHECK_REASON_LABEL: Record<string, string> = {
+  paused: "vault đang tạm dừng",
+  "no-agent": "vault chưa có agent",
+  "bad-batch": "lô lệnh phải có từ 1 tới 8 lệnh",
+  "target-not-allowed": "hợp đồng đích không được phép",
+  "selector-not-allowed": "hàm không được phép",
+  "value-target-not-allowed": "không được gửi AVAX tới địa chỉ này",
+  "recipient-not-allowed": "người nhận không được phép",
+  "spender-not-allowed": "bên được cấp quyền không được phép",
+  "approval-too-large": "cấp quyền vượt mức cho phép",
+  "daily-cap-exceeded": "vượt hạn mức trong ngày",
+};
+
 const REVERT_LABEL: Record<string, string> = {
   RecipientNotAllowed: "người nhận không được phép",
   TargetNotAllowed: "hợp đồng đích không được phép",
