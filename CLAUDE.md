@@ -91,6 +91,7 @@ Available now:
 - `pnpm handoff:fuji` — start the Ownable2Step transfer of AgentVault to the team lead's wallet
 - `pnpm redeploy-mocks:fuji` / `pnpm swap-router:fuji <oldRouter>` — replace mWAVAX and MockRouter (verified in the same run), then move the vault allowlist from the old router to the new one
 - `pnpm redeploy-vault:fuji` — deploy a new AgentVault with the current code (verified in the same run) and keep the mocks; if `OWNER_PK` owns the old vault it is emptied to the owner and paused first. Then run `pnpm seed:fuji`, `pnpm handoff:fuji` and `pnpm known-contracts`. It also points `local.json` at the new vault, because the fork tests and `local` mode use the seeded Fuji deployment
+- `node scripts/contracts.mjs adopt local` — fork only: impersonate the owners on the running fork and move the seeded Fuji vault to `OWNER_PK` and the DEMO mocks to `DEPLOYER_PK`, so `pnpm seed:local` can set the agent, the guardian, the oracle price and test USDC for fresh keys. Plain JSON-RPC, no `cast` (works where Smart App Control blocks `cast.exe`). Changes fork state only; no deploy, no tracked file
 - `pnpm abi` — `forge build`, then regenerate `packages/shared/src/abi/*.ts` (committed)
 - `pnpm test:crosscheck` — sign a verdict in TypeScript, write `contracts/test/fixtures/verdict.json`, run `VerdictCrossCheck.t.sol`
 - `pnpm known-contracts` — regenerate `apps/guardian/config/known-contracts.{fuji,local}.json` from the deployed addresses (run after a deploy)
@@ -101,7 +102,7 @@ Available now:
 - `pnpm facilitator` — self-hosted x402 facilitator on http://127.0.0.1:4022, settling on `FACILITATOR_RPC_URL` (default `CHAIN_RPC_URL`); needs `FACILITATOR_PK` with a little AVAX. Point the Guardian at it with `FACILITATOR_URL=http://127.0.0.1:4022`
 - `pnpm --filter @guardian402/guardian pay-check [check|cosign]` — one paid S1 call from the agent wallet; prints the settlement link
 
-- `pnpm agent scenario <S1..S6|all>` — run the demo scenarios (docs/SPEC.md §10) against the Guardian on `GUARDIAN_URL` and the vault on `CHAIN_RPC_URL`; S2–S6 need `DEMO_MODE=true`, S6 needs `OWNER_PK`. Prints risk, explanation, x402 settlement and vault tx; appends to `apps/agent/data/attempts.jsonl`; exits 1 on any mismatch with the spec table
+- `pnpm agent scenario <S0..S6|all>` — run the demo scenarios (docs/SPEC.md §10) against the Guardian on `GUARDIAN_URL` and the vault on `CHAIN_RPC_URL`; S2–S6 need `DEMO_MODE=true`, S6 needs `OWNER_PK`. S0 (and `all`) spends 1.5 USDC of the vault each run. Prints risk, explanation, x402 settlement and vault tx; appends to `apps/agent/data/attempts.jsonl`; exits 1 on any mismatch with the spec table
 - `pnpm dev:agent` — local control API on http://127.0.0.1:4403 (`POST /scenario/:id`, `GET /attempts`, `GET /health`), `DEMO_MODE=true` only
 - `pnpm mine-lookalike [fuji|local] [chars]` — mine a lookalike of the MockRouter address with `cast wallet vanity` into `apps/agent/fixtures/lookalike.json` (default 3+3 characters, DEMO)
 
@@ -109,6 +110,8 @@ Available now:
 - `pnpm --filter @guardian402/dashboard build` — production build of the dashboard
 
 - `pnpm erc8004:fuji` — bonus B1: register the Guardian on the official ERC-8004 IdentityRegistry on Fuji (`0x8004A818…4BD9e`) with `DEPLOYER_PK`, store the `registration-v1` file as a base64 data-URI agentURI, and write `packages/shared/src/addresses/erc8004.fuji.json`. Idempotent: reuses the recorded agentId and sends `setAgentURI` only when the file changed. Optional `GUARDIAN_PUBLIC_URL` (public Guardian base URL to advertise; default: the GitHub repo)
+
+- `./run-local.sh [start|setup|stop|status|scenario <id>]` (or `pnpm local`, `pnpm local:setup`, `pnpm local:stop`, `pnpm local:status`) — the whole local stack on the fork: fork, `adopt local` + `seed:local`, facilitator, Guardian, agent API, dashboard. `setup` creates `.env.local` with fresh testnet keys if it is missing (`scripts/init-local-env.mjs`; `--force` keeps a `.bak-*` copy). Never deploys, never edits tracked files, stops only what it started. Logs in `.run-local/logs/`. On Windows run it from Git Bash
 
 - `pnpm --filter @guardian402/guardian llm:compare <provider:model>... [--gap ms] [--verbose]` — run the 14 rule fixtures through each LLM explainer (e.g. `gemini:gemini-3.5-flash-lite groq:<model>`) and print how often the LLM text was used, p50/max latency and fallback reasons. Keys from `.env.local`: `<PROVIDER>_API_KEY` or `LLM_API_KEY` for the provider in `LLM_PROVIDER`. `--gap 4500` stays under a 15 requests/minute free tier
 
