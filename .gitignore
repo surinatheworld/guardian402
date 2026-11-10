@@ -1,6 +1,7 @@
-# Secrets
+# Secrets (and the backups scripts/init-local-env.mjs --force keeps)
 .env.local
 .env*.local
+.env*.local.bak-*
 *.key
 
 # Dependencies and build output
@@ -16,8 +17,9 @@ contracts/cache
 contracts/broadcast
 lcov.info
 
-# Runtime data (SQLite, attempts log)
+# Runtime data (SQLite, attempts log) and run-local.sh state/logs
 apps/*/data
+.run-local/
 
 # OS / editor
 .DS_Store

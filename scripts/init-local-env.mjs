@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
@@ -11,7 +11,16 @@ const force = process.argv.includes("--force");
 
 console.log("[setup] Initializing local environment...");
 
+// Never lose keys: --force keeps a timestamped copy of the old file (it may hold the team's Fuji keys).
+const backup = (file) => {
+  if (!existsSync(file)) return;
+  const copy = `${file}.bak-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  copyFileSync(file, copy);
+  console.log(`[setup] Kept the previous file as ${copy}`);
+};
+
 if (!existsSync(ENV_LOCAL) || force) {
+  backup(ENV_LOCAL);
   const deployerPk = generatePrivateKey();
   const ownerPk = generatePrivateKey();
   const agentPk = generatePrivateKey();
@@ -40,6 +49,7 @@ if (!existsSync(ENV_LOCAL) || force) {
 }
 
 if (!existsSync(DASHBOARD_ENV) || force) {
+  backup(DASHBOARD_ENV);
   const dashboardConfig = [
     "# Public config for dashboard in local mode",
     "NEXT_PUBLIC_NETWORK=local",
