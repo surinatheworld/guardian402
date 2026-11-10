@@ -554,7 +554,8 @@ Ví sau P14: vault khoảng 32 USDC (mỗi S1 tốn 2 USDC), agent khoảng 9,8 
 - **Đánh giá lần kiểm tra**: đã xem / báo động nhầm / cần xử lý, kèm ghi chú.
 - Vault đổi chủ trên chain: dữ liệu của chủ cũ bị xoá trước khi liên kết chuyển sang chủ mới.
 - Kiểm thử: 12 test mới (`test/workspace.test.ts`, chain và Guardian giả), tổng dashboard 30/30. Chạy thật 22 bước với vault Fuji (đọc `owner()`, `agent()`, allowlist; calldata `pause` = `0x8456cb59`; giao dịch S1 thật bị từ chối vì sai dữ liệu). Chỉ ký thông điệp đăng nhập, không gửi giao dịch nào.
-- Chưa có giao diện cho các API này; mới có trang Tài khoản.
+- Giao diện: trang **Quản lý vault** (`/quan-ly`) với 5 tab Agent, Danh bạ, Chính sách, Cảnh báo, Kiểm tra (mở thẳng tab bằng `#chinh-sach`…). Tab Chính sách: soạn nháp → “Ký trong ví và gửi” (đổi sang Fuji nếu cần, cảnh báo khi ví đang kết nối không phải ví chủ) → tự kiểm tra lại mỗi 4 giây tới khi xác nhận. Danh bạ có nút soạn nhanh thay đổi allowlist và hộp xác nhận khi bị nghi địa chỉ nhái.
+- Kiểm tra trên trình duyệt (dev server, vault Fuji thật): đủ 5 tab, dữ liệu chain đúng (agent `0x7bD6…`, allowlist), cảnh báo khi soạn ngưỡng verdict lớn hơn hạn mức, Guardian tắt thì hiện lỗi/ghi chú rõ; điện thoại 375px không cuộn ngang, nút cao 42px. Chưa ký giao dịch thật từ giao diện (khung trình duyệt không có ví), và chưa xem tab Kiểm tra với dữ liệu thật (Guardian không chạy lúc thử).
 
 ## Checklist trước demo
 
