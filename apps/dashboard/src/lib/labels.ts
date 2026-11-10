@@ -42,6 +42,7 @@ export const ENDPOINT_LABEL: Record<string, string> = {
 };
 
 export const SCENARIO_LABEL: Record<string, string> = {
+  S0: "S0 · Chuyển 1 USDC an toàn",
   S1: "S1 · Swap bình thường",
   S2: "S2 · Rút cạn về ví kẻ tấn công",
   S3: "S3 · Cấp quyền cho địa chỉ nhái",

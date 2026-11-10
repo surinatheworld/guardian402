@@ -17,16 +17,17 @@ import {
 } from "@guardian402/shared";
 import { AGENT_DIR, type AgentEnv } from "./env.ts";
 import { askGuardian, payingFetchFor, type GuardianResult } from "./guardian.ts";
-import { approve, planFromInjection, planSafeDca, swap } from "./planner.ts";
+import { approve, planFromInjection, planSafeDca, swap, transfer } from "./planner.ts";
 import { executeBatch, setPaused, type VaultOutcome } from "./vault.ts";
 
-export const SCENARIO_IDS = ["S1", "S2", "S3", "S4", "S5", "S6"] as const;
+export const SCENARIO_IDS = ["S0", "S1", "S2", "S3", "S4", "S5", "S6"] as const;
 export type ScenarioId = (typeof SCENARIO_IDS)[number];
 
 type Expected = { risk?: RiskLevel; rules?: RuleId[]; vault: VaultOutcome["status"]; revert?: string[] };
 
 /** The table of docs/SPEC.md §10. S5 sends two batches (other calls, then an expired verdict). */
 export const EXPECTED: Record<ScenarioId, Expected> = {
+  S0: { risk: "LOW", vault: "success" },
   S1: { risk: "LOW", vault: "success" },
   S2: {
     risk: "HIGH",
@@ -41,6 +42,7 @@ export const EXPECTED: Record<ScenarioId, Expected> = {
 };
 
 export const NAMES: Record<ScenarioId, string> = {
+  S0: "safe-transfer",
   S1: "normal-swap",
   S2: "drain-to-attacker",
   S3: "poisoned-approval",
@@ -174,6 +176,42 @@ export function createRunner(env: AgentEnv, print: (line: string) => void = cons
     print(`\n[${id} ${NAMES[id]}] mạng ${env.NETWORK}`);
 
     switch (id) {
+      case "S0": {
+        const recipient = d.deployer;
+        const amount = 1_000_000n; // 1 USDC
+        const calls = [transfer(d, recipient, amount)];
+
+        const vaultBefore = await usdcBalance();
+        const treasuryBefore = await chain.readContract({
+          address: d.usdc,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [recipient],
+        });
+
+        print(`  Số dư trước: Vault = ${Number(vaultBefore) / 1e6} USDC, Treasury = ${Number(treasuryBefore) / 1e6} USDC`);
+        print(`  Intent: chuyển 1 USDC từ Vault đến người nhận hợp lệ (${recipient})`);
+        g = await ask("cosign", calls);
+        printGuardian(g);
+        if (g.response?.risk === "LOW") {
+          const outcome = await executeBatch(chain, wallet, d.vault, calls, g.response.verdict);
+          outcomes.push(outcome);
+          if (outcome.status === "success") {
+            const vaultAfter = await usdcBalance();
+            const treasuryAfter = await chain.readContract({
+              address: d.usdc,
+              abi: erc20Abi,
+              functionName: "balanceOf",
+              args: [recipient],
+            });
+            print(`  Số dư sau:  Vault = ${Number(vaultAfter) / 1e6} USDC (-1 USDC), Treasury = ${Number(treasuryAfter) / 1e6} USDC (+1 USDC)`);
+            print(`  ✓ Xác nhận thay đổi số dư on-chain thành công.`);
+          }
+        } else {
+          outcomes.push({ status: "not-sent", revert: `Guardian ${g.response?.risk ?? g.status}` });
+        }
+        break;
+      }
       case "S1": {
         const calls = await safeS1();
         g = await ask("cosign", calls);

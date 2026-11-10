@@ -5,7 +5,7 @@
 # Usage:
 #   ./run-local.sh         # Starts full stack (Fork, Facilitator, Guardian, Agent, Dashboard)
 #   ./run-local.sh setup   # First-time complete setup (keys, envs, forge build, seed)
-#   ./run-local.sh scenario <S1..S6|all> # Runs demo scenarios
+#   ./run-local.sh scenario <S0..S6|all> # Runs demo scenarios
 #   ./run-local.sh stop    # Stops all background services
 #   ./run-local.sh status  # Checks status of all services
 # ==============================================================================

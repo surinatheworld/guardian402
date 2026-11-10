@@ -30,7 +30,7 @@ const fixture = (name: string): RuleFixture => {
   if (!f) throw new Error(`missing fixture ${name}`);
   return f;
 };
-const deployment = getAddresses("local");
+const deployment = getAddresses("fuji");
 const signer = createSigner(generatePrivateKey());
 const NONCE = 7n;
 
@@ -78,7 +78,7 @@ beforeAll(async () => {
     signer,
     store,
     deployment,
-    knownContracts: loadKnownContracts("local"),
+    knownContracts: loadKnownContracts("fuji"),
     demoMode: true,
     policyCacheMs: 0,
   });

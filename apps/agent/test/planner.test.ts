@@ -1,10 +1,11 @@
 import { decodeFunctionData, erc20Abi, maxUint256 } from "viem";
 import { describe, expect, it } from "vitest";
-import { getAddresses, mockRouterAbi } from "@guardian402/shared";
+import { getAddresses, mockRouterAbi, parseNetwork } from "@guardian402/shared";
 import { lookalike, planFromInjection, planSafeDca } from "../src/planner.ts";
 import { EXPECTED } from "../src/scenarios.ts";
+import lookalikeFixture from "../fixtures/lookalike.json" with { type: "json" };
 
-const d = getAddresses("fuji");
+const d = getAddresses(parseNetwork(lookalikeFixture.network));
 
 describe("safe planner", () => {
   it("plans approve + swap through pool 0 when the price is below the threshold", () => {
