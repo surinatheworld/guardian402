@@ -3,27 +3,25 @@ import { FUJI_RPC_URL, getAddresses, parseNetwork, USDC_FUJI } from "@guardian40
 
 export const NETWORK = parseNetwork(process.env.NEXT_PUBLIC_NETWORK || "fuji");
 export const deployment = getAddresses(NETWORK);
+// Public endpoint: leave NEXT_PUBLIC_{RPC,GUARDIAN,AGENT}_URL empty and a browser on another machine (public
+// tunnel) uses the same-origin proxy of next.config.ts, while the host's own browser keeps 127.0.0.1. Set them
+// only when a service has its own public URL.
 const isRemoteBrowser =
   typeof window !== "undefined" &&
   window.location.hostname !== "localhost" &&
   window.location.hostname !== "127.0.0.1";
 
+// Fuji's public RPC answers any browser; only the fork (`local`) needs the proxy.
 export const RPC_URL =
   process.env.NEXT_PUBLIC_RPC_URL ||
-  (isRemoteBrowser
-    ? "/api/rpc"
-    : NETWORK === "fuji"
-      ? FUJI_RPC_URL
-      : "http://127.0.0.1:8545");
+  (NETWORK === "fuji" ? FUJI_RPC_URL : isRemoteBrowser ? "/api/rpc" : "http://127.0.0.1:8545");
 
 export const GUARDIAN_URL = (
-  process.env.NEXT_PUBLIC_GUARDIAN_URL ||
-  (isRemoteBrowser ? "/api/guardian" : "http://127.0.0.1:4402")
+  process.env.NEXT_PUBLIC_GUARDIAN_URL || (isRemoteBrowser ? "/api/guardian" : "http://127.0.0.1:4402")
 ).replace(/\/$/, "");
 
 export const AGENT_URL = (
-  process.env.NEXT_PUBLIC_AGENT_URL ||
-  (isRemoteBrowser ? "/api/agent" : "http://127.0.0.1:4403")
+  process.env.NEXT_PUBLIC_AGENT_URL || (isRemoteBrowser ? "/api/agent-control" : "http://127.0.0.1:4403")
 ).replace(/\/$/, "");
 
 export type TokenMeta = { symbol: string; decimals: number };
