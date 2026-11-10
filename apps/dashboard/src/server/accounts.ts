@@ -115,6 +115,16 @@ export type AccountsOptions = {
   now?: () => number;
 };
 
+/** Workspace tables keyed by vault_id (migration 1). */
+export const VAULT_WORKSPACE_TABLES = [
+  "agents",
+  "contacts",
+  "policy_changes",
+  "notifications",
+  "alert_rules",
+  "check_reviews",
+] as const;
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 /** Trim, drop control characters, cap the length; null when empty. */
@@ -372,9 +382,13 @@ export class Accounts {
       .prepare("SELECT * FROM vaults WHERE chain_id = ? AND address = ?")
       .get(this.#chainId, vault.toLowerCase()) as VaultRow | undefined;
     if (existing) {
-      // The chain says this user owns it now (e.g. after an Ownable2Step hand-off): the link follows.
-      if (existing.user_id !== userId)
+      // The chain says this user owns it now (e.g. after an Ownable2Step hand-off): the link follows, and the
+      // previous owner's workspace (agents, contacts, notes, alerts…) is purged, never handed over.
+      if (existing.user_id !== userId) {
         this.audit(existing.user_id, "vault_lost", { address: vault, newOwner: owner });
+        for (const table of VAULT_WORKSPACE_TABLES)
+          this.#db.prepare(`DELETE FROM ${table} WHERE vault_id = ?`).run(existing.id);
+      }
       this.#db
         .prepare(
           "UPDATE vaults SET user_id = ?, owner_wallet_id = ?, label = COALESCE(?, label), verified_at = ? WHERE id = ?",

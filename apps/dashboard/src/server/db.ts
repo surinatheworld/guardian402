@@ -90,6 +90,98 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX audit_user ON audit_events(user_id, created_at);
   `,
+  `
+  -- Vault workspace (off-chain metadata around a linked vault). Every row belongs to a vault link; when a vault
+  -- changes hands on chain, its workspace is purged before the link moves (see Accounts.linkVault).
+
+  -- AI agents that operate a vault. The vault has one on-chain agent(); this is the owner's registry of them.
+  CREATE TABLE agents (
+    id          INTEGER PRIMARY KEY,
+    vault_id    INTEGER NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL,
+    description TEXT,
+    address     TEXT NOT NULL,                        -- lower-case agent key address (never the key itself)
+    strategy    TEXT NOT NULL DEFAULT 'custom' CHECK (strategy IN ('dca', 'payments', 'custom')),
+    status      TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'retired')),
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL,
+    UNIQUE (vault_id, address)
+  );
+
+  -- Address book of counterparties. Whether an address is allowlisted is read from the vault, never stored.
+  CREATE TABLE contacts (
+    id         INTEGER PRIMARY KEY,
+    vault_id   INTEGER NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    address    TEXT NOT NULL,                         -- lower-case
+    kind       TEXT NOT NULL DEFAULT 'recipient' CHECK (kind IN ('recipient', 'router', 'treasury', 'other')),
+    note       TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    UNIQUE (vault_id, address)
+  );
+
+  -- Owner policy changes: prepared here, signed by the owner's wallet, verified on chain.
+  -- draft → submitted (tx hash given) → confirmed | failed; a draft can be cancelled.
+  CREATE TABLE policy_changes (
+    id           INTEGER PRIMARY KEY,
+    vault_id     INTEGER NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
+    kind         TEXT NOT NULL,
+    params       TEXT NOT NULL,                       -- JSON, validated per kind
+    calldata     TEXT NOT NULL,                       -- exact data the owner must send to the vault
+    status       TEXT NOT NULL DEFAULT 'draft'
+                 CHECK (status IN ('draft', 'submitted', 'confirmed', 'failed', 'cancelled')),
+    tx_hash      TEXT UNIQUE,
+    note         TEXT,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    confirmed_at INTEGER
+  );
+  CREATE INDEX policy_changes_vault ON policy_changes(vault_id, created_at);
+
+  -- Alert rules evaluated against the Guardian's checks of the vault and its daily cap usage.
+  CREATE TABLE alert_rules (
+    id          INTEGER PRIMARY KEY,
+    vault_id    INTEGER NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL,
+    kind        TEXT NOT NULL CHECK (kind IN ('risk', 'rule', 'cap_usage')),
+    min_risk    TEXT CHECK (min_risk IN ('MEDIUM', 'HIGH')),
+    rule_id     TEXT,
+    cap_percent INTEGER CHECK (cap_percent BETWEEN 1 AND 100),
+    enabled     INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL,
+    CHECK ((kind = 'risk' AND min_risk IS NOT NULL) OR (kind = 'rule' AND rule_id IS NOT NULL)
+           OR (kind = 'cap_usage' AND cap_percent IS NOT NULL))
+  );
+
+  -- In-app notifications. dedupe_key makes evaluation idempotent (a check or a cap-day fires a rule once).
+  CREATE TABLE notifications (
+    id            INTEGER PRIMARY KEY,
+    vault_id      INTEGER NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
+    alert_rule_id INTEGER REFERENCES alert_rules(id) ON DELETE SET NULL,
+    dedupe_key    TEXT NOT NULL,
+    title         TEXT NOT NULL,
+    body          TEXT NOT NULL,
+    check_id      TEXT,
+    created_at    INTEGER NOT NULL,
+    read_at       INTEGER,
+    UNIQUE (vault_id, dedupe_key)
+  );
+  CREATE INDEX notifications_vault ON notifications(vault_id, created_at);
+
+  -- Owner triage of Guardian checks. The check itself stays in the Guardian; this is the owner's review of it.
+  CREATE TABLE check_reviews (
+    id         INTEGER PRIMARY KEY,
+    vault_id   INTEGER NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
+    check_id   TEXT NOT NULL,                         -- 0x… Guardian checkId
+    status     TEXT NOT NULL CHECK (status IN ('reviewed', 'false_positive', 'escalated')),
+    note       TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    UNIQUE (vault_id, check_id)
+  );
+  `,
 ];
 
 export type Db = DatabaseSync;
