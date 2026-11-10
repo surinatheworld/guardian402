@@ -472,7 +472,7 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 | Doanh thu | x402 payments count and sum, settlement links | `/v1/stats` |
 | Kiểm tra giao dịch | paste a calls JSON or pick a scenario, see the result | `/v1/demo/check` (DEMO only) |
 | Điều khiển | owner actions with wagmi: pause/unpause, revoke agent, change caps; scenario buttons (DEMO only) | AgentVault, agent control API |
-| Quản lý vault | per linked vault, five tabs: Agent (registry, live `agent()`), Danh bạ (address book, live allowlist, lookalike guard), Chính sách (draft → sign in the wallet → verified on chain), Cảnh báo (rules and notifications), Kiểm tra (reviews of Guardian checks); `#agent`, `#danh-ba`, `#chinh-sach`, `#canh-bao`, `#kiem-tra` open a tab | dashboard `/api/vaults/:vault/*` |
+| Quản lý vault | per linked vault, six tabs: Agent (connected agents, live `agent()`, policy state, Guardian API keys and the REST integration guide; wallet revocation kept separate), Policy (library and builder with summary and "Thử policy", assignment to agents, apply = owner transactions in a safe order), Danh bạ (address book, live allowlist, lookalike guard), Thay đổi on-chain (draft → sign in the wallet → verified on chain), Cảnh báo (rules and notifications), Kiểm tra (reviews of Guardian checks); `#agent`, `#policy`, `#danh-ba`, `#chinh-sach`, `#canh-bao`, `#kiem-tra` open a tab | dashboard `/api/vaults/:vault/*`, `/api/policies`, `/api/agent/v1/*` |
 | Tài khoản | sign in with email + password or with the wallet (SIWE, EIP-4361); profile, linked wallets, linked AgentVaults, security events | dashboard `/api/auth/*`, `/api/account/*`, AgentVault `owner()` |
 
 - Wallets: injected connector (Core, MetaMask) on Fuji.
@@ -493,6 +493,14 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
   verifies vault, calldata, sender and status on chain), alert rules and notifications (Guardian risk or rule per
   check, daily cap usage per day) and reviews of Guardian checks. A vault that changes hands on chain loses the
   previous owner's workspace before the link moves.
+- Policies and the agent API (added 2026-11-10, `docs/API.md`; product model in `docs/PRODUCT_FLOWS.md`):
+  named, versioned policies owned by the user (assets and daily budgets, recipients, contracts and functions,
+  approval limits, verdict thresholds, maximum risk), one per agent; in force only when the vault's on-chain
+  state matches and the agent is `agent()`. Applying drafts the owner transactions (removals first, the agent
+  last). Agents get Guardian API keys (only sha256 stored) for a REST API (`/api/agent/v1`: me, check, cosign,
+  checks, transactions); check and cosign are forwarded to the Guardian with x402 passing through, and cosign
+  is refused until the policy is in force. One agent per vault and vault-level counters, as the contract
+  enforces today.
 
 ## 12. Eval (`eval/`)
 
