@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@heroui/react/button";
 // Header (brand, wallet), navigation and the DEMO MODE banner.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -43,15 +44,16 @@ export function WalletButton() {
 
   if (!isConnected || !address) {
     return (
-      <div className="flex flex-col items-end gap-1">
-        <button
+      <div className="flex flex-col items-start gap-1">
+        <Button
+          variant="primary"
           type="button"
-          disabled={!connector || isPending}
-          onClick={() => connector && connect({ connector, chainId: avalancheFuji.id })}
+          isDisabled={!connector || isPending}
+          onPress={() => connector && connect({ connector, chainId: avalancheFuji.id })}
           className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-accent-fg disabled:opacity-60"
         >
           {isPending ? "Đang kết nối…" : "Kết nối ví"}
-        </button>
+        </Button>
         {error ? (
           <span className="text-xs text-high">Không kết nối được ví: {error.message.split("\n")[0]}</span>
         ) : null}
@@ -59,26 +61,28 @@ export function WalletButton() {
     );
   }
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-start gap-2">
       {chainId !== avalancheFuji.id ? (
-        <button
+        <Button
+          variant="secondary"
           type="button"
-          onClick={() => switchChain({ chainId: avalancheFuji.id })}
+          onPress={() => switchChain({ chainId: avalancheFuji.id })}
           className="rounded-lg border border-medium bg-medium-bg px-2 py-1 text-xs font-semibold text-medium"
         >
           Chuyển sang Fuji
-        </button>
+        </Button>
       ) : null}
       <span className="font-mono text-xs" title={address}>
         {shortHex(address)}
       </span>
-      <button
+      <Button
+        variant="secondary"
         type="button"
-        onClick={() => disconnect()}
+        onPress={() => disconnect()}
         className="rounded-lg border border-line px-2 py-1 text-xs"
       >
         Ngắt
-      </button>
+      </Button>
     </div>
   );
 }
@@ -86,38 +90,55 @@ export function WalletButton() {
 export function Header() {
   const pathname = usePathname();
   return (
-    <header className="border-b border-line bg-surface">
-      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-[max(16px,env(safe-area-inset-left,0px))] py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link href="/" className="flex items-baseline gap-2">
-            <span className="text-lg font-bold tracking-tight">Guardian402</span>
-            <span className="text-xs text-muted">
-              tường lửa giao dịch cho ví agent · {NETWORK === "fuji" ? "Fuji" : "fork"}
-            </span>
-          </Link>
+    <aside className="h3-sidebar">
+      <Link href="/" className="h3-brand">
+        guardian<span>402</span>
+      </Link>
+      <div className="h3-workspace">
+        <span className="h3-workspace-name">Guardian Workspace</span>
+      </div>
+      <nav className="h3-nav" aria-label="Trang">
+        {NAV.map((n) => {
+          const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
+          return (
+            <Link
+              key={n.href}
+              href={n.href}
+              aria-current={active ? "page" : undefined}
+              className={`h3-nav-button flex items-center ${active ? "bg-accent text-accent-fg" : "text-muted hover:bg-surface-2"}`}
+            >
+              {n.label}
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="h3-sidebar-bottom">
+        <div className="h3-network">
+          <span className="h3-dot" />
+          Avalanche Fuji
+        </div>
+        <p>Testnet · {NETWORK === "fuji" ? "Fuji" : "fork"}</p>
+        <div className="h3-owner">
+          <span className="h3-owner-label">Ví chủ</span>
           <WalletButton />
         </div>
-        <nav aria-label="Trang">
-          <ul className="-mx-1 flex gap-1 overflow-x-auto pb-1">
-            {NAV.map((n) => {
-              const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
-              return (
-                <li key={n.href} className="shrink-0">
-                  <Link
-                    href={n.href}
-                    aria-current={active ? "page" : undefined}
-                    className={`block rounded-lg px-3 py-1.5 text-sm ${
-                      active ? "bg-accent font-semibold text-accent-fg" : "text-fg hover:bg-surface-2"
-                    }`}
-                  >
-                    {n.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
       </div>
-    </header>
+    </aside>
+  );
+}
+
+export function WorkspaceBar() {
+  const pathname = usePathname();
+  const current = NAV.find((item) => item.href === pathname)?.label ?? "Tổng quan";
+  return (
+    <div className="h3-topbar">
+      <span>
+        Workspace <span className="h3-breadcrumb-slash">/</span>{" "}
+        <strong className="font-semibold text-fg">{current}</strong>
+      </span>
+      <span className="rounded-full bg-surface px-3 py-1 font-semibold">
+        {NETWORK === "fuji" ? "Fuji testnet" : "Fork Fuji"}
+      </span>
+    </div>
   );
 }

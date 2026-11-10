@@ -1,14 +1,16 @@
 "use client";
 // Tổng quan: vault balances, remaining daily caps, policy summary, agent and guardian addresses (SPEC §11).
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import Link from "next/link";
+import { Button } from "@heroui/react/button";
 import { erc20Abi } from "viem";
 import { useReadContract } from "wagmi";
 import { fromDataUri, getErc8004Record } from "@guardian402/shared";
-import { AddressLink, Card, ErrorBox, Facts, Loading, PageHeader, Stat, TxLink } from "@/components/ui";
-import { errorText, useGuardianHealth } from "@/lib/api";
+import { AddressLink, Card, ErrorBox, Facts, Loading, PageHeader, RiskBadge, TxLink } from "@/components/ui";
+import { errorText, useChecks, useGuardianHealth } from "@/lib/api";
 import { NETWORK, deployment, tokenMeta } from "@/lib/config";
-import { formatAmount, ZERO_ADDRESS } from "@/lib/format";
-import { RISK_LABEL } from "@/lib/labels";
+import { formatAmount, formatTime, ZERO_ADDRESS } from "@/lib/format";
+import { ENDPOINT_LABEL, RISK_LABEL, ruleLabel } from "@/lib/labels";
 import { useVaultPolicy } from "@/lib/vault";
 
 const RISK_BY_CODE = ["LOW", "MEDIUM", "HIGH"] as const;
@@ -19,7 +21,17 @@ const IDENTITY_FILE = IDENTITY ? fromDataUri(IDENTITY.agentURI) : undefined;
 export default function Overview() {
   const policy = useVaultPolicy();
   const health = useGuardianHealth();
+  const checks = useChecks(50);
+  const [riskFilter, setRiskFilter] = useState<"all" | "high" | "other">("all");
+  const visibleChecks = (checks.data?.checks ?? [])
+    .filter((c) => riskFilter === "all" || (riskFilter === "high" ? c.risk === "HIGH" : c.risk !== "HIGH"))
+    .slice(0, 4);
   const p = policy.data;
+  const usdc = p?.tokens.find((t) => t.token.toLowerCase() === deployment.usdc.toLowerCase());
+  const spentPercent =
+    usdc && usdc.dailyCap > 0n
+      ? Number(((usdc.spentToday > usdc.dailyCap ? usdc.dailyCap : usdc.spentToday) * 100n) / usdc.dailyCap)
+      : 0;
   // mWAVAX is what the vault receives from swaps; it is not a tracked token, so getPolicy() omits it.
   const tracked = new Set(p?.tokens.map((t) => t.token.toLowerCase()));
   const mwavax = useReadContract({
@@ -32,10 +44,15 @@ export default function Overview() {
 
   return (
     <>
-      <PageHeader
-        title="Tổng quan"
-        lead="Số dư và hạn mức của AgentVault, chính sách đang áp dụng, và trạng thái Guardian. Tiền luôn nằm trong vault của chủ ví; Guardian chỉ ký verdict."
-      />
+      <div className="h3-page-head">
+        <PageHeader title="Tổng quan" lead="Tài sản, giới hạn và hoạt động của agent." />
+        <Link
+          href="/kiem-tra"
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent px-5 text-sm font-semibold text-accent-fg hover:opacity-90"
+        >
+          <span className="h3-plus">+</span> Kiểm tra giao dịch
+        </Link>
+      </div>
 
       {policy.isPending ? <Loading label="Đang đọc vault trên chain…" /> : null}
       {policy.isError ? (
@@ -46,26 +63,192 @@ export default function Overview() {
         />
       ) : null}
 
+      {!p ? (
+        <div className="h3-hero-grid">
+          <Card title="Số dư trong vault" className="h3-balance-card">
+            <div className="h3-balance">
+              —<small>USDC</small>
+            </div>
+            <p className="h3-card-note">
+              {policy.isPending ? "Đang đọc dữ liệu vault…" : "Chưa đọc được số dư vault."}
+            </p>
+          </Card>
+          <Card title="AgentVault" className="h3-agent-card">
+            <p className="h3-agent-title">Chưa có dữ liệu</p>
+            <p className="h3-card-note">Trạng thái và hạn mức sẽ hiện khi kết nối được vault.</p>
+            <Link
+              href="/dieu-khien"
+              className="mt-auto flex min-h-10 items-center justify-center rounded-xl bg-surface-2 px-4 text-sm font-semibold"
+            >
+              Chỉnh giới hạn
+            </Link>
+          </Card>
+        </div>
+      ) : null}
       {p ? (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {p.tokens.map((t) => {
-              const m = tokenMeta(t.token);
-              return (
-                <Stat key={t.token} label={`Số dư ${m.symbol}`} value={formatAmount(t.balance, m.decimals)} />
-              );
-            })}
-            {!tracked.has(deployment.mWAVAX.toLowerCase()) && mwavax.data !== undefined ? (
-              <Stat label="Số dư mWAVAX" value={formatAmount(mwavax.data, 18)} hint="mock, nhận từ swap" />
-            ) : null}
-            <Stat label="Số dư AVAX" value={formatAmount(p.nativeBalance, 18)} />
-            <Stat
-              label="Trạng thái"
-              value={p.paused ? "Tạm dừng" : "Hoạt động"}
-              hint={p.paused ? "Mọi batch của agent bị từ chối" : "Agent có thể gửi batch"}
-            />
+          <div className="h3-hero-grid">
+            <Card
+              title="Số dư trong vault"
+              className="h3-balance-card"
+              actions={
+                <span className="rounded-full bg-surface-2 px-3 py-1 text-xs font-semibold text-muted">
+                  {NETWORK === "fuji" ? "Fuji testnet" : "Fork Fuji"}
+                </span>
+              }
+            >
+              <div className="h3-balance">
+                <span className="!text-inherit">
+                  {usdc ? formatAmount(usdc.balance, tokenMeta(usdc.token).decimals) : "—"}
+                </span>
+                <small>USDC</small>
+              </div>
+              <p className="h3-card-note">Chủ ví sở hữu tài sản. Guardian chỉ ký verdict.</p>
+              <div className="h3-balance-footer">
+                <div className="h3-token-summary">
+                  <strong className="text-base tabular-nums">
+                    {mwavax.data !== undefined ? formatAmount(mwavax.data, 18) : "—"}
+                  </strong>
+                  <span className="text-xs text-muted">mWAVAX · mock</span>
+                </div>
+                <div className="h3-token-summary">
+                  <strong className="text-base tabular-nums">{formatAmount(p.nativeBalance, 18)}</strong>
+                  <span className="text-xs text-muted">AVAX · testnet</span>
+                </div>
+                <Link
+                  href="#chi-tiet-vault"
+                  className="ml-auto rounded-xl bg-surface-2 px-4 py-2.5 text-sm font-semibold"
+                >
+                  Xem vault ↗
+                </Link>
+              </div>
+            </Card>
+            <Card title="AgentVault" className="h3-agent-card">
+              <div>
+                <p className="h3-agent-title">{p.paused ? "Đã tạm dừng" : "Đang hoạt động"}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted">
+                  {p.paused
+                    ? "Giao dịch mới của agent bị từ chối."
+                    : "Agent có thể gửi giao dịch trong giới hạn."}
+                </p>
+              </div>
+              <div>
+                <div className="mb-2 flex flex-wrap justify-between gap-2 text-xs text-muted">
+                  <span>Đã chi hôm nay</span>
+                  <strong className="text-fg tabular-nums">
+                    {usdc ? formatAmount(usdc.spentToday, tokenMeta(usdc.token).decimals) : "—"} /{" "}
+                    {usdc ? formatAmount(usdc.dailyCap, tokenMeta(usdc.token).decimals) : "—"} USDC
+                  </strong>
+                </div>
+                <div
+                  className="h-2 overflow-hidden rounded-full bg-surface-2"
+                  role="progressbar"
+                  aria-label="Hạn mức USDC đã chi hôm nay"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={spentPercent}
+                >
+                  <div className="h-full rounded-full bg-accent" style={{ width: `${spentPercent}%` }} />
+                </div>
+              </div>
+              <Link
+                href="/dieu-khien"
+                className="mt-auto flex min-h-10 items-center justify-center rounded-xl bg-surface-2 px-4 text-sm font-semibold hover:bg-line"
+              >
+                Chỉnh giới hạn
+              </Link>
+            </Card>
           </div>
+        </>
+      ) : null}
 
+      <Card
+        className="h3-activity-card"
+        title="Hoạt động gần đây"
+        actions={
+          <Link href="/hoat-dong" className="text-sm font-semibold text-muted hover:text-fg">
+            Xem tất cả →
+          </Link>
+        }
+      >
+        <p className="text-xs text-muted">
+          Các lần Guardian kiểm tra gần đây; kết quả thực thi on-chain được hiển thị trong Hoạt động.
+        </p>
+        <div
+          className="inline-flex w-fit flex-wrap gap-1 rounded-xl bg-surface-2 p-1"
+          aria-label="Lọc lần kiểm tra"
+        >
+          {(
+            [
+              ["all", "Tất cả"],
+              ["high", "Rủi ro cao"],
+              ["other", "Thấp và trung bình"],
+            ] as const
+          ).map(([value, label]) => (
+            <Button
+              variant="secondary"
+              key={value}
+              type="button"
+              aria-pressed={riskFilter === value}
+              onPress={() => setRiskFilter(value)}
+              className={`min-h-9 rounded-lg px-3 text-xs font-semibold ${riskFilter === value ? "bg-surface text-fg shadow-sm" : "text-muted"}`}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+        {checks.isPending ? <Loading /> : null}
+        {checks.isError ? (
+          <ErrorBox
+            title="Không tải được danh sách kiểm tra"
+            detail={errorText(checks.error)}
+            onRetry={() => void checks.refetch()}
+          />
+        ) : null}
+        {checks.data && visibleChecks.length === 0 ? (
+          <p className="py-4 text-sm text-muted">Không có lần kiểm tra phù hợp.</p>
+        ) : null}
+        {checks.data && visibleChecks.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[32rem] text-left text-sm">
+              <caption className="sr-only">Các lần Guardian kiểm tra gần đây</caption>
+              <thead className="rounded-xl bg-surface-2 text-xs text-muted">
+                <tr>
+                  <th className="rounded-l-xl p-3 font-semibold" scope="col">
+                    Kiểm tra
+                  </th>
+                  <th className="p-3 font-semibold" scope="col">
+                    Rủi ro
+                  </th>
+                  <th className="p-3 font-semibold" scope="col">
+                    Luật phát hiện
+                  </th>
+                  <th className="rounded-r-xl p-3 text-right font-semibold" scope="col">
+                    Thời gian
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleChecks.map((c) => (
+                  <tr key={c.checkId} className="border-b border-line last:border-0">
+                    <td className="py-4 pr-3 font-semibold">{ENDPOINT_LABEL[c.endpoint] ?? c.endpoint}</td>
+                    <td className="py-4 pr-3">
+                      <RiskBadge risk={c.risk} />
+                    </td>
+                    <td className="py-4 pr-3 text-xs text-muted">
+                      {c.ruleIds.length ? c.ruleIds.map(ruleLabel).join(", ") : "Không có"}
+                    </td>
+                    <td className="py-4 text-right text-xs text-muted">{formatTime(c.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </Card>
+
+      {p ? (
+        <>
           <Card title="Hạn mức hôm nay">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[34rem] text-left text-sm">
@@ -128,7 +311,7 @@ export default function Overview() {
             </p>
           </Card>
 
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <div id="chi-tiet-vault" className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             <Card title="Chính sách">
               <Facts
                 rows={[

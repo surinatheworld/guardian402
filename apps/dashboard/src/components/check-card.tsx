@@ -6,7 +6,7 @@ import { RiskBadge, RuleChips, TxLink } from "./ui";
 
 export function CheckCard({ c }: { c: CheckListRow }) {
   return (
-    <li className="flex min-w-0 flex-col gap-2 rounded-xl border border-line bg-surface p-4">
+    <li className="flex min-w-0 flex-col gap-2 rounded-[22px] bg-surface p-6 shadow-[0_2px_3px_#20273506,0_6px_18px_#2027350a]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <RiskBadge risk={c.risk} score={c.score} />
         <span className="font-mono text-xs text-muted">{ENDPOINT_LABEL[c.endpoint] ?? c.endpoint}</span>

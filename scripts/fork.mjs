@@ -11,6 +11,11 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 
+const foundryBin = `${process.env.HOME}/.foundry/bin`;
+if (!process.env.PATH?.includes(foundryBin)) {
+  process.env.PATH = `${foundryBin}:${process.env.PATH || ""}`;
+}
+
 const FOUNDRY_IMAGE = "ghcr.io/foundry-rs/foundry:v1.8.5";
 const PORT = process.env.FORK_PORT || "8545";
 const CHAIN_ID = "43113";

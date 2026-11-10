@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@heroui/react/button";
 // Confirmation before every owner transaction: shows exactly what changes (before → after).
 import { useEffect, useRef, type ReactNode } from "react";
 
@@ -37,10 +38,10 @@ export function ConfirmDialog({
         onCancel();
       }}
       aria-labelledby="confirm-title"
-      className="m-auto w-[min(32rem,calc(100vw-32px))] rounded-xl border border-line bg-surface p-0 text-fg"
+      className="m-auto w-[min(32rem,calc(100vw-32px))] rounded-[24px] border border-line bg-surface p-0 text-fg shadow-xl"
     >
-      <div className="flex flex-col gap-4 p-5">
-        <h2 id="confirm-title" className="text-lg font-semibold">
+      <div className="flex flex-col gap-5 p-6">
+        <h2 id="confirm-title" className="text-2xl font-bold tracking-tight">
           {title}
         </h2>
         <table className="w-full text-left text-sm">
@@ -73,20 +74,22 @@ export function ConfirmDialog({
         <p className="rounded-lg bg-surface-2 p-2 font-mono text-xs break-all">{call}</p>
         {note ? <p className="text-sm text-muted">{note}</p> : null}
         <div className="flex flex-wrap justify-end gap-2">
-          <button
+          <Button
+            variant="secondary"
             type="button"
-            onClick={onCancel}
+            onPress={onCancel}
             className="rounded-lg border border-line px-3 py-2 text-sm"
           >
             Huỷ
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
             type="button"
-            onClick={onConfirm}
+            onPress={onConfirm}
             className="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-accent-fg"
           >
             Xác nhận và ký trong ví
-          </button>
+          </Button>
         </div>
       </div>
     </dialog>

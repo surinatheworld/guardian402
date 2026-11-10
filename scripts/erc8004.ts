@@ -17,6 +17,7 @@ import {
   getErc8004Record,
   guardianRegistration,
   identityRegistryAbi,
+  rpcTransport,
   toDataUri,
   txUrl,
   type Erc8004Record,
@@ -32,7 +33,7 @@ if (!/^0x[0-9a-fA-F]{64}$/.test(pk ?? "")) fail("DEPLOYER_PK is missing in .env.
 const rpc = process.env.FUJI_RPC_URL || "https://api.avax-test.network/ext/bc/C/rpc";
 
 const account = privateKeyToAccount(pk as Hex);
-const transport = http(rpc);
+const transport = rpcTransport(rpc);
 const pub = createPublicClient({ chain: avalancheFuji, transport });
 const wallet = createWalletClient({ chain: avalancheFuji, transport, account });
 const registry = ERC8004_FUJI.identityRegistry;

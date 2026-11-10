@@ -42,7 +42,7 @@ export default function Blocked() {
             {reverted.map((a) => (
               <li
                 key={a.at + a.scenario}
-                className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4"
+                className="flex flex-col gap-2 rounded-[22px] bg-surface p-6 shadow-[0_2px_3px_#20273506,0_6px_18px_#2027350a]"
               >
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="font-semibold">{SCENARIO_LABEL[a.scenario] ?? a.scenario}</span>

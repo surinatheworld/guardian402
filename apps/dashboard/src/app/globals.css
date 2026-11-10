@@ -1,48 +1,37 @@
 @import "tailwindcss";
+@import "@heroui/styles";
 
-/* Tokens: light on :root, dark through prefers-color-scheme. Components use only these tokens. */
+/* Approved Guardian402 HeroUI v3 light theme. See DESIGN.md. */
 :root {
-  --bg: #f5f7f8;
+  --bg: #f0f1f3;
   --surface: #ffffff;
-  --surface-2: #eef2f4;
-  --fg: #12202b;
-  --muted: #52626e;
-  --line: #d6dee3;
-  --accent: #0f766e;
+  --surface-2: #f0f1f3;
+  --fg: #222326;
+  --muted: #686a72;
+  --line: #e1e3e8;
+  --accent: #27282d;
   --accent-fg: #ffffff;
-  --low: #166534;
-  --low-bg: #dcfce7;
-  --medium: #854d0e;
-  --medium-bg: #fef3c7;
-  --high: #b91c1c;
-  --high-bg: #fee2e2;
-  --demo: #78350f;
-  --demo-bg: #fde68a;
-  --focus: #2563eb;
+  --low: #357154;
+  --low-bg: #e7f2eb;
+  --medium: #835d24;
+  --medium-bg: #f8efdc;
+  --high: #a6433d;
+  --high-bg: #fae9e7;
+  --demo: #6a4b19;
+  --demo-bg: #f8efdc;
+  --focus: #59677d;
+  --background: var(--bg);
+  --foreground: var(--fg);
+  --surface-foreground: var(--fg);
+  --surface-secondary: var(--surface-2);
+  --surface-secondary-foreground: var(--fg);
+  --default: #eceef1;
+  --default-foreground: var(--fg);
+  --accent-foreground: #fff;
+  --separator: var(--line);
+  --radius: 0.9rem;
+  --surface-shadow: 0 2px 3px #20273506, 0 6px 18px #20273505, 0 0 1px #2027350d;
   color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0c1419;
-    --surface: #131e25;
-    --surface-2: #1a2730;
-    --fg: #e6edf1;
-    --muted: #9aabb6;
-    --line: #2a3a44;
-    --accent: #2dd4bf;
-    --accent-fg: #062a26;
-    --low: #86efac;
-    --low-bg: #12341f;
-    --medium: #fcd34d;
-    --medium-bg: #3a2c09;
-    --high: #fca5a5;
-    --high-bg: #451414;
-    --demo: #fde68a;
-    --demo-bg: #4a3207;
-    --focus: #93c5fd;
-    color-scheme: dark;
-  }
 }
 
 @theme inline {
@@ -84,4 +73,42 @@ h3 {
 
 dialog::backdrop {
   background: rgb(0 0 0 / 0.5);
+}
+
+@layer base {
+  button,
+  select,
+  input,
+  textarea {
+    font: inherit;
+  }
+  button,
+  select,
+  input {
+    min-height: 42px;
+  }
+  button {
+    transition:
+      background-color 120ms ease,
+      transform 120ms ease;
+  }
+  button:not(:disabled):active {
+    transform: scale(0.98);
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  input,
+  select,
+  textarea {
+    border-radius: 12px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }

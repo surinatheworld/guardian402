@@ -1,5 +1,7 @@
+import { Button } from "@heroui/react/button";
 // Small presentational pieces shared by every page.
 import type { ReactNode } from "react";
+import { Card as HeroCard } from "@heroui/react/card";
 import type { RiskLevel } from "@guardian402/shared";
 import { NETWORK, knownName } from "@/lib/config";
 import { shortHex } from "@/lib/format";
@@ -10,7 +12,7 @@ const SNOWTRACE = "https://testnet.snowtrace.io";
 export function PageHeader({ title, lead }: { title: string; lead: string }) {
   return (
     <header className="flex flex-col gap-1">
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
       <p className="max-w-[65ch] text-muted">{lead}</p>
     </header>
   );
@@ -20,21 +22,27 @@ export function Card({
   title,
   children,
   actions,
+  className = "",
 }: {
   title?: string;
   children: ReactNode;
   actions?: ReactNode;
+  className?: string;
 }) {
   return (
-    <section className="flex min-w-0 flex-col gap-3 rounded-xl border border-line bg-surface p-4 sm:p-5">
+    <HeroCard className={`h3-panel flex min-w-0 flex-col gap-4 ${className}`}>
       {title || actions ? (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {title ? <h2 className="text-base font-semibold">{title}</h2> : <span />}
+        <HeroCard.Header className="flex flex-row flex-wrap items-center justify-between gap-3 p-0">
+          {title ? (
+            <HeroCard.Title className="text-lg font-bold tracking-tight">{title}</HeroCard.Title>
+          ) : (
+            <span />
+          )}
           {actions}
-        </div>
+        </HeroCard.Header>
       ) : null}
       {children}
-    </section>
+    </HeroCard>
   );
 }
 
@@ -139,13 +147,14 @@ export function ErrorBox({
       <p className="font-semibold">{title}</p>
       {detail ? <p className="break-words">{detail}</p> : null}
       {onRetry ? (
-        <button
+        <Button
+          variant="danger-soft"
           type="button"
-          onClick={onRetry}
+          onPress={onRetry}
           className="self-start rounded-md border border-high/50 px-2 py-1"
         >
           Thử lại
-        </button>
+        </Button>
       ) : null}
     </div>
   );
@@ -157,9 +166,9 @@ export function Empty({ children }: { children: ReactNode }) {
 
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-surface-2 p-3">
-      <span className="text-xs tracking-wide text-muted uppercase">{label}</span>
-      <span className="text-xl font-semibold tabular-nums">{value}</span>
+    <div className="flex min-w-0 flex-col gap-2 rounded-[20px] bg-surface p-5 shadow-[0_2px_3px_#20273506,0_6px_18px_#2027350a]">
+      <span className="text-sm font-semibold text-muted">{label}</span>
+      <span className="text-2xl font-bold tracking-tight tabular-nums sm:text-3xl">{value}</span>
       {hint ? <span className="text-xs text-muted">{hint}</span> : null}
     </div>
   );

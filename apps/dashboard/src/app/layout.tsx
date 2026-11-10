@@ -2,8 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import { Providers } from "@/components/providers";
-import { DemoBanner, Header } from "@/components/shell";
+import { DemoBanner, Header, WorkspaceBar } from "@/components/shell";
 import "./globals.css";
+import "./concept.css";
 
 const sans = Be_Vietnam_Pro({
   subsets: ["latin", "vietnamese"],
@@ -32,13 +33,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             Bỏ qua tới nội dung
           </a>
           <DemoBanner />
-          <Header />
-          <main
-            id="noi-dung"
-            className="mx-auto flex max-w-6xl flex-col gap-5 px-[max(16px,env(safe-area-inset-left,0px))] py-6"
-          >
-            {children}
-          </main>
+          <div className="h3-theme">
+            <div className="h3-shell mx-auto max-w-[1600px]">
+              <Header />
+              <div className="h3-main">
+                <WorkspaceBar />
+                <main id="noi-dung" className="h3-content flex flex-col gap-6">
+                  {children}
+                </main>
+              </div>
+            </div>
+          </div>
         </Providers>
       </body>
     </html>

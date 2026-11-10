@@ -9,6 +9,10 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "local": "bash run-local.sh start",
+    "local:setup": "bash run-local.sh setup",
+    "local:stop": "bash run-local.sh stop",
+    "local:status": "bash run-local.sh status",
     "fork": "node scripts/fork.mjs",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",

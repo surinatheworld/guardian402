@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@heroui/react/button";
 // Kiểm tra giao dịch: paste a calls JSON or pick a scenario and see the Guardian result (SPEC §11).
 // Uses the free /v1/demo/check, which exists only in DEMO mode. Nothing is signed or sent on-chain.
 import { useMutation } from "@tanstack/react-query";
@@ -116,13 +117,14 @@ export default function CheckPage() {
               {parseError}
             </p>
           ) : null}
-          <button
+          <Button
+            variant="primary"
             type="submit"
-            disabled={run.isPending || !text.trim()}
+            isDisabled={run.isPending || !text.trim()}
             className="self-start rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg disabled:opacity-60"
           >
             {run.isPending ? "Đang mô phỏng…" : "Kiểm tra"}
-          </button>
+          </Button>
         </form>
       </Card>
 

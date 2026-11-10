@@ -8,6 +8,7 @@
 # 4+4 characters (16^8 tries) takes too long on a laptop, so DEMO mode mines 3+3 and the rule runs at 3/3
 # (apps/guardian/config/rules.json demoPrefix/demoSuffix). Declare this in the pitch.
 set -euo pipefail
+export PATH="$HOME/.foundry/bin:$PATH"
 cd "$(dirname "$0")/.."
 
 NETWORK="${1:-fuji}"
@@ -16,6 +17,19 @@ ROUTER=$(node -e "console.log(require('./packages/shared/src/addresses/${NETWORK
 BODY="${ROUTER:2}"
 START="${BODY:0:${CHARS}}"
 END="${BODY: -${CHARS}}"
+
+if [ -f "apps/agent/fixtures/lookalike.json" ] && [ "${FORCE_MINE:-false}" != "true" ]; then
+  MATCH=$(node -e "
+    try {
+      const f = require('./apps/agent/fixtures/lookalike.json');
+      console.log(f.router.toLowerCase() === '${ROUTER}'.toLowerCase() ? 'yes' : 'no');
+    } catch { console.log('no'); }
+  " 2>/dev/null || echo "no")
+  if [ "${MATCH}" = "yes" ]; then
+    echo "[lookalike] using existing fixture in apps/agent/fixtures/lookalike.json (matches ${ROUTER})"
+    exit 0
+  fi
+fi
 
 echo "[lookalike] router ${ROUTER}: mining 0x${START}…${END} (${CHARS}+${CHARS} hex characters)"
 OUT=$(cast wallet vanity --starts-with "${START}" --ends-with "${END}" --threads 0)

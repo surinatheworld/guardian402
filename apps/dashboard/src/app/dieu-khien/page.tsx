@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@heroui/react/button";
 // Điều khiển: owner actions sent from the connected wallet (pause/unpause, revoke agent, change caps), each
 // behind a confirmation that shows exactly what changes; scenario buttons in DEMO mode (SPEC §11).
 import { useMutation } from "@tanstack/react-query";
@@ -199,24 +200,26 @@ export default function Controls() {
               </p>
             ) : null}
             <div className="flex flex-wrap gap-2">
-              <button
+              <Button
+                variant="primary"
                 type="button"
-                onClick={askPause}
-                disabled={!isOwner}
+                onPress={askPause}
+                isDisabled={!isOwner}
                 className={`rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
                   p.paused ? "bg-accent text-accent-fg" : "bg-high text-surface"
                 }`}
               >
                 {p.paused ? "Mở lại vault" : "Tạm dừng vault"}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="danger-soft"
                 type="button"
-                onClick={askRevoke}
-                disabled={!isOwner || p.agent === ZERO_ADDRESS}
+                onPress={askRevoke}
+                isDisabled={!isOwner || p.agent === ZERO_ADDRESS}
                 className="rounded-lg border border-high px-3 py-2 text-sm font-semibold text-high disabled:opacity-50"
               >
                 Thu hồi agent
-              </button>
+              </Button>
             </div>
 
             {usdcPolicy ? (
@@ -256,13 +259,14 @@ export default function Controls() {
                     {capError}
                   </p>
                 ) : null}
-                <button
+                <Button
+                  variant="primary"
                   type="submit"
-                  disabled={!isOwner}
+                  isDisabled={!isOwner}
                   className="self-start rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-accent-fg disabled:opacity-50"
                 >
                   Xem thay đổi
-                </button>
+                </Button>
               </form>
             ) : null}
           </>
@@ -334,16 +338,17 @@ function Scenarios() {
         </p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {Object.entries(SCENARIO_LABEL).map(([id, label]) => (
-            <button
+            <Button
+              variant="secondary"
               key={id}
               type="button"
-              disabled={run.isPending || agent.data.busy}
-              onClick={() => run.mutate(id)}
+              isDisabled={run.isPending || agent.data.busy}
+              onPress={() => run.mutate(id)}
               className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-left text-sm font-medium hover:border-accent disabled:opacity-50"
             >
               {run.isPending && run.variables === id ? "Đang chạy… " : ""}
               {label}
-            </button>
+            </Button>
           ))}
         </div>
         {run.isError ? <ErrorBox title="Kịch bản lỗi" detail={errorText(run.error)} /> : null}

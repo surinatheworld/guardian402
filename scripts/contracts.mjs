@@ -15,6 +15,11 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const foundryBin = `${process.env.HOME}/.foundry/bin`;
+if (!process.env.PATH?.includes(foundryBin)) {
+  process.env.PATH = `${foundryBin}:${process.env.PATH || ""}`;
+}
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CONTRACTS = join(ROOT, "contracts");
 const FUJI_CHAIN_ID = 43113;
@@ -160,15 +165,23 @@ function run(cmd, args, { capture = false } = {}) {
   return capture ? res.stdout.trim() : "";
 }
 
-async function rpcCall(method, params) {
-  const res = await fetch(rpc, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-  }).catch((err) => fail(`cannot reach ${rpc}: ${err.message}`));
-  const body = await res.json();
-  if (body.error) fail(`${method}: ${body.error.message}`);
-  return body.result;
+async function rpcCall(method, params, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(rpc, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = await res.json();
+      if (body.error) fail(`${method}: ${body.error.message}`);
+      return body.result;
+    } catch (err) {
+      if (attempt === retries) fail(`cannot reach ${rpc}: ${err.message}`);
+      await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+    }
+  }
 }
 
 function addressOf(key) {

@@ -24,7 +24,7 @@ import {
   type Hex,
   type TransactionReceipt,
 } from "viem";
-import { fujiChain, type Call } from "@guardian402/shared";
+import { fujiChain, rpcTransport, type Call } from "@guardian402/shared";
 import { decodeLogs, decodeRevert, extractRevertData, netTransferDelta } from "./decode.ts";
 import { runWithBudget } from "./budget.ts";
 import { Mutex } from "./mutex.ts";
@@ -103,7 +103,7 @@ export class Simulator {
     this.#public = createPublicClient({ chain: fujiChain, transport });
     this.#test = createTestClient({ chain: fujiChain, mode: "anvil", transport });
     this.#upstream = options.upstreamRpcUrl
-      ? createPublicClient({ chain: fujiChain, transport: http(options.upstreamRpcUrl) })
+      ? createPublicClient({ chain: fujiChain, transport: rpcTransport(options.upstreamRpcUrl) })
       : undefined;
   }
 

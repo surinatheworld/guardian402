@@ -31,6 +31,30 @@ pnpm test
 
 ## Chạy demo
 
+### Cách 1: Tự động tất cả trong 1 lệnh (Khuyên dùng)
+
+Chỉ cần chạy một script duy nhất:
+
+```bash
+./run-local.sh
+# hoặc: pnpm local
+```
+
+Script sẽ tự động:
+- Khởi tạo `.env.local` và ví testnet nếu chưa có
+- Khởi chạy Anvil fork, deploy và seed contracts
+- Khởi động Facilitator (4022), Guardian API (4402), Agent API (4403) và Dashboard (3000)
+- Dừng tất cả dịch vụ gọn gàng khi bấm `Ctrl+C`
+
+Chạy kịch bản test demo:
+```bash
+./run-local.sh scenario S1   # hoặc: S2, S3, S4, S5, S6, all
+```
+
+---
+
+### Cách 2: Chạy thủ công từng terminal
+
 1. Tạo 5 ví thử bằng `cast wallet new` (chỉ dùng cho testnet).
 2. `cp .env.example .env.local`, điền `DEPLOYER_PK`, `OWNER_PK`, `AGENT_PK`, `GUARDIAN_SIGNER_PK`,
    `FACILITATOR_PK`, đặt `PAY_TO` là địa chỉ ví deployer, giữ `NETWORK=local`.
