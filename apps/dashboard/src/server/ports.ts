@@ -1,9 +1,10 @@
 // What the vault workspace needs from the outside world, as two small interfaces: the chain (AgentVault reads
 // and transaction lookups) and the Guardian API (its checks). The business rules in workspace.ts depend only on
 // these, so tests pass in fakes; the real adapters below use viem and fetch.
-import { createPublicClient, isAddressEqual, type Address, type Hex } from "viem";
+import { createPublicClient, isAddressEqual, parseEventLogs, type Address, type Hex } from "viem";
 import { agentVaultAbi, fujiChain, rpcTransport } from "@guardian402/shared";
 import { GUARDIAN_URL, RPC_URL } from "@/lib/config";
+import type { OnChainPolicy } from "@/lib/policy-spec";
 import { AccountError } from "./accounts";
 
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
@@ -38,7 +39,22 @@ export interface ChainPort {
   /** Daily cap and what is left today for `token` (base units); null when the token is not tracked. */
   capUsage(vault: Address, token: Address): Promise<{ dailyCap: bigint; remaining: bigint } | null>;
   transaction(hash: Hex): Promise<TxLookup>;
+  /** AgentVault.getPolicy(): agent, guardian, limits, allowlists and today's spending. */
+  vaultPolicy(vault: Address): Promise<OnChainPolicy>;
+  /** A transaction and the vault's Executed event in it, if any. */
+  execution(vault: Address, hash: Hex): Promise<ExecutionLookup>;
 }
+
+export type ExecutionLookup =
+  | { found: false }
+  | {
+      found: true;
+      from: Address;
+      to: Address | null;
+      status: "pending" | "success" | "reverted";
+      blockNumber: string | null;
+      executed: { checkId: Hex; withVerdict: boolean; nonce: string } | null;
+    };
 
 export interface GuardianPort {
   /** Recent checks of all vaults (the Guardian has no per-vault filter); throws when unreachable. */
@@ -129,6 +145,58 @@ export const chainPort: ChainPort = {
           to: tx.to,
           input: tx.input,
           status: !receipt ? "pending" : receipt.status === "success" ? "success" : "reverted",
+        };
+      })(),
+      "chain",
+    ),
+  vaultPolicy: (vault) =>
+    withTimeout(
+      client
+        .readContract({ address: vault, abi: agentVaultAbi, functionName: "getPolicy" })
+        .then((p): OnChainPolicy => ({
+          agent: p.agent,
+          guardian: p.guardian,
+          paused: p.paused,
+          maxAgentRisk: p.maxAgentRisk,
+          tokens: p.tokens.map((t) => ({
+            token: t.token,
+            dailyCap: t.dailyCap,
+            maxApproval: t.maxApproval,
+            verdictThreshold: t.verdictThreshold,
+            spentToday: t.spentToday,
+          })),
+          nativeDailyCap: p.nativeDailyCap,
+          nativeVerdictThreshold: p.nativeVerdictThreshold,
+          nativeSpentToday: p.nativeSpentToday,
+          targets: p.targets.map((t) => ({ target: t.target, selectors: [...t.selectors] })),
+          recipients: [...p.recipients],
+        })),
+      "chain",
+    ),
+  execution: (vault, hash) =>
+    withTimeout(
+      (async (): Promise<ExecutionLookup> => {
+        const tx = await client.getTransaction({ hash }).catch(() => null);
+        if (!tx) return { found: false };
+        const receipt = await client.getTransactionReceipt({ hash }).catch(() => null);
+        const event = receipt
+          ? parseEventLogs({ abi: agentVaultAbi, eventName: "Executed", logs: receipt.logs }).find((l) =>
+              isAddressEqual(l.address, vault),
+            )
+          : undefined;
+        return {
+          found: true,
+          from: tx.from,
+          to: tx.to,
+          status: !receipt ? "pending" : receipt.status === "success" ? "success" : "reverted",
+          blockNumber: receipt ? receipt.blockNumber.toString() : null,
+          executed: event
+            ? {
+                checkId: event.args.checkId,
+                withVerdict: event.args.withVerdict,
+                nonce: event.args.nonceUsed.toString(),
+              }
+            : null,
         };
       })(),
       "chain",

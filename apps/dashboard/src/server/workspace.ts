@@ -28,7 +28,7 @@ export type WorkspaceOptions = {
   now?: () => number;
 };
 
-type VaultCtx = { id: number; userId: string; address: Address };
+export type VaultCtx = { id: number; userId: string; address: Address };
 
 // ------------------------------------------------------------------ validation helpers
 
@@ -106,6 +106,7 @@ export const POLICY_KINDS = [
   "revoke_agent",
   "allow_recipient",
   "allow_target",
+  "allow_selector",
   "token_policy",
   "native_policy",
   "max_agent_risk",
@@ -148,6 +149,20 @@ function preparePolicy(
         params: { address: a, allowed },
         fn: kind === "allow_recipient" ? "setAllowedRecipient" : "setAllowedTarget",
         args: [a, allowed],
+        warnings,
+      };
+    }
+    case "allow_selector": {
+      const target = address(raw.target, "target");
+      if (sameAddress(target, vault)) throw bad("bad_address", "Không thể cho phép gọi chính vault.");
+      if (typeof raw.selector !== "string" || !/^0x[0-9a-fA-F]{8}$/.test(raw.selector))
+        throw bad("bad_field", "selector phải là 4 byte (0x + 8 ký tự hex).");
+      const selector = raw.selector.toLowerCase() as Hex;
+      const allowed = bool(raw.allowed, "allowed");
+      return {
+        params: { target, selector, allowed },
+        fn: "setAllowedSelector",
+        args: [target, selector, allowed],
         warnings,
       };
     }
@@ -209,7 +224,6 @@ type AgentRow = {
   name: string;
   description: string | null;
   address: string;
-  strategy: string;
   status: string;
   created_at: number;
   updated_at: number;
@@ -231,6 +245,7 @@ type PolicyRow = {
   status: "draft" | "submitted" | "confirmed" | "failed" | "cancelled";
   tx_hash: Hex | null;
   note: string | null;
+  assignment_id: number | null;
   created_at: number;
   updated_at: number;
   confirmed_at: number | null;
@@ -317,7 +332,6 @@ export class Workspace {
       name: r.name,
       description: r.description,
       address: getAddress(r.address),
-      strategy: r.strategy,
       status: r.status,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
@@ -346,18 +360,10 @@ export class Workspace {
     const now = this.#now();
     const res = this.#db
       .prepare(
-        `INSERT INTO agents (vault_id, name, description, address, strategy, status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 'active', ?, ?)`,
+        `INSERT INTO agents (vault_id, name, description, address, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'active', ?, ?)`,
       )
-      .run(
-        v.id,
-        name,
-        text(input.description, 300, "Mô tả"),
-        addr.toLowerCase(),
-        oneOf(input.strategy, ["dca", "payments", "custom"] as const, "strategy", "custom"),
-        now,
-        now,
-      );
+      .run(v.id, name, text(input.description, 300, "Mô tả nhiệm vụ"), addr.toLowerCase(), now, now);
     this.#audit(v.userId, "agent_added", { vault: v.address, address: addr });
     return this.#agent(
       this.#db.prepare("SELECT * FROM agents WHERE id = ?").get(Number(res.lastInsertRowid)) as AgentRow,
@@ -373,21 +379,16 @@ export class Workspace {
       throw bad("immutable", "Không đổi được địa chỉ agent; hãy xoá và thêm agent mới.");
     const next = {
       name: input.name === undefined ? row.name : (text(input.name, 60, "Tên agent", true) as string),
-      description: input.description === undefined ? row.description : text(input.description, 300, "Mô tả"),
-      strategy:
-        input.strategy === undefined
-          ? row.strategy
-          : oneOf(input.strategy, ["dca", "payments", "custom"] as const, "strategy"),
+      description:
+        input.description === undefined ? row.description : text(input.description, 300, "Mô tả nhiệm vụ"),
       status:
         input.status === undefined
           ? row.status
           : oneOf(input.status, ["active", "paused", "retired"] as const, "status"),
     };
     this.#db
-      .prepare(
-        "UPDATE agents SET name = ?, description = ?, strategy = ?, status = ?, updated_at = ? WHERE id = ?",
-      )
-      .run(next.name, next.description, next.strategy, next.status, this.#now(), row.id);
+      .prepare("UPDATE agents SET name = ?, description = ?, status = ?, updated_at = ? WHERE id = ?")
+      .run(next.name, next.description, next.status, this.#now(), row.id);
     return this.#agent(this.#db.prepare("SELECT * FROM agents WHERE id = ?").get(row.id) as AgentRow);
   }
 
@@ -538,6 +539,7 @@ export class Workspace {
       status: r.status,
       note: r.note,
       txHash: r.tx_hash,
+      assignmentId: r.assignment_id,
       // What the owner's wallet must send: exactly this, to the vault, with no value.
       transaction: { to: v.address, data: r.calldata, value: "0" },
       createdAt: r.created_at,
@@ -554,7 +556,8 @@ export class Workspace {
     return row;
   }
 
-  createPolicyChange(v: VaultCtx, input: Record<string, unknown>) {
+  /** `assignmentId` is set only by the policy service, when it drafts the changes that apply an assignment. */
+  createPolicyChange(v: VaultCtx, input: Record<string, unknown>, assignmentId: number | null = null) {
     const kind = oneOf(input.kind, POLICY_KINDS, "kind");
     const raw =
       input.params && typeof input.params === "object" ? (input.params as Record<string, unknown>) : {};
@@ -567,10 +570,20 @@ export class Workspace {
     const now = this.#now();
     const res = this.#db
       .prepare(
-        `INSERT INTO policy_changes (vault_id, kind, params, calldata, status, note, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 'draft', ?, ?, ?)`,
+        `INSERT INTO policy_changes
+           (vault_id, kind, params, calldata, status, note, assignment_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?)`,
       )
-      .run(v.id, kind, JSON.stringify(p.params), calldata, text(input.note, 300, "Ghi chú"), now, now);
+      .run(
+        v.id,
+        kind,
+        JSON.stringify(p.params),
+        calldata,
+        text(input.note, 300, "Ghi chú"),
+        assignmentId,
+        now,
+        now,
+      );
     this.#audit(v.userId, "policy_drafted", { vault: v.address, kind });
     const row = this.#policyRow(v, Number(res.lastInsertRowid));
     return { ...this.#policy(v, row), warnings: p.warnings };

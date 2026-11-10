@@ -182,6 +182,65 @@ const MIGRATIONS: string[] = [
     UNIQUE (vault_id, check_id)
   );
   `,
+  `
+  -- Named, versioned policies, their assignment to agents, and agent API keys (docs/API.md "Policies").
+
+  -- The agent registry no longer has a "strategy": Guardian does not run agents, so it was misleading. The
+  -- description field now holds the agent's task as the owner describes it.
+  ALTER TABLE agents DROP COLUMN strategy;
+
+  -- A policy belongs to the user (reusable on any of their vaults). Its content lives in immutable versions.
+  CREATE TABLE policies (
+    id          INTEGER PRIMARY KEY,
+    user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL,
+    description TEXT,
+    template    TEXT NOT NULL DEFAULT 'custom' CHECK (template IN ('payments', 'swap', 'custom')),
+    archived_at INTEGER,
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL
+  );
+  CREATE UNIQUE INDEX policies_user_name ON policies(user_id, name COLLATE NOCASE) WHERE archived_at IS NULL;
+
+  -- Editing a policy's rules makes a new version; old versions stay for the assignments that use them.
+  CREATE TABLE policy_versions (
+    id         INTEGER PRIMARY KEY,
+    policy_id  INTEGER NOT NULL REFERENCES policies(id) ON DELETE CASCADE,
+    version    INTEGER NOT NULL,
+    spec       TEXT NOT NULL,                         -- JSON PolicySpec (src/lib/policy-spec.ts), never changed
+    note       TEXT,
+    created_at INTEGER NOT NULL,
+    UNIQUE (policy_id, version)
+  );
+
+  -- Which policy version an agent should run under. One current assignment per agent; ended ones are history.
+  -- Whether it is in force is read from the chain (the vault's state matches the version and agent()).
+  CREATE TABLE policy_assignments (
+    id                INTEGER PRIMARY KEY,
+    agent_id          INTEGER NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+    policy_version_id INTEGER NOT NULL REFERENCES policy_versions(id) ON DELETE CASCADE,
+    state             TEXT NOT NULL DEFAULT 'current' CHECK (state IN ('current', 'ended')),
+    created_at        INTEGER NOT NULL,
+    ended_at          INTEGER
+  );
+  CREATE UNIQUE INDEX policy_assignments_current ON policy_assignments(agent_id) WHERE state = 'current';
+
+  -- Owner transactions drafted to apply an assignment are tagged with it.
+  ALTER TABLE policy_changes ADD COLUMN assignment_id INTEGER REFERENCES policy_assignments(id) ON DELETE SET NULL;
+
+  -- Guardian API keys of an agent. Only sha256(key) is stored; the key is shown once when created.
+  CREATE TABLE api_keys (
+    id           INTEGER PRIMARY KEY,
+    agent_id     INTEGER NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+    name         TEXT NOT NULL,
+    prefix       TEXT NOT NULL,                       -- first characters, to recognise a key in the list
+    key_hash     TEXT NOT NULL UNIQUE,
+    created_at   INTEGER NOT NULL,
+    last_used_at INTEGER,
+    revoked_at   INTEGER
+  );
+  CREATE INDEX api_keys_agent ON api_keys(agent_id);
+  `,
 ];
 
 export type Db = DatabaseSync;

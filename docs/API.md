@@ -8,7 +8,9 @@ Principles:
 
 - **The chain is the authority.** Ownership, the current agent, allowlists, caps and balances are read live from
   the AgentVault. Nothing here can change them; policy changes are prepared here and signed by the owner's wallet.
-- **Never stored:** private keys, seed phrases, signatures, balances, policy. No IP addresses.
+- **Never stored:** private keys, seed phrases, signatures, balances, on-chain policy state, API keys (only
+  their sha256). No IP addresses. A saved policy is the owner's intent; whether it is in force is always read
+  from the chain.
 - **Scoped:** every `/api/vaults/:vault/…` call needs a session and a vault linked to that account; anything else
   is `404`. Every write must come from the dashboard's own origin (`Origin` header), else `403`.
 
@@ -35,12 +37,12 @@ strings in base units (USDC: 6 decimals). Code: `apps/dashboard/src/server/` (ru
 
 ### Agents
 
-| Method and path     | Body                                                                 | Rules                                                                                                    |
-| ------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `GET agents`        |                                                                      | `{onChainAgent, agents[]}`, each with `isOnChainAgent` (live `agent()`)                                  |
-| `POST agents`       | `{name, address, description?, strategy?: dca\|payments\|custom}`    | not the vault, not zero, never one of your own wallets (owner key ≠ agent key); unique per vault; max 20 |
-| `PATCH agents/:id`  | `{name?, description?, strategy?, status?: active\|paused\|retired}` | address is immutable                                                                                     |
-| `DELETE agents/:id` |                                                                      | `409 agent_active_on_chain` while it is the vault's agent: revoke it first                               |
+| Method and path     | Body                                                      | Rules                                                                                                                                                                                                                             |
+| ------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET agents`        |                                                           | `{onChainAgent, agents[]}`, each with `isOnChainAgent` (live `agent()`)                                                                                                                                                           |
+| `POST agents`       | `{name, address, description?}`                           | not the vault, not zero, never one of your own wallets (owner key ≠ agent key); unique per vault; max 20. `description` is the agent's task in the owner's words (Guardian does not run agents; the old `strategy` field is gone) |
+| `PATCH agents/:id`  | `{name?, description?, status?: active\|paused\|retired}` | address is immutable. `paused` and `retired` stop the agent API for this agent; they do not change the vault                                                                                                                      |
+| `DELETE agents/:id` |                                                           | `409 agent_active_on_chain` while it is the vault's agent: revoke it first                                                                                                                                                        |
 
 ### Contacts (address book)
 
@@ -70,11 +72,77 @@ strings in base units (USDC: 6 decimals). Code: `apps/dashboard/src/server/` (ru
 | `set_agent`                        | `{agent}`                                                   | `setAgent(agent)`; warns if it is one of your wallets                              |
 | `revoke_agent`                     |                                                             | `setAgent(0x0)`                                                                    |
 | `allow_recipient` / `allow_target` | `{address, allowed}`                                        | `setAllowedRecipient` / `setAllowedTarget`                                         |
+| `allow_selector`                   | `{target, selector, allowed}` (selector: 4 bytes)           | `setAllowedSelector` (drafted when a policy is applied)                            |
 | `token_policy`                     | `{token, tracked, dailyCap, maxApproval, verdictThreshold}` | `setTokenPolicy`; warns if the threshold exceeds the cap or the token is untracked |
 | `native_policy`                    | `{dailyCap, verdictThreshold}`                              | `setNativePolicy`                                                                  |
 | `max_agent_risk`                   | `{risk: 0..2}`                                              | `setMaxAgentRisk`; warns above 0                                                   |
 
 Withdrawals and `ownerExecute` are deliberately not here: moving funds stays a direct owner action in the wallet.
+
+Changes drafted to apply a policy assignment carry `assignmentId`.
+
+### Policies and assignments
+
+A **policy** is a named, versioned set of permissions and limits, owned by the user and reusable on any of their
+vaults. Its `spec` (`src/lib/policy-spec.ts`) maps one to one onto AgentVault state, so once applied the vault
+enforces it whether or not the agent uses the Guardian API:
+
+```json
+{
+  "tokens": [
+    { "token": "0x5425…Bc65", "dailyCap": "100000000", "maxApproval": "0", "verdictThreshold": "10000000" }
+  ],
+  "native": { "dailyCap": "0", "verdictThreshold": "0" },
+  "recipients": ["0x…supplier", "0x…treasury"],
+  "spenders": [],
+  "contracts": [{ "address": "0x…router", "selectors": ["0x…"] }],
+  "maxRisk": 0
+}
+```
+
+Budgets are per token per UTC day and count the vault's balance decrease (shared by the whole vault). Tracked
+tokens that a policy does not list are locked at 0 when it is applied. Recipients and spenders share one on-chain
+list (`allowedRecipient`), so a spender can also receive transfers; the builder says so.
+
+| Method and path              | Body                                                                   | Rules                                                                                                                                                                                                                                                             |
+| ---------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/policies[?vault=]` |                                                                        | the user's policies with the latest version, its `summary` and `warnings`, and current assignments; `vault` names addresses from that vault's address book                                                                                                        |
+| `POST /api/policies`         | `{name, description?, template?: payments\|swap\|custom, spec, note?}` | version 1; names unique per user (case-insensitive); max 30 active                                                                                                                                                                                                |
+| `GET /api/policies/:id`      |                                                                        | plus every version                                                                                                                                                                                                                                                |
+| `PATCH /api/policies/:id`    | `{name?, description?, spec?, note?}`                                  | a different `spec` makes a new version (`newVersion`); assigned agents keep their version until moved                                                                                                                                                             |
+| `DELETE /api/policies/:id`   |                                                                        | archives; `409 in_use` while an agent is assigned to it                                                                                                                                                                                                           |
+| `GET assignments`            |                                                                        | every agent of the vault with its current assignment and `enforcement`: `active` (the vault matches the version and the agent is `agent()`), `pending` (with the plan and draft counts) or `unknown` (chain unreadable); plus today's budgets read from the vault |
+| `POST assignments`           | `{agentId, policyId, version?}`                                        | one current assignment per agent (the previous one ends and its unsent drafts are cancelled); not for retired agents                                                                                                                                              |
+| `GET assignments/:id`        |                                                                        | the plan: owner transactions that make the vault match, removals first and `set_agent` last, with `blockers` and `notes`                                                                                                                                          |
+| `POST assignments/:id/apply` |                                                                        | drafts the plan as policy changes (replacing unsent drafts of this assignment); `409 changes_pending` while one is submitted                                                                                                                                      |
+| `DELETE agents/:id/policy`   |                                                                        | ends the agent's assignment; the vault is unchanged (revoke the agent to stop execution)                                                                                                                                                                          |
+
+### Agent API keys
+
+| Method and path                 | Body      | Rules                                                                                               |
+| ------------------------------- | --------- | --------------------------------------------------------------------------------------------------- |
+| `GET agents/:id/keys`           |           | name, prefix, created, last used, revoked; never the key                                            |
+| `POST agents/:id/keys`          | `{name?}` | `{key, apiKey}`: the key (`g402_…`) is returned only here; only its sha256 is stored. Max 5 active  |
+| `DELETE agents/:id/keys/:keyId` |           | revokes (stops the agent API; the agent's wallet authority on the vault is a separate owner action) |
+
+## Agent API: `/api/agent/v1/…`
+
+For the agent's own software (any model or framework; an MCP server can adapt it). `Authorization: Bearer g402_…`,
+no cookies, 120 requests per minute per key. A key identifies one agent of one vault and can never change a policy,
+a limit or a permission.
+
+| Method and path          | Rules                                                                                                                                                                                          |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET me`                 | the agent, its vault, `isOnChainAgent`, `vaultPaused`, its policy (`spec`, `summary`, version), `enforcement.state` (`active`, `pending`, `unknown`, `no_policy`) and today's budget per asset |
+| `POST check`             | `{calls, lang?}`; `vault` defaults to the agent's and may not name another (`403 wrong_vault`); `409 no_policy` without an assignment; forwarded to the Guardian's paid `/v1/check`            |
+| `POST cosign`            | the same, and `409 policy_not_active` unless the policy is in force on the vault; forwarded to `/v1/cosign`                                                                                    |
+| `GET checks/:checkId`    | a Guardian check of this vault (`404` for other vaults)                                                                                                                                        |
+| `GET transactions/:hash` | `state`: `not_found`, `pending`, `reverted`, `executed` (the vault's `Executed` event: `checkId`, `withVerdict`, `nonce`) or `confirmed_without_execution`; plus `toVault` and `fromAgent`     |
+
+x402 passes through: without a payment, the Guardian's `402` and `PAYMENT-REQUIRED` reach the agent, whose x402
+client (`@x402/fetch` with the agent wallet) retries with `PAYMENT-SIGNATURE`; `PAYMENT-RESPONSE` comes back. The
+dashboard never holds or signs a payment and does not forward the API key to the Guardian. A `paused` or `retired`
+agent gets `403 agent_not_active`.
 
 ### Alerts and notifications
 
@@ -96,4 +164,6 @@ Withdrawals and `ownerExecute` are deliberately not here: moving funds stays a d
 ## Tests
 
 `pnpm --filter @guardian402/dashboard test`: `test/accounts.test.ts` (auth, sessions, SIWE, vault links, route
-handlers) and `test/workspace.test.ts` (the five workspace modules, with a fake chain and a fake Guardian).
+handlers), `test/workspace.test.ts` (the five workspace modules, with a fake chain and a fake Guardian) and
+`test/policies.test.ts` (policy spec, summary, "Thử policy", the plan of owner transactions, versions,
+assignments, API keys and the agent API).

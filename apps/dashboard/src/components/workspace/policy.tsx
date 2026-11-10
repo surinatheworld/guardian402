@@ -1,5 +1,5 @@
 "use client";
-// Chính sách tab: owner policy changes. Draft here → the owner's wallet signs exactly the prepared call → the
+// Thay đổi on-chain tab: owner policy changes (also those drafted to apply a policy assignment). Draft here → the owner's wallet signs exactly the prepared call → the
 // server verifies the transaction on chain. Nothing changes on the vault until the wallet signs.
 import { Button } from "@heroui/react/button";
 import { useMutation } from "@tanstack/react-query";
@@ -8,7 +8,7 @@ import { formatUnits, parseUnits, type Address } from "viem";
 import { useAccount, useChainId, useSendTransaction, useSwitchChain } from "wagmi";
 import { avalancheFuji } from "wagmi/chains";
 import { AccountApiError } from "@/lib/account";
-import { deployment } from "@/lib/config";
+import { deployment, knownName, tokenMeta } from "@/lib/config";
 import { formatTime, shortHex } from "@/lib/format";
 import { AddressLink, Card, Empty, ErrorBox, Loading, TxLink } from "@/components/ui";
 import { ConfirmInline, Field, FormError, INPUT, Pill, errorOf } from "@/components/form";
@@ -30,7 +30,10 @@ const RISK_OPTIONS = [
   ["2", "Cả rủi ro CAO"],
 ] as const;
 
-const usdc = (raw: unknown) => `${formatUnits(BigInt(String(raw)), 6)} USDC`;
+const units = (raw: unknown, token: string) => {
+  const m = tokenMeta(token);
+  return `${formatUnits(BigInt(String(raw)), m.decimals)} ${m.symbol}`;
+};
 const avax = (raw: unknown) => `${formatUnits(BigInt(String(raw)), 18)} AVAX`;
 
 /** One line that says what the change does, in words. */
@@ -57,10 +60,21 @@ function describe(c: PolicyChange): ReactNode {
           <AddressLink address={String(p.address)} />
         </>
       );
-    case "token_policy":
+    case "allow_selector":
+      return (
+        <>
+          {p.allowed ? "Cho phép" : "Gỡ"} thao tác{" "}
+          <code className="font-mono text-xs">{String(p.selector)}</code> trên{" "}
+          {knownName(String(p.target)) ?? ""} <AddressLink address={String(p.target)} />
+        </>
+      );
+    case "token_policy": {
+      const t = String(p.token);
+      const sym = tokenMeta(t).symbol;
       return p.tracked
-        ? `USDC: hạn mức ${usdc(p.dailyCap)}/ngày, cấp quyền tối đa ${usdc(p.maxApproval)}, cần Guardian ký từ ${usdc(p.verdictThreshold)}.`
-        : "Bỏ theo dõi USDC: vault không còn giới hạn chi USDC.";
+        ? `${sym}: hạn mức ${units(p.dailyCap, t)}/ngày, cấp quyền tối đa ${units(p.maxApproval, t)}, cần Guardian ký từ ${units(p.verdictThreshold, t)}.`
+        : `Bỏ theo dõi ${sym}: vault không còn giới hạn chi ${sym}.`;
+    }
     case "native_policy":
       return `AVAX: hạn mức ${avax(p.dailyCap)}/ngày, cần Guardian ký từ ${avax(p.verdictThreshold)}.`;
     case "max_agent_risk":
@@ -70,23 +84,28 @@ function describe(c: PolicyChange): ReactNode {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function PolicyTab({ vault, ownerWallet }: { vault: string; ownerWallet: Address }) {
-  const q = usePolicyChanges(vault);
+/** A submitted change is re-verified on chain every few seconds until it is mined. */
+export function useSubmittedPolling(vault: string, changes: PolicyChange[] | undefined) {
   const invalidate = useInvalidate(vault);
-  const pendingIds = (q.data?.changes ?? [])
+  const pendingIds = (changes ?? [])
     .filter((c) => c.status === "submitted")
     .map((c) => c.id)
     .join(",");
-  // A submitted change is re-verified on chain every few seconds until it is mined.
   useEffect(() => {
     if (!pendingIds) return;
     const t = setInterval(() => {
       void Promise.all(
         pendingIds.split(",").map((id) => wsApi(vault, `policy-changes/${id}`).catch(() => null)),
-      ).then(() => invalidate("policy"));
+      ).then(() => invalidate("policy", "assignments"));
     }, 4000);
     return () => clearInterval(t);
   }, [pendingIds, vault, invalidate]);
+}
+
+export function PolicyTab({ vault, ownerWallet }: { vault: string; ownerWallet: Address }) {
+  const q = usePolicyChanges(vault);
+  const invalidate = useInvalidate(vault);
+  useSubmittedPolling(vault, q.data?.changes);
   const [warnings, setWarnings] = useState<string[]>([]);
 
   return (
@@ -106,7 +125,7 @@ export function PolicyTab({ vault, ownerWallet }: { vault: string; ownerWallet: 
           ))}
         </div>
       ) : null}
-      <Card title="Các thay đổi">
+      <Card title="Các thay đổi on-chain">
         {q.isPending ? (
           <Loading />
         ) : q.isError ? (
@@ -125,7 +144,7 @@ export function PolicyTab({ vault, ownerWallet }: { vault: string; ownerWallet: 
                 vault={vault}
                 change={c}
                 ownerWallet={ownerWallet}
-                onChanged={() => invalidate("policy")}
+                onChanged={() => invalidate("policy", "assignments")}
               />
             ))}
           </ul>
@@ -135,16 +154,19 @@ export function PolicyTab({ vault, ownerWallet }: { vault: string; ownerWallet: 
   );
 }
 
-function ChangeItem({
+export function ChangeItem({
   vault,
   change,
   ownerWallet,
   onChanged,
+  step,
 }: {
   vault: string;
   change: PolicyChange;
   ownerWallet: Address;
   onChanged: () => void;
+  /** "Bước 2/5" when the change is one of an ordered set. */
+  step?: string;
 }) {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
@@ -191,6 +213,7 @@ function ChangeItem({
   return (
     <li className="flex flex-col gap-3 rounded-[18px] bg-surface-2 p-4">
       <div className="flex flex-wrap items-center gap-2">
+        {step ? <span className="text-xs font-semibold text-muted tabular-nums">{step}</span> : null}
         <span className="font-semibold">{POLICY_KIND_LABEL[change.kind]}</span>
         <Pill tone={tone}>{POLICY_STATUS_LABEL[change.status]}</Pill>
         <span className="text-xs text-muted tabular-nums">{formatTime(change.createdAt)}</span>
@@ -303,10 +326,12 @@ function NewChange({ vault, onCreated }: { vault: string; onCreated: (warnings: 
 
   const unit = kind === "native_policy" ? "AVAX" : "USDC";
   return (
-    <Card title="Soạn thay đổi chính sách">
+    <Card title="Soạn một thay đổi riêng lẻ">
       <p className="text-sm text-muted">
-        Server chỉ soạn giao dịch. Vault chỉ thay đổi khi bạn ký bằng ví chủ; sau đó server kiểm tra giao dịch
-        trên chain (đúng vault, đúng nội dung, đúng ví). Rút tiền không làm ở đây.
+        Cách thường dùng là gán policy cho agent ở tab Policy: dashboard tự lập các thay đổi cần ký. Mẫu dưới
+        đây dành cho thao tác riêng lẻ như tạm dừng vault hay thu hồi agent. Server chỉ soạn giao dịch. Vault
+        chỉ thay đổi khi bạn ký bằng ví chủ; sau đó server kiểm tra giao dịch trên chain (đúng vault, đúng nội
+        dung, đúng ví). Rút tiền không làm ở đây.
       </p>
       <form
         onSubmit={(e) => {
@@ -326,11 +351,13 @@ function NewChange({ vault, onCreated }: { vault: string; onCreated: (warnings: 
               }}
               className={INPUT}
             >
-              {Object.entries(POLICY_KIND_LABEL).map(([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
-                </option>
-              ))}
+              {Object.entries(POLICY_KIND_LABEL)
+                .filter(([v]) => v !== "allow_selector")
+                .map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
             </select>
           </Field>
 
