@@ -56,7 +56,10 @@ port_in_use() {
       s.once("error", () => ok(true));
       s.listen({ port, host }, () => s.close(() => ok(false)));
     });
-    Promise.all([tryHost("127.0.0.1"), tryHost(undefined)]).then((r) => process.exit(r.some(Boolean) ? 0 : 1));
+    (async () => {
+      const inUse = (await tryHost("127.0.0.1")) || (await tryHost(undefined));
+      process.exit(inUse ? 0 : 1);
+    })();
   ' "$1"
 }
 
