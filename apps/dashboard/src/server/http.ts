@@ -2,9 +2,11 @@
 // checks for every state-changing request, a small login rate limiter, and JSON errors.
 import { createPublicClient, type Address } from "viem";
 import { agentVaultAbi, FUJI_CHAIN_ID, fujiChain, rpcTransport } from "@guardian402/shared";
-import { RPC_URL } from "@/lib/config";
+import { deployment, RPC_URL } from "@/lib/config";
 import { AccountError, Accounts, isAccountError, SESSION_TTL_MS, type SessionMethod } from "./accounts";
 import { getDb } from "./db";
+import { chainPort, guardianPort } from "./ports";
+import { Workspace } from "./workspace";
 
 export const SESSION_COOKIE = "g402_session";
 
@@ -53,6 +55,50 @@ const g = globalThis as { __g402Accounts?: Accounts };
 export function accounts(): Accounts {
   g.__g402Accounts ??= new Accounts(getDb(), { chainId: FUJI_CHAIN_ID, readVaultOwner });
   return g.__g402Accounts;
+}
+
+const gw = globalThis as { __g402Workspace?: Workspace };
+export function workspace(): Workspace {
+  gw.__g402Workspace ??= new Workspace(getDb(), {
+    chain: chainPort,
+    guardian: guardianPort,
+    chainId: FUJI_CHAIN_ID,
+    capToken: deployment.usdc,
+    known: [
+      { name: "MockRouter", address: deployment.router },
+      { name: "USDC", address: deployment.usdc },
+      { name: "mWAVAX", address: deployment.mWAVAX },
+      { name: "MockOracle", address: deployment.oracle },
+    ],
+  });
+  return gw.__g402Workspace;
+}
+
+type VaultParams = { params: Promise<Record<string, string>> };
+
+/**
+ * Route helper for /api/vaults/[vault]/…: signed-in user, same origin for writes, the vault must be linked to
+ * the user. `fn` gets the workspace, the vault context and the other route params.
+ */
+export function vaultRoute(
+  fn: (
+    ws: Workspace,
+    v: ReturnType<Workspace["vault"]>,
+    params: Record<string, string>,
+    req: Request,
+  ) => Promise<unknown> | unknown,
+  status = 200,
+) {
+  return (req: Request, ctx: VaultParams) =>
+    handle(async () => {
+      if (req.method !== "GET" && req.method !== "HEAD") assertSameOrigin(req);
+      const { userId } = requireUser(req);
+      const params = await ctx.params;
+      const ws = workspace();
+      const v = ws.vault(userId, params.vault ?? "");
+      const body = await fn(ws, v, params, req);
+      return Response.json(body ?? { ok: true }, { status, headers: { "Cache-Control": "no-store" } });
+    });
 }
 
 // ------------------------------------------------------------------ cookies
