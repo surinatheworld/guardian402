@@ -24,7 +24,7 @@ import {
   type Hex,
   type TransactionReceipt,
 } from "viem";
-import { fujiChain, rpcTransport, type Call } from "@guardian402/shared";
+import { fujiChain, type Call } from "@guardian402/shared";
 import { decodeLogs, decodeRevert, extractRevertData, netTransferDelta } from "./decode.ts";
 import { runWithBudget } from "./budget.ts";
 import { Mutex } from "./mutex.ts";
@@ -103,7 +103,10 @@ export class Simulator {
     this.#public = createPublicClient({ chain: fujiChain, transport });
     this.#test = createTestClient({ chain: fujiChain, mode: "anvil", transport });
     this.#upstream = options.upstreamRpcUrl
-      ? createPublicClient({ chain: fujiChain, transport: rpcTransport(options.upstreamRpcUrl) })
+      ? // Plain transport on purpose: the block numbers used to reset the fork must come from the same node the
+        // fork reads state from (FUJI_RPC_URL). A fallback to another provider can report a block that node
+        // has not seen yet, or prune state (PublicNode, P14), and the reset then fails.
+        createPublicClient({ chain: fujiChain, transport: http(options.upstreamRpcUrl) })
       : undefined;
   }
 

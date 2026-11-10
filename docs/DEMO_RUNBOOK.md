@@ -88,7 +88,7 @@ Then:
 
 Optional if there is time: S6 (owner pauses, the agent is blocked), Kiểm tra giao dịch with the S3 preset (lookalike address), and the MCP agent paying for a check (`pnpm mcp:example`, see README "MCP server").
 
-The same scenarios from a terminal: `NETWORK=fuji CHAIN_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc DEMO_MODE=true pnpm agent scenario S1` (then S2, S4).
+S0 (`transfer` of 1.5 USDC to the treasury, LOW, executes) is the plain "agent payment" case; it costs 1.5 USDC of the vault per run, so keep it out of repeated rehearsals. The same scenarios from a terminal: `NETWORK=fuji CHAIN_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc DEMO_MODE=true pnpm agent scenario S1` (then S2, S4).
 
 ## Fallback
 

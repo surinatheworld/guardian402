@@ -8,7 +8,7 @@
 import { existsSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createPublicClient, createWalletClient, http, parseEventLogs, type Hex } from "viem";
+import { createPublicClient, createWalletClient, parseEventLogs, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { avalancheFuji } from "viem/chains";
 import {

@@ -135,14 +135,14 @@ pnpm test
 
 ```bash
 ./run-local.sh
-# hoặc: pnpm local
+# hoặc: pnpm local   (macOS/Linux; trên Windows chạy ./run-local.sh từ Git Bash)
 ```
 
 Script sẽ tự động:
-- Kiểm tra prerequisites và khởi tạo `.env.local`
-- Khởi động Anvil Fork Avalanche Fuji (8545), deploy và seed hợp đồng tự động
-- Khởi chạy x402 Facilitator (4022), Guardian API (4402), Agent API (4403) và Dashboard (3000)
-- Tự động dọn dẹp các tiến trình khi bấm `Ctrl+C`
+- Kiểm tra prerequisites; lần đầu tạo `.env.local` với key testnet mới (không ghi đè file đã có; `--force` giữ bản sao `.bak-*`)
+- Khởi động Anvil Fork Avalanche Fuji (8545). Fork đã có sẵn bộ hợp đồng Fuji; script **không deploy hợp đồng mới và không sửa file nào trong git**: nó giao vault trên fork cho key trong `.env.local` (impersonate, chỉ trên fork) rồi `seed:local`
+- Khởi chạy x402 Facilitator (4022), Guardian API (4402), Agent API (4403) và Dashboard (3000); log ở `.run-local/logs/`
+- Bấm `Ctrl+C` hoặc `./run-local.sh stop` để dừng: chỉ dừng các tiến trình do script mở, không đụng chương trình khác đang dùng cổng
 
 ### Chạy kiểm thử kịch bản (S0–S6):
 

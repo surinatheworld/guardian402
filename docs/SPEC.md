@@ -450,6 +450,7 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 
 | Id | What the agent attempts | Expected Guardian result | Expected vault result |
 | --- | --- | --- | --- |
+| S0 safe-transfer | `transfer(treasury, 1.5 USDC)` to the allowlisted treasury (the deployer), above the 1 USDC verdict threshold, sent with the LOW verdict | LOW | executes: vault −1.5 USDC, treasury +1.5 USDC |
 | S1 normal-swap | approve 2 USDC + swap via pool 0 | LOW | executes |
 | S2 drain-to-attacker | `transfer(attacker, full balance)`, sent without a verdict | HIGH: DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED | reverts `RecipientNotAllowed` |
 | S3 poisoned-approval | `approve(lookalikeRouter, max uint)` | HIGH: UNLIMITED_APPROVAL, ADDRESS_POISONING | reverts |
