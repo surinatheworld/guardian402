@@ -53,9 +53,11 @@ if (!existsSync(DASHBOARD_ENV) || force) {
   const dashboardConfig = [
     "# Public config for dashboard in local mode",
     "NEXT_PUBLIC_NETWORK=local",
-    "NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8545",
-    "NEXT_PUBLIC_GUARDIAN_URL=http://127.0.0.1:4402",
-    "NEXT_PUBLIC_AGENT_URL=http://127.0.0.1:4403",
+    "# Empty URLs: this host's browser uses 127.0.0.1, other machines (public tunnel) the same-origin proxy",
+    "# /api/rpc, /api/guardian, /api/agent-control. Set one only for a service with its own public URL.",
+    "NEXT_PUBLIC_RPC_URL=",
+    "NEXT_PUBLIC_GUARDIAN_URL=",
+    "NEXT_PUBLIC_AGENT_URL=",
     "",
   ].join("\n");
   writeFileSync(DASHBOARD_ENV, dashboardConfig);
