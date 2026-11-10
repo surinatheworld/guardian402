@@ -7,6 +7,22 @@ const config: NextConfig = {
   transpilePackages: ["@guardian402/shared"],
   reactStrictMode: true,
   poweredByHeader: false,
+  async rewrites() {
+    return [
+      {
+        source: "/api/guardian/:path*",
+        destination: "http://127.0.0.1:4402/:path*",
+      },
+      {
+        source: "/api/agent/:path*",
+        destination: "http://127.0.0.1:4403/:path*",
+      },
+      {
+        source: "/api/rpc",
+        destination: "http://127.0.0.1:8545",
+      },
+    ];
+  },
 };
 
 export default config;

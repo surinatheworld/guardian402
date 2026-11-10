@@ -7,7 +7,7 @@ import { FUJI_RPC_URL } from "./constants.ts";
 /** Second public Fuji endpoint (Allnodes PublicNode), measured about twice as fast as the official one. */
 export const FUJI_RPC_FALLBACK_URL = "https://avalanche-fuji-c-chain-rpc.publicnode.com";
 
-const isLocal = (url: string) => /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/.test(url);
+const isLocal = (url: string) => /^\/|^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/.test(url);
 
 /** `primary` first, then the other public Fuji endpoints; just `primary` for a local node. */
 export function rpcUrls(primary: string): string[] {
