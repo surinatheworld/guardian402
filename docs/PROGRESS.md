@@ -535,6 +535,15 @@ Ví sau P14: vault khoảng 32 USDC (mỗi S1 tốn 2 USDC), agent khoảng 9,8 
 
   Groq, OpenRouter, Cerebras chưa chạy: chưa có key.
 
+## Tài khoản người dùng (2026-11-10, nhánh `feat/accounts`)
+
+- Dashboard có thêm backend nhỏ: route handler Next.js + SQLite (`node:sqlite`, giống Guardian), file `apps/dashboard/data/accounts.db` (git-ignore, đổi bằng `ACCOUNT_DB`). Trang mới **Tài khoản** (`/tai-khoan`).
+- Web2: đăng ký/đăng nhập bằng email + mật khẩu (scrypt, chống dò email bằng cùng thông báo và thời gian), giới hạn 10 lần/15 phút. Web3: đăng nhập bằng ví (SIWE, EIP-4361): nonce dùng một lần (5 phút), kiểm tra tên miền, uri, chain 43113, thời điểm ký, chữ ký. Ví mới thì tạo tài khoản chỉ có ví; đang đăng nhập thì ví được liên kết vào tài khoản hiện tại; một ví chỉ thuộc một tài khoản.
+- Bảng: `users`, `wallets`, `siwe_nonces`, `sessions` (chỉ lưu SHA-256 của token cookie httpOnly, 7 ngày, không lưu IP), `vaults`, `audit_events`. Không bao giờ lưu khoá, cụm từ khôi phục, chữ ký, số dư hay chính sách: những thứ đó đọc từ chain.
+- Luật nghiệp vụ: không gỡ được cách đăng nhập cuối cùng; chỉ liên kết được vault khi `owner()` trên chain là một ví của mình, và liên kết đi theo chủ trên chain khi vault đổi chủ; mọi yêu cầu thay đổi phải đến từ đúng origin của dashboard (chống CSRF).
+- Kiểm thử: 12 test mới (`apps/dashboard/test/accounts.test.ts`) trên DB trong bộ nhớ, gồm cả route handler. Chạy thật trên dev server: đăng ký qua giao diện; 13 bước SIWE/vault qua API đều đúng mã lỗi, đọc được `owner()` của vault Fuji (`0x6678…`).
+- Chưa có: gửi email xác minh/quên mật khẩu (chưa có dịch vụ mail), giao diện quản trị.
+
 ## Checklist trước demo
 
 - [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault mới `0x3f6a5852788ff6a46d924C407976bB89487f7651` (tx [0xed5a391b…b28e](https://testnet.snowtrace.io/tx/0xed5a391be502ad3f2d042885e5871bea507ac1fa3a0d1784a001a27bc5c4b28e)). Vault cũ `0x32cb…Ab99` đã rút hết tiền và tạm dừng, không cần accept nữa. Các bước:
