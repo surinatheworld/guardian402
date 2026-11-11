@@ -627,13 +627,21 @@ pnpm --filter @guardian402/guardian test:fork
 
 RPC chính thức chặn lại IP này sau một loạt request. Muốn chạy hết `test:fork`, `pnpm eval` và kịch bản trên Fuji cần RPC riêng có key trong `FUJI_RPC_URL`.
 
+### Liên kết vault trên dashboard và sửa dự phòng RPC (2026-11-11, nhánh `fix/rpc-fallback-retry-after`)
+
+- Dashboard (`dashboard-fuji`, mở trong Chrome của chủ team): tài khoản đã đăng nhập bằng ví `0x54A2…2888` (SIWE). Liên kết vault mới "AgentVault Fuji (R1-R5)" `0x6A8C…Cf3c`: dashboard đọc `owner()` trên chain = `0x54A2…2888`, xác minh 19:24:40.
+- **Lỗi tìm ra khi liên kết:** lần đầu báo "Không đọc được chain lúc này (RPC bận)" sau đúng 10 s. RPC chính thức trả 429 kèm `Retry-After: 2990`; http transport của viem chờ `Retry-After` trước khi thử lại, và `retryCount: 1` mà `rpcTransport` đặt cho từng endpoint đè lên số 0 mà `fallback` truyền vào. Kết quả: mọi chỗ đọc chain (Guardian, agent, facilitator, dashboard) ngồi chờ khoảng 50 phút thay vì chuyển sang PublicNode — đúng trường hợp P14 muốn che.
+- Sửa `packages/shared/src/rpc.ts` (`fallbackTransport`): mỗi endpoint thử một lần, không retry ngoài. Test `packages/shared/test/rpc.test.ts` (hai RPC giả: một trả 429 + `Retry-After: 2990`, một trả đúng): với code cũ cả hai test treo quá 8 s; với code mới qua trong vài ms. Chạy thật với RPC chính thức đang 429: đọc `owner()` vault Fuji trong 387 ms.
+- **Pause / đổi hạn mức từ ví chưa làm được:** MetaMask gọi RPC Fuji chính thức (`MetaMask - RPC Error: RPC 0xa869 Custom eth_getBlockByNumber: Request is being rate limited`), nên giao dịch không gửi đi ("Request exceeds defined limit"). Không có gì thay đổi trên chain. Cách xử lý: trong MetaMask, sửa mạng Avalanche Fuji, thêm RPC `https://avalanche-fuji-c-chain-rpc.publicnode.com` và đặt làm mặc định (gửi giao dịch không cần state cũ). Claude không tự làm được: Claude in Chrome không mở được trang extension, computer-use chỉ được xem Chrome.
+
 ### Việc còn lại (cập nhật 2026-11-11)
 
 1. ~~Ví `0x54A2…2888` gọi `acceptOwnership` trên vault mới~~ — xong (tx ở trên).
 2. Nạp thêm 18 USDC cho owner từ faucet Circle rồi `pnpm seed:fuji` nếu muốn vault đủ 50 USDC (hiện 32).
 3. Cần RPC riêng có key (hoặc RPC chính thức không chặn): chạy lại `api.fork.test.ts` và test reset nền, `pnpm eval`, và S1, S2, S4 trên Fuji với vault mới.
 4. Luật `minOut = 0` (swap không đặt mức nhận tối thiểu): cần team quyết, vì sẽ đổi S1, fixture luật và nhãn eval.
-5. Việc của người: thử thao tác chủ ví trên dashboard bằng ví thật; một thành viên làm fresh-clone test (SPEC §14).
+5. Chủ team: đổi RPC Fuji trong MetaMask sang PublicNode (mục trên), rồi trên trang Điều khiển: Tạm dừng → Mở lại vault, đổi hạn mức USDC 20 → 25 → 20.
+6. Một thành viên làm fresh-clone test (SPEC §14).
 6. Không làm (ngoài phạm vi hackathon): email xác minh/quên mật khẩu (chưa có dịch vụ mail), §13.3 biên nhận on-chain.
 
 ## Checklist trước demo
