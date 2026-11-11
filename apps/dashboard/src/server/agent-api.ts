@@ -214,7 +214,7 @@ export class AgentApi {
             },
           ]
         : [],
-      note: "Ngân sách tính theo số dư vault giảm trong ngày UTC, chung cho cả vault.",
+      note: "Ngân sách tính theo số dư vault giảm trong ngày UTC, chung cho cả vault. verdictThreshold chỉ áp dụng cho chuyển khoản thẳng tới người nhận; lô lệnh có gọi contract (hoặc chuyển tiền vào contract được phép gọi) mà làm vault chi tiền thì luôn cần verdict.",
     };
   }
 

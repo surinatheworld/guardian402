@@ -57,7 +57,7 @@ Lớp phòng thủ cốt lõi được bảo chứng trực tiếp bằng EVM ex
 - **Recipient Allowlist**: Từ chối tuyệt đối mọi địa chỉ nhận tiền ngoài danh sách Owner đã duyệt.
 - **Daily Spending Cap**: Hạn mức chi tiêu mỗi ngày cho từng token, tự động reset tại 00:00 UTC.
 - **Emergency Pause (Kill-Switch)**: Owner có thể ngắt toàn bộ quyền của Agent ngay lập tức.
-- **Verdict Enforcement**: Giao dịch vượt ngưỡng (`> 1.0 USDC`) hoặc có tính chất nhạy cảm bắt buộc phải kèm theo chữ ký verdict hợp lệ của Guardian.
+- **Verdict Enforcement**: Giao dịch vượt ngưỡng (`> 1.0 USDC`), mọi approval, và mọi khoản chi của lô lệnh có đi qua contract (gọi router, hoặc chuyển tiền vào router) bắt buộc phải kèm theo chữ ký verdict hợp lệ của Guardian.
 - **Nonce & Deadline**: Chống phát lại (replay attack) bằng `verdictNonce` tuần tự và `deadline` hết hạn theo timestamp block.
 
 ### Lớp 2 — Dynamic Transaction Risk Assessment (Guardian API)
@@ -84,7 +84,7 @@ Lớp phòng thủ cốt lõi được bảo chứng trực tiếp bằng EVM ex
 | **Lỗ hổng zero-day ngoài rule engine** | Mô phỏng và 8 luật kiểm tra các mẫu tấn công đã biết; không bảo đảm phát hiện 100% logic bug của contract bên thứ ba. |
 | **Giao dịch ngoài AgentVault** | Guardian402 chỉ bảo vệ tài sản nằm bên trong hợp đồng `AgentVault`, không bảo vệ các ví EOA độc lập khác của Owner. |
 | **Chênh lệch TOC/TOU (Time-of-Check / Time-of-Use)** | Trạng thái mempool, block và giá có thể dao động giữa lúc simulation và lúc mined vào block. Cần kết hợp slippage cứng on-chain. |
-| **Lộ Agent Key cho giao dịch dưới ngưỡng** | Giao dịch nhỏ (`<= 1.0 USDC`) đến đúng địa chỉ cho phép trong hạn mức ngày có thể được thực thi mà không cần gọi Guardian. |
+| **Lộ Agent Key cho giao dịch dưới ngưỡng** | Chuyển khoản nhỏ (`<= 1.0 USDC`) thẳng tới người nhận đã duyệt (không qua contract), trong hạn mức ngày, có thể được thực thi mà không cần gọi Guardian. |
 
 ---
 

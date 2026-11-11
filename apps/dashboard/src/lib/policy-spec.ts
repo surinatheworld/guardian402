@@ -193,6 +193,7 @@ const who = (a: Address, n: Naming) => n.name(a) ?? short(a);
 const people = (xs: Address[], n: Naming) =>
   xs.length <= 3 ? xs.map((a) => who(a, n)).join(", ") : `${xs.length} địa chỉ`;
 const recipientsUnion = (s: PolicySpec) => [...new Set([...s.recipients, ...s.spenders])];
+const contractAddresses = (s: PolicySpec) => s.contracts.map((c) => c.address);
 
 /** The policy in plain sentences, in the order an owner reads it. */
 export function summarize(s: PolicySpec, n: Naming): string[] {
@@ -238,7 +239,9 @@ export function summarizePermissions(s: PolicySpec, n: Naming): string[] {
           const fns = c.selectors.map((x) => n.fn?.(c.address, x) ?? x);
           return `${who(c.address, n)} (${fns.join(", ")})`;
         })
-        .join("; ")}.`,
+        .join(
+          "; ",
+        )}. Giao dịch có gọi contract, hoặc chuyển tiền vào contract đó, mà làm vault chi tiền thì luôn cần verdict.`,
     );
   else out.push("Không được gọi contract nào khác.");
   out.push(
@@ -263,7 +266,10 @@ export function specWarnings(s: PolicySpec, n: Naming): string[] {
   }
   if (BigInt(s.native.dailyCap) > 0n && BigInt(s.native.verdictThreshold) >= BigInt(s.native.dailyCap))
     w.push("AVAX: ngưỡng cần verdict không nhỏ hơn hạn mức.");
-  const both = s.spenders.filter((a) => !s.recipients.includes(a));
+  // One on-chain list for recipients and spenders. A spender that is also an allowed contract can only be
+  // paid with a verdict (AgentVault, review R3); any other spender is a plain recipient too.
+  const inContracts = (a: Address) => contractAddresses(s).some((c) => c.toLowerCase() === a.toLowerCase());
+  const both = s.spenders.filter((a) => !s.recipients.includes(a) && !inContracts(a));
   if (both.length)
     w.push(
       `Trên vault hiện tại, bên nhận quyền dùng chung danh sách với người nhận: ${people(both, n)} cũng nhận được chuyển khoản trực tiếp.`,
@@ -272,7 +278,7 @@ export function specWarnings(s: PolicySpec, n: Naming): string[] {
     w.push(`Agent có thể chạy giao dịch Guardian chấm rủi ro ${RISK_WORD[s.maxRisk]} nếu có verdict.`);
   if (s.contracts.length)
     w.push(
-      "Gọi contract: số dư thực giảm sau giao dịch vẫn bị tính vào hạn mức và ngưỡng verdict của từng tài sản.",
+      "Gọi contract: số dư thực giảm sau giao dịch vẫn bị tính vào hạn mức ngày, và mọi khoản chi trong giao dịch đó đều cần verdict, không áp dụng ngưỡng.",
     );
   return w;
 }
@@ -309,7 +315,13 @@ export function evaluate(s: PolicySpec, sc: Scenario, n: Naming): Outcome {
     const fn = n.fn?.(c.address, sc.selector) ?? sc.selector;
     if (!c.selectors.includes(sc.selector.toLowerCase() as Hex))
       return finish("Thao tác", "blocked", `${fn} chưa được phép.`);
-    return finish("Thao tác", "allowed", fn);
+    checks.push({ label: "Thao tác", status: "allowed", detail: fn });
+    // A batch that reaches an allowed target needs a verdict for any outflow (AgentVault, review R1/R2).
+    return finish(
+      "Chữ ký",
+      "allowed",
+      "Không cần nếu lời gọi không làm vault chi tiền. Có chi, dù nhỏ, thì luôn cần Guardian ký.",
+    );
   }
   if (sc.kind === "approve") {
     const t = s.tokens.find((x) => x.token.toLowerCase() === sc.token.toLowerCase());
@@ -343,6 +355,13 @@ export function evaluate(s: PolicySpec, sc: Scenario, n: Naming): Outcome {
   const used = `${amountText(total, m)} / ${amountText(cap, m)}`;
   if (total > cap) return finish("Hạn mức ngày", "blocked", `${used}. Vượt ${amountText(total - cap, m)}.`);
   checks.push({ label: "Hạn mức ngày", status: "allowed", detail: used });
+  // Paying an address that is also an allowed contract always needs a verdict (AgentVault, review R3).
+  if (sc.amount > 0n && has(contractAddresses(s), sc.to))
+    return finish(
+      "Chữ ký",
+      "needs_verdict",
+      `${who(sc.to, n)} là contract được phép gọi: mọi khoản chuyển vào đó cần Guardian ký. Rủi ro tối đa ${RISK_WORD[s.maxRisk]}.`,
+    );
   const threshold = amountText(rule.verdictThreshold, m);
   if (sc.amount > BigInt(rule.verdictThreshold))
     return finish("Chữ ký", "needs_verdict", `Vượt ${threshold}. Rủi ro tối đa ${RISK_WORD[s.maxRisk]}.`);

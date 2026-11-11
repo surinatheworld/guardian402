@@ -150,7 +150,27 @@ describe("policy spec", () => {
     ).toBe("blocked");
     const swap = templateSpec("swap", []);
     const sel = swap.contracts[0]?.selectors[0] as Hex;
-    expect(evaluate(swap, { kind: "call", contract: ROUTER, selector: sel }, n).result).toBe("allowed");
+    const call = evaluate(swap, { kind: "call", contract: ROUTER, selector: sel }, n);
+    expect(call.result).toBe("allowed");
+    // AgentVault review R1/R2: a call is free of a verdict only while it moves nothing out of the vault.
+    expect(call.checks.map(({ label, status }) => [label, status])).toEqual([
+      ["Contract", "allowed"],
+      ["Thao tác", "allowed"],
+      ["Chữ ký", "allowed"],
+    ]);
+    expect(call.checks.at(-1)?.detail).toContain("luôn cần Guardian ký");
+    // AgentVault review R3: paying an address that is also an allowed contract needs a verdict at any amount,
+    // while a plain recipient is still paid without one up to the threshold.
+    const pay = (to: Address, amount: bigint) =>
+      evaluate(swap, { kind: "transfer", asset: USDC, to, amount, spentToday: 0n }, n);
+    expect(pay(ROUTER, 1n).result).toBe("needs_verdict");
+    expect(pay(ROUTER, 1n).checks.at(-1)?.detail).toContain("contract được phép gọi");
+    expect(pay(ROUTER, 0n).result).toBe("allowed");
+    const swapAndPay = { ...swap, recipients: [supplierA] };
+    expect(
+      evaluate(swapAndPay, { kind: "transfer", asset: USDC, to: supplierA, amount: 1n, spentToday: 0n }, n)
+        .result,
+    ).toBe("allowed");
     expect(evaluate(swap, { kind: "call", contract: ROUTER, selector: "0x12345678" }, n).result).toBe(
       "blocked",
     );
