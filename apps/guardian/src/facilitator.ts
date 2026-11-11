@@ -45,7 +45,14 @@ export function createFacilitatorApp(opts: {
   });
   app.post("/settle", async (req, res) => {
     const result = await facilitator.settle(req.body.paymentPayload, req.body.paymentRequirements);
-    opts.log?.(result.success ? `settled ${result.transaction}` : `not settled: ${result.errorReason}`);
+    // The first line of the node's error only: viem's later lines repeat the calldata, which holds the payer's
+    // EIP-3009 signature.
+    const why = result.errorMessage?.split("\n")[0]?.slice(0, 200);
+    opts.log?.(
+      result.success
+        ? `settled ${result.transaction}`
+        : `not settled: ${result.errorReason}${why ? ` (${why})` : ""}`,
+    );
     res.json(result);
   });
   return { app, address: account.address };
