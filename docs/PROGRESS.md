@@ -591,21 +591,44 @@ pnpm --filter @guardian402/dashboard build → xong
 
 Chưa chạy được: `pnpm --filter @guardian402/guardian test:fork` và `pnpm eval`. RPC chính thức của Fuji chặn IP máy này (HTTP 429, Cloudflare 1015) suốt lúc làm, còn RPC khác (PublicNode, dRPC) không giữ state cũ nên fork không chạy được. Commit V1–V8 cũng chưa chạy test fork. Cần chạy lại hai lệnh này khi RPC mở.
 
+### Deploy lại vault trên Fuji với bản sửa R1–R5 (2026-11-11, nhánh `chore/redeploy-vault-r1-r5`)
+
+Team đồng ý deploy lại. RPC chính thức vẫn chặn (429), nên các giao dịch đi qua PublicNode (`FUJI_RPC_URL=https://avalanche-fuji-c-chain-rpc.publicnode.com`, ghi đè `.env.local`). Gửi giao dịch và đọc trạng thái mới nhất không cần state cũ.
+
+1. Chạy thử trên fork cục bộ trước (fork từ PublicNode): `redeploy-vault local` + `seed local` chạy được. Trên vault mới, approve + swap 0,5 USDC không verdict revert `VerdictRequired`; chuyển 0,5 USDC thẳng cho treasury vẫn qua. Sau đó trả `local.json` về như cũ và tắt fork.
+2. Trên Fuji:
+
+| Bước | Giao dịch | Status |
+| --- | --- | --- |
+| Rút 32 USDC từ vault cũ về owner | [0x26bfcfdf…0718](https://testnet.snowtrace.io/tx/0x26bfcfdf67b1ad7455ac7096aca371774ea4a92f012b07638e4cce926fc30718) | 1 |
+| Tạm dừng vault cũ `0x3f6a…7651` | [0xc28b7d8c…e27d](https://testnet.snowtrace.io/tx/0xc28b7d8c9af06fa1a1b173ffd4e34be23b86e797553c9e701ddba853cb31e27d) | 1 |
+| Deploy AgentVault mới [0x6A8CCC88…Cf3c](https://testnet.snowtrace.io/address/0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c), Routescan `Pass - Verified` | [0xdd448a61…d213](https://testnet.snowtrace.io/tx/0xdd448a61623189b8117e987a30a3bdecbaea057e9abd98d45aafb37a7968d213) | 1 |
+| Seed: 12 giao dịch (gas cho owner/agent, bù mWAVAX cho router, policy USDC/AVAX, router + selector, recipient router/treasury, agent, guardian, nạp 32 USDC; nạp vault [0x5d3f4172…ac76](https://testnet.snowtrace.io/tx/0x5d3f4172b58bb67c1ad72e85828fa2d8c9321d7432362c268f6cf8a7d20aac76)) | `contracts/broadcast/Seed.s.sol/43113/run-latest.json` | 12/12 là 1 |
+| Handoff → `pendingOwner = 0x54A2…2888` | [0xf0c8c7d4…38cb](https://testnet.snowtrace.io/tx/0xf0c8c7d46c594e69a2ccd9ea1f80c931a677d7f00b875cce622003a79ca738cb) | 1 |
+
+3. Đọc lại trên Fuji: owner `0x6678…3b72`, pendingOwner `0x54A2…2888`, agent `0x7bD6…8ff7`, guardian `0xF1ff…2359`, không pause, maxAgentRisk 0, nonce 0; USDC theo dõi, cap 20, maxApproval 10, ngưỡng 1; AVAX cap 0,1, ngưỡng 0,01; router là target, có `swapExactIn`; recipient router và treasury; vault 32 USDC. Vault cũ: pause, 0 USDC, 0 AVAX. `eth_call` từ agent trên Fuji: approve + swap 0,5 USDC không verdict → `0xd722d588` (`VerdictRequired`, R1); chuyển 0,5 USDC cho treasury → qua.
+4. `pnpm known-contracts` sinh lại `known-contracts.{fuji,local}.json`; `fuji.json` và `local.json` trỏ vault mới (`previousVault` = `0x3f6a…7651`). README, DEMO_RUNBOOK, THREAT_MODEL, SPEC §16 đã đổi theo.
+
+Test sau khi đổi địa chỉ: `pnpm test` → shared 48, agent 17, dashboard 47, guardian 137, eval 5, guardian-mcp 6, tất cả pass; typecheck, lint, format:check sạch. Chưa chạy kịch bản S0–S6 trên Fuji với vault mới: Guardian `NETWORK=fuji` mô phỏng trên fork reset từ RPC chính thức, mà RPC này đang chặn.
+
+Lưu ý: tài khoản dashboard đã liên kết vault cũ (`apps/dashboard/data/accounts.db`, chỉ ở máy từng chạy) cần liên kết vault mới ở trang Tài khoản.
+
 ### Việc còn lại (cập nhật 2026-11-11)
 
-1. **Vault trên Fuji (`0x3f6a…7651`) chưa có bản sửa R1–R5.** Owner vẫn là OWNER_PK, vault có 32 USDC. Muốn có bản sửa trên Fuji: `pnpm redeploy-vault:fuji` → `pnpm seed:fuji` → `pnpm handoff:fuji` → `pnpm known-contracts`, rồi ví `0x54A2…2888` accept lại. Trong lúc chưa deploy lại: không cho phép target có hàm payable, không cấp allowance đứng từ vault bằng `ownerExecute`.
-2. Luật `minOut = 0` (swap không đặt mức nhận tối thiểu): cần team quyết, vì sẽ đổi S1, fixture luật và nhãn eval.
-3. Chạy `test:fork` và `pnpm eval` khi RPC Fuji mở lại.
-4. Việc của người: ví `0x54A2…2888` gọi `acceptOwnership`; thử thao tác chủ ví trên dashboard bằng ví thật; một thành viên làm fresh-clone test (SPEC §14).
-5. Không làm (ngoài phạm vi hackathon): email xác minh/quên mật khẩu (chưa có dịch vụ mail), §13.3 biên nhận on-chain.
+1. Ví `0x54A2…2888` gọi `acceptOwnership` trên vault mới `0x6A8CCC88…Cf3c` (checklist bên dưới).
+2. Nạp thêm 18 USDC cho owner từ faucet Circle rồi `pnpm seed:fuji` nếu muốn vault đủ 50 USDC (hiện 32).
+3. Khi RPC Fuji mở lại: `pnpm --filter @guardian402/guardian test:fork`, `pnpm eval`, và chạy S1, S2, S4 trên Fuji với vault mới.
+4. Luật `minOut = 0` (swap không đặt mức nhận tối thiểu): cần team quyết, vì sẽ đổi S1, fixture luật và nhãn eval.
+5. Việc của người: thử thao tác chủ ví trên dashboard bằng ví thật; một thành viên làm fresh-clone test (SPEC §14).
+6. Không làm (ngoài phạm vi hackathon): email xác minh/quên mật khẩu (chưa có dịch vụ mail), §13.3 biên nhận on-chain.
 
 ## Checklist trước demo
 
-- [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault mới `0x3f6a5852788ff6a46d924C407976bB89487f7651` (tx [0xed5a391b…b28e](https://testnet.snowtrace.io/tx/0xed5a391be502ad3f2d042885e5871bea507ac1fa3a0d1784a001a27bc5c4b28e)). Vault cũ `0x32cb…Ab99` đã rút hết tiền và tạm dừng, không cần accept nữa. Các bước:
+- [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault mới `0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c` (có bản sửa R1–R5; tx [0xf0c8c7d4…38cb](https://testnet.snowtrace.io/tx/0xf0c8c7d46c594e69a2ccd9ea1f80c931a677d7f00b875cce622003a79ca738cb)). Các vault cũ `0x3f6a…7651` và `0x32cb…Ab99` đã rút hết tiền và tạm dừng, không cần accept nữa. Các bước:
   1. Trong Core hoặc MetaMask, chọn ví `0x54A2…2888` và mạng Avalanche Fuji C-Chain (chain id 43113). Ví cần một ít AVAX testnet để trả gas.
-  2. Mở https://testnet.snowtrace.io/address/0x3f6a5852788ff6a46d924C407976bB89487f7651 (AgentVault, đã verify), chọn tab **Contract** rồi **Write Contract**.
+  2. Mở https://testnet.snowtrace.io/address/0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c (AgentVault, đã verify), chọn tab **Contract** rồi **Write Contract**.
   3. Bấm **Connect to Web3** và kết nối ví `0x54A2…2888`.
   4. Mở hàm **acceptOwnership** (không có tham số) → **Write** → xác nhận giao dịch trong ví.
   5. Kiểm tra trong tab **Read Contract**: `owner()` = `0x54A2276F134d3Cfaa7572BC326092fABa6352888` và `pendingOwner()` = `0x0000000000000000000000000000000000000000`. Hoặc chạy:
-     `cast call 0x3f6a5852788ff6a46d924C407976bB89487f7651 "owner()(address)" --rpc-url https://api.avax-test.network/ext/bc/C/rpc`
+     `cast call 0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c "owner()(address)" --rpc-url https://api.avax-test.network/ext/bc/C/rpc`
   6. Sau bước này OWNER_PK không còn quyền owner: pause/unpause, đổi cap, revoke agent làm từ ví `0x54A2…2888` (dashboard, trang Điều khiển).
