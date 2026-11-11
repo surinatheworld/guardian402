@@ -169,7 +169,7 @@ Avalanche Fuji C-Chain (`chainId: 43113`), đã verify trên [testnet.snowtrace.
 
 | Hợp đồng              | Địa chỉ                                                                                                                         |
 | :-------------------- | :------------------------------------------------------------------------------------------------------------------------------ |
-| **AgentVault**        | [`0x3f6a5852788ff6a46d924C407976bB89487f7651`](https://testnet.snowtrace.io/address/0x3f6a5852788ff6a46d924C407976bB89487f7651) |
+| **AgentVault**        | [`0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c`](https://testnet.snowtrace.io/address/0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c) |
 | **MockRouter (DEMO)** | [`0xe20967C615e442991D468ed7f797edcAeA1771d9`](https://testnet.snowtrace.io/address/0xe20967C615e442991D468ed7f797edcAeA1771d9) |
 | **MockOracle (DEMO)** | [`0xeebAac693aA19308bA859b3D668e3794310e66AE`](https://testnet.snowtrace.io/address/0xeebAac693aA19308bA859b3D668e3794310e66AE) |
 | **mWAVAX (DEMO)**     | [`0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5`](https://testnet.snowtrace.io/address/0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5) |
