@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
 import { erc20Abi } from "viem";
 import { useReadContract } from "wagmi";
 import { fromDataUri, getErc8004Record } from "@guardian402/shared";
@@ -11,6 +12,7 @@ import { errorText, useChecks, useGuardianHealth } from "@/lib/api";
 import { NETWORK, deployment, tokenMeta } from "@/lib/config";
 import { formatAmount, formatTime, ZERO_ADDRESS } from "@/lib/format";
 import { ENDPOINT_LABEL, RISK_LABEL, ruleLabel } from "@/lib/labels";
+import { useSelectedVault } from "@/lib/vault-context";
 import { useVaultPolicy } from "@/lib/vault";
 
 const RISK_BY_CODE = ["LOW", "MEDIUM", "HIGH"] as const;
@@ -19,6 +21,7 @@ const IDENTITY = NETWORK === "fuji" ? getErc8004Record() : undefined;
 const IDENTITY_FILE = IDENTITY ? fromDataUri(IDENTITY.agentURI) : undefined;
 
 export default function Overview() {
+  const { address: vault } = useSelectedVault();
   const policy = useVaultPolicy();
   const health = useGuardianHealth();
   const checks = useChecks(50);
@@ -37,7 +40,7 @@ export default function Overview() {
     address: deployment.mWAVAX,
     abi: erc20Abi,
     functionName: "balanceOf",
-    args: [deployment.vault],
+    args: [vault],
     query: { refetchInterval: 10_000 },
   });
 
@@ -94,9 +97,9 @@ export default function Overview() {
               title="Số dư trong vault"
               className="h3-balance-card"
               actions={
-                <span className="rounded-full bg-surface-2 px-3 py-1 text-xs font-semibold text-muted">
+                <Chip variant="secondary" size="sm">
                   {NETWORK === "fuji" ? "Fuji testnet" : "Fork Fuji"}
-                </span>
+                </Chip>
               }
             >
               <div className="h3-balance">
@@ -174,7 +177,8 @@ export default function Overview() {
         }
       >
         <p className="text-xs text-muted">
-          Các lần Guardian kiểm tra gần đây; kết quả thực thi on-chain được hiển thị trong Hoạt động.
+          Các lần kiểm tra của vault này trong 200 lần gần nhất trên Guardian; xem kết quả thực thi trong Hoạt
+          động.
         </p>
         <div
           className="inline-flex w-fit flex-wrap gap-1 rounded-xl bg-surface-2 p-1"
@@ -354,7 +358,7 @@ export default function Overview() {
             <Card title="Vai trò">
               <Facts
                 rows={[
-                  ["AgentVault", <AddressLink key="v" address={deployment.vault} />],
+                  ["AgentVault", <AddressLink key="v" address={vault} />],
                   ["Chủ ví (owner)", <AddressLink key="o" address={p.owner} />],
                   ...(p.pendingOwner !== ZERO_ADDRESS
                     ? ([["Owner chờ nhận", <AddressLink key="po" address={p.pendingOwner} />]] as [
@@ -422,10 +426,12 @@ export default function Overview() {
               [
                 "Agent",
                 <span key="id" className="flex flex-wrap items-baseline gap-2">
-                  <span className="rounded-full border border-line px-2 py-0.5 text-xs font-semibold">
+                  <Chip variant="secondary" size="sm">
                     {IDENTITY_FILE.name} #{IDENTITY.agentId}
-                  </span>
-                  <span className="text-xs text-low">✓ đã đăng ký trên Fuji</span>
+                  </Chip>
+                  <Chip color="success" variant="soft" size="sm">
+                    Đã đăng ký trên Fuji
+                  </Chip>
                 </span>,
               ],
               ["IdentityRegistry", <AddressLink key="r" address={IDENTITY.identityRegistry} />],

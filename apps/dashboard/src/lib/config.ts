@@ -1,8 +1,16 @@
 // Public configuration (NEXT_PUBLIC_* only; inlined at build time, so each variable is read by its full name).
 import { FUJI_RPC_URL, getAddresses, parseNetwork, USDC_FUJI } from "@guardian402/shared";
+import { getAddress, isAddress } from "viem";
 
 export const NETWORK = parseNetwork(process.env.NEXT_PUBLIC_NETWORK || "fuji");
-export const deployment = getAddresses(NETWORK);
+const configuredVault = process.env.NEXT_PUBLIC_DEMO_VAULT;
+if (configuredVault && (NETWORK !== "local" || !isAddress(configuredVault))) {
+  throw new Error("NEXT_PUBLIC_DEMO_VAULT requires a valid address and NEXT_PUBLIC_NETWORK=local");
+}
+export const deployment = {
+  ...getAddresses(NETWORK),
+  ...(configuredVault ? { vault: getAddress(configuredVault) } : {}),
+};
 // Public endpoint: leave NEXT_PUBLIC_{RPC,GUARDIAN,AGENT}_URL empty and a browser on another machine (public
 // tunnel) uses the same-origin proxy of next.config.ts, while the host's own browser keeps 127.0.0.1. Set them
 // only when a service has its own public URL.

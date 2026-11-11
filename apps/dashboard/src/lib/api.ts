@@ -1,6 +1,7 @@
 "use client";
 // Browser-side reads of the Guardian API and the agent control API, through TanStack Query.
 import { useQuery } from "@tanstack/react-query";
+import { useSelectedVault } from "./vault-context";
 import { AGENT_URL, GUARDIAN_URL } from "./config";
 import type { AgentHealth, Attempt, CheckListRow, GuardianHealth, Stats } from "./types";
 
@@ -30,12 +31,19 @@ export const useGuardianHealth = () =>
     retry: 1,
   });
 
-export const useChecks = (limit = 50) =>
-  useQuery({
-    queryKey: ["guardian", "checks", limit],
-    queryFn: () => getJson<{ checks: CheckListRow[] }>(`${GUARDIAN_URL}/v1/checks?limit=${limit}`),
+export const useChecks = (limit = 50) => {
+  const { address } = useSelectedVault();
+  return useQuery({
+    queryKey: ["guardian", "checks", address, limit],
+    queryFn: async () => {
+      const data = await getJson<{ checks: CheckListRow[] }>(`${GUARDIAN_URL}/v1/checks?limit=200`);
+      return {
+        checks: data.checks.filter((c) => c.vault.toLowerCase() === address.toLowerCase()).slice(0, limit),
+      };
+    },
     refetchInterval: REFRESH_MS,
   });
+};
 
 export const useStats = () =>
   useQuery({

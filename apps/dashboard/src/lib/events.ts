@@ -4,9 +4,10 @@
 // request. On the local fork, the last 100 blocks are read from the fork RPC.
 import { useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
-import { decodeEventLog, getAbiItem, toEventSelector, type Hex } from "viem";
+import { decodeEventLog, getAbiItem, toEventSelector, type Hex, type Address } from "viem";
 import { agentVaultAbi } from "@guardian402/shared";
 import { deployment, NETWORK } from "./config";
+import { useSelectedVault } from "./vault-context";
 
 const ROUTESCAN = "https://api.routescan.io/v2/network/testnet/evm/43113/etherscan/api";
 const WANT = 20;
@@ -29,14 +30,17 @@ type RoutescanLog = {
   transactionHash: Hex;
 };
 
-export async function fetchExecutedFromRoutescan(fetcher: typeof fetch = fetch): Promise<ExecutedEvent[]> {
+export async function fetchExecutedFromRoutescan(
+  fetcher: typeof fetch = fetch,
+  vault: Address = deployment.vault,
+): Promise<ExecutedEvent[]> {
   const url = new URL(ROUTESCAN);
   url.search = new URLSearchParams({
     module: "logs",
     action: "getLogs",
-    address: deployment.vault,
+    address: vault,
     topic0: toEventSelector(executed),
-    fromBlock: String(deployment.startBlock),
+    fromBlock: vault.toLowerCase() === deployment.vault.toLowerCase() ? String(deployment.startBlock) : "0",
     toBlock: "latest",
   }).toString();
   const res = await fetcher(url, { cache: "no-store" });
@@ -69,15 +73,16 @@ export async function fetchExecutedFromRoutescan(fetcher: typeof fetch = fetch):
 
 export function useExecutedEvents() {
   const client = usePublicClient();
+  const { address: vault } = useSelectedVault();
   return useQuery({
-    queryKey: ["vault", "executed", NETWORK],
+    queryKey: ["vault", "executed", NETWORK, vault],
     refetchInterval: 15_000,
     queryFn: async (): Promise<ExecutedEvent[]> => {
-      if (NETWORK === "fuji") return fetchExecutedFromRoutescan();
+      if (NETWORK === "fuji") return fetchExecutedFromRoutescan(fetch, vault);
       if (!client) return [];
       const to = await client.getBlockNumber();
       const logs = await client.getLogs({
-        address: deployment.vault,
+        address: vault,
         event: executed,
         fromBlock: to > 99n ? to - 99n : 0n,
         toBlock: to,
