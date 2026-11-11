@@ -34,6 +34,7 @@ contract VaultHandler is Test {
     uint256 public maxNonceSeen;
     bool public movedWhilePaused;
     bool public attackerPaid;
+    bool public targetPaidWithoutVerdict;
     bool public replayAccepted;
     bool public foreignVerdictAccepted;
     bool public agentChangedAdmin;
@@ -82,6 +83,27 @@ contract VaultHandler is Test {
         calls[0] = AgentVault.Call(address(usdc), 0, abi.encodeCall(IERC20.approve, (address(target), amount)));
         calls[1] = AgentVault.Call(address(target), 0, abi.encodeCall(MockTarget.pull, (IERC20(address(usdc)), amount)));
         _agent(calls, withVerdict);
+    }
+
+    /// @dev Pays the allowed target with amounts at or below the verdict thresholds: value with a call, a plain
+    /// native transfer, or a token transfer. Must never succeed without a verdict (review findings R1–R3).
+    function agentPayTarget(uint256 amount, uint256 kind, bool withVerdict) external {
+        kind = bound(kind, 0, 2);
+        AgentVault.Call memory c;
+        if (kind == 0) {
+            c = AgentVault.Call(address(target), bound(amount, 1, 0.01 ether), abi.encodeCall(MockTarget.ping, (1)));
+        } else if (kind == 1) {
+            c = AgentVault.Call(address(target), bound(amount, 1, 0.01 ether), "");
+        } else {
+            c = _transferCall(address(target), bound(amount, 1, 1e6));
+        }
+        uint256 targetUsdc = usdc.balanceOf(address(target));
+        uint256 targetNative = address(target).balance;
+        _agent(_single(c), withVerdict);
+        if (!withVerdict && (usdc.balanceOf(address(target)) != targetUsdc || address(target).balance != targetNative))
+        {
+            targetPaidWithoutVerdict = true;
+        }
     }
 
     /// @dev Malicious: pays the attacker. Must never succeed.
@@ -254,7 +276,8 @@ contract AgentVaultInvariantTest is AgentVaultBase {
         super.setUp();
         handler = new VaultHandler(vault, usdc, target, owner, agent, treasury, attacker);
         targetContract(address(handler));
-        bytes4[] memory selectors = new bytes4[](12);
+        bytes4[] memory selectors = new bytes4[](13);
+        selectors[12] = VaultHandler.agentPayTarget.selector;
         selectors[0] = VaultHandler.agentTransfer.selector;
         selectors[1] = VaultHandler.agentNative.selector;
         selectors[2] = VaultHandler.agentSwapLike.selector;
@@ -335,6 +358,11 @@ contract AgentVaultInvariantTest is AgentVaultBase {
     /// 6. A verdict issued for calls A can never authorize calls B.
     function invariant_VerdictBoundToCalls() public view {
         assertFalse(handler.foreignVerdictAccepted());
+    }
+
+    /// 7. Without a verdict, the agent path never pays an allowed target, in tokens or in native value.
+    function invariant_TargetNeverPaidWithoutVerdict() public view {
+        assertFalse(handler.targetPaidWithoutVerdict());
     }
 
     /// Not an invariant: shows that runs exercise both accepted and blocked agent batches.

@@ -91,6 +91,10 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
     bytes4 private constant APPROVE_SELECTOR = IERC20.approve.selector;
     /// @dev 4-byte selector + (address, uint256).
     uint256 private constant TOKEN_CALL_LENGTH = 68;
+    /// @dev Flags returned by `_checkCall`. SENSITIVE: an approval > 0. VIA_TARGET: the call reaches an allowed
+    /// target, whose arguments and code the vault cannot check.
+    uint256 private constant FLAG_SENSITIVE = 1;
+    uint256 private constant FLAG_VIA_TARGET = 2;
 
     // ---------------------------------------------------------------- state
 
@@ -182,9 +186,9 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
         if (count == 0 || count > MAX_CALLS) revert BadBatch();
 
         // 2. static policy
-        bool sensitive = false;
+        uint256 flags = 0;
         for (uint256 i; i < count; ++i) {
-            if (_checkCall(calls[i])) sensitive = true;
+            flags |= _checkCall(calls[i]);
         }
 
         // 3. verdict, consumed before any external call
@@ -198,12 +202,13 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
 
         // 4.–6. balances, calls, daily caps on the actual outflow
         uint256[] memory balancesBefore = _balances();
-        _run(calls);
+        _run(calls, true);
         _revokeApprovals(calls);
-        bool needsVerdict = _recordOutflows(balancesBefore);
+        bool needsVerdict = _recordOutflows(balancesBefore, flags & FLAG_VIA_TARGET != 0);
 
-        // 7. verdict required for large outflows and for approvals
-        if ((needsVerdict || sensitive) && !withVerdict) revert VerdictRequired();
+        // 7. verdict required for approvals, for large outflows, and for any outflow of a batch that reaches an
+        // allowed target
+        if ((needsVerdict || flags & FLAG_SENSITIVE != 0) && !withVerdict) revert VerdictRequired();
 
         // 8. After the calls by design (SPEC §4.3); reentrancy is blocked by nonReentrant.
         // forge-lint: disable-next-line(reentrancy-events)
@@ -214,7 +219,7 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
 
     /// @notice The human override: runs any calls with no policy.
     function ownerExecute(Call[] calldata calls) external nonReentrant onlyOwner {
-        _run(calls);
+        _run(calls, false);
         // forge-lint: disable-next-line(reentrancy-events)
         emit OwnerExecuted(hashCalls(calls), calls.length);
     }
@@ -288,8 +293,21 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
         emit NativePolicySet(dailyCap, verdictThreshold);
     }
 
+    /// @notice Removing a target also removes its selectors (review finding R5), so allowing it again later
+    /// starts from an empty selector list.
     function setAllowedTarget(address target, bool allowed) external onlyOwner {
-        allowed ? _targets.add(target) : _targets.remove(target);
+        if (allowed) {
+            _targets.add(target);
+        } else {
+            _targets.remove(target);
+            EnumerableSet.Bytes32Set storage selectors = _selectors[target];
+            bytes32[] memory removed = selectors.values();
+            selectors.clear();
+            for (uint256 i; i < removed.length; ++i) {
+                // forge-lint: disable-next-line(unsafe-typecast) -- selectors are stored left-aligned, so this is lossless
+                emit AllowedSelectorSet(target, bytes4(removed[i]), false);
+            }
+        }
         emit AllowedTargetSet(target, allowed);
     }
 
@@ -399,29 +417,35 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
 
     // -------------------------------------------------------------- internal
 
-    /// @dev Step 2 for one call. Returns true when the call is an approval > 0 (the batch is then sensitive).
-    function _checkCall(Call calldata c) private view returns (bool sensitive) {
+    /// @dev Step 2 for one call. Returns FLAG_SENSITIVE when the call is an approval > 0 and FLAG_VIA_TARGET
+    /// when it reaches an allowed target: a call to it, native value sent to it, or a tracked-token transfer to
+    /// it (review findings R1–R3).
+    function _checkCall(Call calldata c) private view returns (uint256 flags) {
         address target = c.target;
         if (target == address(this) || target == address(0)) revert TargetNotAllowed(target);
+        bool isTarget = _targets.contains(target);
 
         if (tokenPolicy[target].tracked) {
-            sensitive = _checkTokenCall(target, c.data);
+            flags = _checkTokenCall(target, c.data);
         } else if (c.data.length > 0) {
-            if (!_targets.contains(target)) revert TargetNotAllowed(target);
+            if (!isTarget) revert TargetNotAllowed(target);
             if (c.data.length < 4) revert SelectorNotAllowed(target, bytes4(0));
             bytes4 selector = bytes4(c.data[:4]);
             if (!_selectors[target].contains(selector)) revert SelectorNotAllowed(target, selector);
-        } else if (!_recipients.contains(target)) {
-            revert RecipientNotAllowed(target);
+            flags = FLAG_VIA_TARGET;
+        } else {
+            if (!_recipients.contains(target)) revert RecipientNotAllowed(target);
+            if (isTarget) flags = FLAG_VIA_TARGET;
         }
 
-        if (c.value > 0 && !_targets.contains(target) && !_recipients.contains(target)) {
-            revert TargetNotAllowed(target);
+        if (c.value > 0) {
+            if (isTarget) flags |= FLAG_VIA_TARGET;
+            else if (!_recipients.contains(target)) revert TargetNotAllowed(target);
         }
     }
 
     /// @dev Only transfer(address,uint256) and approve(address,uint256) with exactly ABI-encoded arguments.
-    function _checkTokenCall(address token, bytes calldata data) private view returns (bool sensitive) {
+    function _checkTokenCall(address token, bytes calldata data) private view returns (uint256 flags) {
         if (data.length < 4) revert SelectorNotAllowed(token, bytes4(0));
         bytes4 selector = bytes4(data[:4]);
         if (selector != TRANSFER_SELECTOR && selector != APPROVE_SELECTOR) revert SelectorNotAllowed(token, selector);
@@ -430,12 +454,13 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
 
         if (selector == TRANSFER_SELECTOR) {
             if (!_recipients.contains(to)) revert RecipientNotAllowed(to);
-            return false;
+            // A recipient that is also an allowed target is a protocol, not a payee.
+            return _targets.contains(to) ? FLAG_VIA_TARGET : 0;
         }
-        if (amount == 0) return false; // revoking an approval is always allowed
+        if (amount == 0) return 0; // revoking an approval is always allowed
         if (!_recipients.contains(to)) revert RecipientNotAllowed(to);
         if (amount > tokenPolicy[token].maxApproval) revert ApprovalTooLarge(token, amount);
-        return true;
+        return FLAG_SENSITIVE;
     }
 
     /// @dev Step 3. Increments verdictNonce; the caller has made no external call yet.
@@ -459,13 +484,22 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
         balances[tokenCount] = address(this).balance;
     }
 
-    function _run(Call[] calldata calls) private {
+    /// @dev `agentPath`: a tracked token must also return nothing or `true`, as SafeERC20 requires (review
+    /// finding R4). A tracked token always has code: `_balances` has just called it.
+    function _run(Call[] calldata calls, bool agentPath) private {
         for (uint256 i; i < calls.length; ++i) {
+            address target = calls[i].target;
             // Agent path: every target and value passed _checkCall first. Owner path: the owner decides.
             // forge-lint: disable-next-line(arbitrary-send-eth)
-            (bool ok, bytes memory returndata) = calls[i].target.call{value: calls[i].value}(calls[i].data);
+            (bool ok, bytes memory returndata) = target.call{value: calls[i].value}(calls[i].data);
+            if (ok && agentPath && tokenPolicy[target].tracked) ok = _returnedTrueOrNothing(returndata);
             if (!ok) revert CallFailed(i, returndata);
         }
+    }
+
+    function _returnedTrueOrNothing(bytes memory returndata) private pure returns (bool) {
+        if (returndata.length == 0) return true;
+        return returndata.length >= 32 && abi.decode(returndata, (uint256)) == 1;
     }
 
     /// @dev Approvals granted on the agent path never outlive their batch (P11 review, finding F1): whatever the
@@ -480,20 +514,23 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
         }
     }
 
-    /// @dev Step 6. Returns true when any outflow is above its verdict threshold.
-    function _recordOutflows(uint256[] memory balancesBefore) private returns (bool needsVerdict) {
+    /// @dev Step 6. Returns true when any outflow is above its verdict threshold. `viaTarget`: the batch reaches
+    /// an allowed target, so the threshold is zero and any outflow needs a verdict.
+    function _recordOutflows(uint256[] memory balancesBefore, bool viaTarget) private returns (bool needsVerdict) {
         uint256 day = _today();
         uint256 tokenCount = trackedTokens.length;
         for (uint256 i; i < tokenCount; ++i) {
             address token = trackedTokens[i];
             TokenPolicy storage tp = tokenPolicy[token];
             uint256 balanceAfter = IERC20(token).balanceOf(address(this));
-            if (_recordOutflow(token, day, balancesBefore[i], balanceAfter, tp.dailyCap, tp.verdictThreshold)) {
+            uint256 threshold = viaTarget ? 0 : tp.verdictThreshold;
+            if (_recordOutflow(token, day, balancesBefore[i], balanceAfter, tp.dailyCap, threshold)) {
                 needsVerdict = true;
             }
         }
+        uint256 nativeThreshold = viaTarget ? 0 : nativeVerdictThreshold;
         if (_recordOutflow(
-                NATIVE, day, balancesBefore[tokenCount], address(this).balance, nativeDailyCap, nativeVerdictThreshold
+                NATIVE, day, balancesBefore[tokenCount], address(this).balance, nativeDailyCap, nativeThreshold
             )) needsVerdict = true;
     }
 
