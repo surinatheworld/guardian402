@@ -5,9 +5,13 @@ import { FUJI_CHAIN_ID, MAX_CALLS, RISK_LEVELS, RULE_IDS } from "./constants.ts"
 
 const UINT256_MAX = (1n << 256n) - 1n;
 
+/**
+ * All lower case, or mixed case with a correct EIP-55 checksum. A wrong checksum is refused here, with a 400:
+ * viem's encoders refuse it later anyway, which used to surface as a 502.
+ */
 export const addressSchema = z
   .string()
-  .refine((v) => isAddress(v, { strict: false }), "invalid address")
+  .refine((v) => isAddress(v), "invalid address")
   .transform((v) => v as Address);
 
 export const hexSchema = z
@@ -21,10 +25,12 @@ export const bytes32Schema = z
   .transform((v) => v as Hex);
 
 /** A uint256 as a decimal string (no sign, no leading zeros, no exponent). */
+const DECIMAL_UINT = /^(0|[1-9][0-9]*)$/;
 export const uintStringSchema = z
   .string()
-  .regex(/^(0|[1-9][0-9]*)$/, "must be a decimal integer string")
-  .refine((v) => BigInt(v) <= UINT256_MAX, "exceeds uint256");
+  .regex(DECIMAL_UINT, "must be a decimal integer string")
+  // zod runs this even when the regex failed, and BigInt("1e3") throws: only size-check what the regex accepted.
+  .refine((v) => !DECIMAL_UINT.test(v) || BigInt(v) <= UINT256_MAX, "exceeds uint256");
 
 /** A signed integer as a decimal string (balance deltas). */
 export const intStringSchema = z.string().regex(/^-?(0|[1-9][0-9]*)$/, "must be a decimal integer string");
@@ -33,11 +39,14 @@ export const riskLevelSchema = z.enum(RISK_LEVELS);
 export const riskCodeSchema = z.union([z.literal(0), z.literal(1), z.literal(2)]);
 export const ruleIdSchema = z.enum(RULE_IDS);
 
-export const callSchema = z.object({
-  target: addressSchema,
-  value: uintStringSchema,
-  data: hexSchema,
-});
+/** Strict: a field the vault does not execute (e.g. a Safe-style `operation`) is refused, not dropped. */
+export const callSchema = z
+  .object({
+    target: addressSchema,
+    value: uintStringSchema,
+    data: hexSchema,
+  })
+  .strict();
 
 export const checkRequestSchema = z
   .object({
