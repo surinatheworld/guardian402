@@ -1,6 +1,7 @@
 // Form pieces shared by the account and workspace pages: labelled fields at the 42px control height of
 // DESIGN.md, an inline error, and an inline confirmation for destructive actions.
 import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
 import type { ReactNode } from "react";
 
 export const INPUT = "min-h-[42px] w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm";
@@ -73,15 +74,15 @@ export function Pill({
   tone?: "neutral" | "ok" | "warn" | "high";
   children: ReactNode;
 }) {
-  const cls = {
-    neutral: "bg-surface-2 text-fg",
-    ok: "bg-low-bg text-low",
-    warn: "bg-medium-bg text-medium",
-    high: "bg-high-bg text-high",
-  }[tone];
+  const color = {
+    neutral: "default",
+    ok: "success",
+    warn: "warning",
+    high: "danger",
+  } as const;
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>
-      {children}
-    </span>
+    <Chip color={color[tone]} variant="soft" size="sm" className="max-w-full font-semibold">
+      <Chip.Label className="whitespace-normal break-words">{children}</Chip.Label>
+    </Chip>
   );
 }

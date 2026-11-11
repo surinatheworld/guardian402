@@ -1,5 +1,9 @@
 "use client";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
+import { Dropdown } from "@heroui/react/dropdown";
+import { Label } from "@heroui/react/label";
 // Header (brand, wallet), navigation and the DEMO MODE banner.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -7,18 +11,28 @@ import { useAccount, useChainId, useConnect, useDisconnect, useSwitchChain } fro
 import { avalancheFuji } from "wagmi/chains";
 import { useAgentHealth, useGuardianHealth } from "@/lib/api";
 import { NETWORK } from "@/lib/config";
+import { useMe } from "@/lib/account";
+import { ErrorBox, Loading } from "@/components/ui";
+import { useSelectedVault } from "@/lib/vault-context";
+import { PolicySelect } from "@/components/workspace/policy-fields";
 import { shortHex } from "@/lib/format";
 
 const NAV = [
   { href: "/", label: "Tổng quan" },
   { href: "/hoat-dong", label: "Hoạt động" },
   { href: "/da-chan", label: "Đã chặn" },
-  { href: "/doanh-thu", label: "Doanh thu" },
   { href: "/kiem-tra", label: "Kiểm tra giao dịch" },
   { href: "/dieu-khien", label: "Điều khiển" },
   { href: "/quan-ly", label: "Quản lý vault" },
+  { href: "/demo", label: "Thử demo" },
+  { href: "/doanh-thu", label: "Doanh thu" },
   { href: "/tai-khoan", label: "Tài khoản" },
 ] as const;
+
+const PRIMARY_NAV = NAV.filter((item) =>
+  ["/", "/hoat-dong", "/kiem-tra", "/dieu-khien", "/quan-ly", "/demo"].includes(item.href),
+);
+const MORE_NAV = NAV.filter((item) => !PRIMARY_NAV.includes(item));
 
 export function DemoBanner() {
   const guardian = useGuardianHealth();
@@ -29,8 +43,8 @@ export function DemoBanner() {
     <div role="note" className="bg-demo-bg text-demo">
       <p className="mx-auto max-w-6xl px-[max(16px,env(safe-area-inset-left,0px))] py-2 text-sm">
         <strong className="mr-2 tracking-wide">DEMO MODE</strong>
-        Mạng thử Avalanche Fuji, không có tiền thật. Oracle, pool, kịch bản tấn công và địa chỉ nhái (khớp 3+3
-        ký tự) là mô phỏng.
+        {NETWORK === "local" ? "Fork Avalanche Fuji" : "Mạng thử Avalanche Fuji"}, không có tiền thật. Oracle,
+        pool, kịch bản tấn công và địa chỉ nhái (khớp 3+3 ký tự) là mô phỏng.
       </p>
     </div>
   );
@@ -43,6 +57,8 @@ export function WalletButton() {
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
   const connector = connectors[0];
+
+  if (NETWORK === "local") return <span className="text-xs text-muted">Fork demo · không kết nối ví</span>;
 
   if (!isConnected || !address) {
     return (
@@ -91,6 +107,23 @@ export function WalletButton() {
 
 export function Header() {
   const pathname = usePathname();
+  const moreActive = MORE_NAV.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const nav = navRef.current;
+    const active = nav?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!nav || !active) return;
+    const showActive = () => {
+      if (nav.scrollWidth <= nav.clientWidth) return;
+      const left = active.getBoundingClientRect().left - nav.getBoundingClientRect().left + nav.scrollLeft;
+      nav.scrollLeft = Math.max(0, left - (nav.clientWidth - active.offsetWidth) / 2);
+    };
+    const observer = new ResizeObserver(showActive);
+    observer.observe(nav);
+    observer.observe(active);
+    showActive();
+    return () => observer.disconnect();
+  }, [pathname]);
   return (
     <aside className="h3-sidebar">
       <Link href="/" className="h3-brand">
@@ -99,8 +132,8 @@ export function Header() {
       <div className="h3-workspace">
         <span className="h3-workspace-name">Guardian Workspace</span>
       </div>
-      <nav className="h3-nav" aria-label="Trang">
-        {NAV.map((n) => {
+      <nav ref={navRef} className="h3-nav" aria-label="Trang">
+        {PRIMARY_NAV.map((n) => {
           const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
           return (
             <Link
@@ -113,18 +146,34 @@ export function Header() {
             </Link>
           );
         })}
+        <Dropdown>
+          <Button
+            variant={moreActive ? "primary" : "ghost"}
+            aria-label={moreActive ? `Thêm: ${moreActive.label}` : "Các trang khác"}
+            aria-current={moreActive ? "page" : false}
+            className="h3-nav-more"
+          >
+            <span>{moreActive?.label ?? "Thêm"}</span>
+          </Button>
+          <Dropdown.Popover placement="bottom start" className="min-w-[190px]">
+            <Dropdown.Menu aria-label="Các trang khác">
+              {MORE_NAV.map((item) => (
+                <Dropdown.Item key={item.href} id={item.href} href={item.href} textValue={item.label}>
+                  <Label>{item.label}</Label>
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown.Popover>
+        </Dropdown>
       </nav>
-      <div className="h3-sidebar-bottom">
-        <div className="h3-network">
-          <span className="h3-dot" />
-          Avalanche Fuji
+      {NETWORK !== "local" ? (
+        <div className="h3-sidebar-bottom">
+          <div className="h3-owner">
+            <span className="h3-owner-label">Ví chủ</span>
+            <WalletButton />
+          </div>
         </div>
-        <p>Testnet · {NETWORK === "fuji" ? "Fuji" : "fork"}</p>
-        <div className="h3-owner">
-          <span className="h3-owner-label">Ví chủ</span>
-          <WalletButton />
-        </div>
-      </div>
+      ) : null}
     </aside>
   );
 }
@@ -132,15 +181,56 @@ export function Header() {
 export function WorkspaceBar() {
   const pathname = usePathname();
   const current = NAV.find((item) => item.href === pathname)?.label ?? "Tổng quan";
+  const { address, setVault } = useSelectedVault();
+  const vaults = useMe().data?.vaults ?? [];
   return (
     <div className="h3-topbar">
       <span>
         Workspace <span className="h3-breadcrumb-slash">/</span>{" "}
         <strong className="font-semibold text-fg">{current}</strong>
       </span>
-      <span className="rounded-full bg-surface px-3 py-1 font-semibold">
-        {NETWORK === "fuji" ? "Fuji testnet" : "Fork Fuji"}
-      </span>
+      <div className="h3-topbar-context">
+        {vaults.length > 1 ? (
+          <PolicySelect
+            label="Vault"
+            value={address}
+            onChange={setVault}
+            options={vaults.map((v) => ({
+              id: v.address,
+              label: `${v.label ?? "AgentVault"} · ${shortHex(v.address)}`,
+            }))}
+          />
+        ) : (
+          <span title={address} className="text-xs text-muted">
+            {vaults[0]?.label ?? (vaults.length ? "AgentVault" : "Vault demo")} · {shortHex(address)}
+          </span>
+        )}
+        <Chip variant="secondary" size="sm">
+          {NETWORK === "fuji" ? "Fuji testnet" : "Fork Fuji"}
+        </Chip>
+      </div>
     </div>
+  );
+}
+
+/** Reset page-local drafts and results when switching vaults. */
+export function VaultMain({ children }: { children: ReactNode }) {
+  const { address, ready } = useSelectedVault();
+  const me = useMe();
+  const pathname = usePathname();
+  return (
+    <main key={address} id="noi-dung" className="h3-content flex flex-col gap-6">
+      {me.isPending || !ready ? (
+        <Loading label="Đang tải workspace…" />
+      ) : me.isError && pathname !== "/demo" && pathname !== "/tai-khoan" ? (
+        <ErrorBox
+          title="Không xác định được vault"
+          detail="Không tải được tài khoản để xác định vault đang chọn. Hãy thử lại."
+          onRetry={() => void me.refetch()}
+        />
+      ) : (
+        children
+      )}
+    </main>
   );
 }

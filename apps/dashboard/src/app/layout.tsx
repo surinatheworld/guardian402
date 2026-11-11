@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import { Providers } from "@/components/providers";
-import { DemoBanner, Header, WorkspaceBar } from "@/components/shell";
+import { DemoBanner, Header, VaultMain, WorkspaceBar } from "@/components/shell";
 import "./globals.css";
 import "./concept.css";
 import "./motion.css";
@@ -39,9 +39,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Header />
               <div className="h3-main">
                 <WorkspaceBar />
-                <main id="noi-dung" className="h3-content flex flex-col gap-6">
-                  {children}
-                </main>
+                <VaultMain>{children}</VaultMain>
               </div>
             </div>
           </div>

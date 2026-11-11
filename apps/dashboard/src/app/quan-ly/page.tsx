@@ -3,6 +3,7 @@
 // API keys, named policies assigned to agents, address book, owner changes signed in the wallet, alerts, and
 // reviews of Guardian checks. The chain stays the authority.
 import Link from "next/link";
+import { Chip } from "@heroui/react/chip";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { AddressLink, Card, Empty, ErrorBox, Loading, PageHeader } from "@/components/ui";
 import { errorOf } from "@/components/form";
@@ -14,6 +15,8 @@ import { PoliciesTab } from "@/components/workspace/policies";
 import { PolicyTab } from "@/components/workspace/policy";
 import { useMe } from "@/lib/account";
 import { useNotifications } from "@/lib/workspace";
+import { useSelectedVault } from "@/lib/vault-context";
+import { PolicySelect } from "@/components/workspace/policy-fields";
 
 const TABS = [
   { id: "agent", label: "Agent" },
@@ -27,9 +30,9 @@ type TabId = (typeof TABS)[number]["id"];
 
 export default function ManagePage() {
   const me = useMe();
-  const [selected, setSelected] = useState<string | null>(null);
+  const { address: selected, setVault } = useSelectedVault();
   const vaults = me.data?.vaults ?? [];
-  const vault = vaults.find((v) => v.address === selected) ?? vaults[0];
+  const vault = vaults.find((v) => v.address.toLowerCase() === selected.toLowerCase()) ?? vaults[0];
   const pageHeader = (
     <PageHeader
       title="Quản lý vault"
@@ -80,20 +83,15 @@ export default function ManagePage() {
               <Card>
                 <div className="flex flex-wrap items-center gap-3">
                   {vaults.length > 1 ? (
-                    <label className="flex items-center gap-2 text-sm font-medium">
-                      Vault
-                      <select
-                        value={vault.address}
-                        onChange={(e) => setSelected(e.target.value)}
-                        className="min-h-[42px] rounded-lg border border-line bg-surface px-3 py-2 text-sm"
-                      >
-                        {vaults.map((v) => (
-                          <option key={v.address} value={v.address}>
-                            {v.label ?? "AgentVault"} · {v.address.slice(0, 8)}…
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    <PolicySelect
+                      label="Vault"
+                      value={vault.address}
+                      onChange={setVault}
+                      options={vaults.map((v) => ({
+                        id: v.address,
+                        label: `${v.label ?? "AgentVault"} · ${v.address.slice(0, 8)}…`,
+                      }))}
+                    />
                   ) : (
                     <span className="font-semibold">{vault.label ?? "AgentVault"}</span>
                   )}
@@ -124,6 +122,7 @@ function Workspace({
 }) {
   const [tab, setTab] = useState<TabId>("agent");
   const [editingPolicy, setEditingPolicy] = useState(false);
+  const [policyAgent, setPolicyAgent] = useState<number>();
   const focused = tab === "policy" && editingPolicy;
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
   const unread = useNotifications(vault).data?.unread ?? 0;
@@ -193,10 +192,12 @@ function Workspace({
               >
                 {t.label}
                 {t.id === "canh-bao" && unread > 0 ? (
-                  <span className="ml-2 rounded-full bg-high px-2 py-0.5 text-xs text-surface">
-                    {unread}
-                    <span className="sr-only"> thông báo chưa đọc</span>
-                  </span>
+                  <Chip variant="secondary" size="sm" className="ml-2">
+                    <Chip.Label>
+                      {unread}
+                      <span className="sr-only"> thông báo chưa đọc</span>
+                    </Chip.Label>
+                  </Chip>
                 ) : null}
               </button>
             );
@@ -211,7 +212,10 @@ function Workspace({
         {tab === "agent" ? (
           <AgentsTab
             vault={vault}
-            onOpenPolicy={() => open("policy")}
+            onOpenPolicy={(agentId) => {
+              setPolicyAgent(agentId);
+              open("policy");
+            }}
             onOpenChanges={() => open("chinh-sach")}
           />
         ) : tab === "policy" ? (
@@ -219,6 +223,7 @@ function Workspace({
             vault={vault}
             vaultLabel={vaultLabel}
             ownerWallet={ownerWallet}
+            initialAgent={policyAgent}
             onBuilderChange={setEditingPolicy}
             onOpenAgents={() => open("agent")}
             onOpenChecks={() => open("kiem-tra")}

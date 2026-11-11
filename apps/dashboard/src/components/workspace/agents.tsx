@@ -26,7 +26,7 @@ export function AgentsTab({
   onOpenChanges,
 }: {
   vault: string;
-  onOpenPolicy: () => void;
+  onOpenPolicy: (agentId: number) => void;
   onOpenChanges: () => void;
 }) {
   const q = useAgents(vault);
@@ -108,7 +108,7 @@ function AgentItem({
   agent: Agent;
   overview: AssignmentOverview["agents"][number] | undefined;
   onChanged: () => void;
-  onOpenPolicy: () => void;
+  onOpenPolicy: (agentId: number) => void;
   onOpenChanges: () => void;
 }) {
   const invalidate = useInvalidate(vault);
@@ -173,7 +173,12 @@ function AgentItem({
         ) : (
           <p className="text-muted">Chưa gán policy: Guardian không cấp verdict cho agent này.</p>
         )}
-        <Button variant="secondary" type="button" className="self-start" onPress={onOpenPolicy}>
+        <Button
+          variant="secondary"
+          type="button"
+          className="self-start"
+          onPress={() => onOpenPolicy(agent.id)}
+        >
           {a ? "Xem và đổi policy" : "Gán policy"}
         </Button>
       </section>
