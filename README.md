@@ -95,14 +95,16 @@ Lớp phòng thủ cốt lõi được bảo chứng trực tiếp bằng EVM ex
 
 ## 5. Ba Màn Trải Nghiệm Cho Ban Giám Khảo (Dashboard)
 
-Giao diện Dashboard tại `http://localhost:3000` được thiết kế tập trung vào 3 màn hình cốt lõi:
+Giao diện Dashboard tại `http://localhost:3000` (HeroUI v3, tiếng Việt, sáng và tối) có 5 mục, mỗi mục trả lời một câu hỏi của chủ két:
 
-1. **Vault Overview (`/`)**: Ai kiểm soát tiền?
-   - Hiển thị Owner, Agent được ủy quyền, số dư USDC/mWAVAX, hạn mức ngày còn lại và trạng thái Pause khẩn cấp.
-2. **Transaction Inspector (`/kiem-tra`)**: Guardian làm gì?
-   - Xem chi tiết Intent, luồng thanh toán micropayment x402, kết quả mô phỏng Fork, vi phạm từ 9 luật và chữ ký EIP-712.
-3. **Execution Evidence (`/hoat-dong`)**: Xác minh điều đã xảy ra.
-   - Transaction hash, block receipt, on-chain event logs (`Executed`), biến động số dư thực tế và link tra cứu Snowtrace.
+1. **Tổng quan (`/`)**: Tiền của tôi có ổn không?
+   - Số dư trong két (rút về ví chủ bất cứ lúc nào), hạn mức agent đã tiêu hôm nay, các giao dịch cần chú ý. Nút **Khoá khẩn cấp** luôn ở thanh trên.
+2. **Hoạt động (`/hoat-dong`)**: Agent đã làm gì, cái gì bị chặn, vì sao?
+   - Mỗi giao dịch là một hành trình 3 trạm: Agent đề xuất → Guardian kiểm tra → Két quyết định. Bấm vào để xem tiền đi đâu, lý do, lời giải thích, link Snowtrace và chi tiết kỹ thuật (checkId, phí x402, block).
+3. **Chạy thử (`/chay-thu`)**: Guardian xử lý giao dịch này ra sao?
+   - Chọn kịch bản S0–S6 hoặc tự soạn; "Chỉ mô phỏng" (miễn phí) hoặc "Chạy thật" (agent demo trả phí x402 và gửi giao dịch vào két).
+4. **Quy tắc chi tiêu (`/quy-tac`)**: hạn mức, người nhận tin cậy, ứng dụng được dùng, mức rủi ro tối đa, bộ quy tắc cho từng agent.
+5. **Agent (`/agent`)**: agent nào được chi tiêu từ két, khoá API, tạm ngưng hoặc gỡ quyền.
 
 _Khám phá không cần ví_: Nút **Explore Live Demo** cho phép BGK bấm thử ngay toàn bộ kịch bản mà không cần cài ví hay nạp gas trước.
 
