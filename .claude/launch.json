@@ -1,0 +1,31 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev:dashboard"],
+      "port": 3000
+    },
+    {
+      "name": "dashboard-prod",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@guardian402/dashboard", "start"],
+      "port": 3000
+    },
+    {
+      "name": "wireframe",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4510",
+        "--bind",
+        "127.0.0.1",
+        "-d",
+        "C:/Users/a/AppData/Local/Temp/claude/1a30bce4da68aca8/e749242e-4ee5-43bb-8f4c-1892ba9640e5/scratchpad/evon-design"
+      ],
+      "port": 4510
+    }
+  ]
+}
