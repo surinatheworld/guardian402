@@ -1,11 +1,11 @@
 {
-  "0x3f6a5852788ff6a46d924c407976bb89487f7651": {
-    "name": "AgentVault",
-    "kind": "vault"
-  },
   "0x5425890298aed601595a70ab815c96711a31bc65": {
     "name": "USD Coin",
     "kind": "token"
+  },
+  "0x6a8ccc880238df1f4309d1b04edfbd6017a4cf3c": {
+    "name": "AgentVault",
+    "kind": "vault"
   },
   "0x8004a818bfb912233c491871b3d84c89a494bd9e": {
     "name": "ERC-8004 IdentityRegistry",
