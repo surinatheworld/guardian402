@@ -739,8 +739,8 @@ Trên Fuji (Guardian `NETWORK=fuji`, fork qua Tenderly), agent mới:
 ### Việc còn lại (cập nhật 2026-11-11, 23:45)
 
 1. ~~`acceptOwnership`~~, ~~nạp vault đủ 50 USDC~~, ~~S1/S2/S4 trên Fuji~~, ~~test fork (13/13 và 5/5)~~, ~~eval~~, ~~luật `minOut`~~, ~~thao tác chủ ví~~, ~~fresh-clone~~ — xong.
-2. Tuỳ chọn: RPC riêng có key làm dự phòng nếu gateway Tenderly giới hạn lúc demo (hướng dẫn trong `.env.example`).
-3. Sau hackathon: tạo key Gemini mới (key cũ từng dán vào chat).
+2. ~~RPC riêng có key~~ — xong (23:45): chủ team tạo app Alchemy, bật Avalanche Fuji; `.env.local` dùng `https://avax-fuji.g.alchemy.com/v2/<key>` (Tenderly để lại thành dòng comment dự phòng). Đọc được state 20.000 block trước; `pnpm --filter @guardian402/guardian test:fork` → **18 passed (18)**, paid `/v1/check` p50 628 ms / p95 681 ms, `simulate()` p50 262 ms. Lần khởi động fork đầu tiên lỗi 403 "AVAX_FUJI is not enabled" vì Alchemy cần vài chục giây để bật mạng trên mọi máy chủ; thử lại sau đó thì ổn.
+3. Sau hackathon: tạo key Gemini mới và key Alchemy mới (cả hai từng hiện trong chat).
 4. Không làm (ngoài phạm vi hackathon): email xác minh/quên mật khẩu (chưa có dịch vụ mail), §13.3 biên nhận on-chain.
 
 ## Checklist trước demo
