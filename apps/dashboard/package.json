@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@gravity-ui/icons": "2.23.0",
     "@guardian402/shared": "workspace:*",
     "@heroui/react": "3.2.7",
     "@heroui/styles": "3.2.7",

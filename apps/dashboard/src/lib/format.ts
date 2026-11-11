@@ -24,3 +24,20 @@ export const formatTime = (ms: number) => time.format(new Date(ms));
 export const formatCount = (n: number) => num.format(n);
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+/** A NumberField value (a JS number) as raw token units, without float noise (at most 6 decimals). */
+export function toUnits(value: number, decimals: number): bigint {
+  if (!Number.isFinite(value) || value < 0) return 0n;
+  const text = value.toLocaleString("en-US", {
+    useGrouping: false,
+    maximumFractionDigits: Math.min(decimals, 6),
+  });
+  const [whole = "0", fraction = ""] = text.split(".");
+  return (
+    BigInt(whole) * 10n ** BigInt(decimals) +
+    BigInt((fraction + "0".repeat(decimals)).slice(0, decimals) || "0")
+  );
+}
+
+/** Raw token units as a JS number, for NumberField defaults (display only). */
+export const fromUnits = (raw: bigint, decimals: number) => Number(formatUnits(raw, decimals));

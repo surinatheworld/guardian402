@@ -72,7 +72,7 @@ const addr = (v: unknown, field: string, vault?: Address): Address => {
     throw new SpecError(field, `${field}: không phải địa chỉ hợp lệ.`);
   const a = getAddress(v);
   if (a === zeroAddress) throw new SpecError(field, `${field}: không dùng địa chỉ 0x0.`);
-  if (vault && a === getAddress(vault)) throw new SpecError(field, `${field}: không thể là chính vault.`);
+  if (vault && a === getAddress(vault)) throw new SpecError(field, `${field}: không thể là chính két.`);
   return a;
 };
 
@@ -101,7 +101,7 @@ const selector = (v: unknown, field: string): Hex => {
 /** Validates untrusted input into a PolicySpec (addresses checksummed, duplicates removed). */
 export function parseSpec(raw: unknown, vault?: Address): PolicySpec {
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
-    throw new SpecError("spec", "Cấu hình policy không hợp lệ.");
+    throw new SpecError("spec", "Bộ quy tắc không hợp lệ.");
   const r = raw as Record<string, unknown>;
   const tokens: TokenRule[] = [];
   for (const [i, x] of list(r.tokens, "tokens", POLICY_LIMITS.tokens).entries()) {
@@ -122,11 +122,11 @@ export function parseSpec(raw: unknown, vault?: Address): PolicySpec {
     const c = (x ?? {}) as Record<string, unknown>;
     const address = addr(c.address, `contracts[${i}].address`, vault);
     if (contracts.some((y) => y.address === address))
-      throw new SpecError("contracts", "Mỗi contract chỉ khai báo một lần.");
+      throw new SpecError("contracts", "Mỗi ứng dụng chỉ khai báo một lần.");
     if (tokens.some((t) => t.token === address))
       throw new SpecError(
         "contracts",
-        "Token đã khai báo ở phần tài sản: vault chỉ cho agent gọi transfer/approve trên token đó.",
+        "Token đã khai báo ở phần tài sản: két chỉ cho agent chuyển hoặc cấp quyền rút token đó.",
       );
     const selectors = [
       ...new Set(
@@ -136,7 +136,7 @@ export function parseSpec(raw: unknown, vault?: Address): PolicySpec {
       ),
     ];
     if (!selectors.length)
-      throw new SpecError("contracts", "Mỗi contract cần ít nhất một thao tác được phép.");
+      throw new SpecError("contracts", "Mỗi ứng dụng cần ít nhất một thao tác được phép.");
     contracts.push({ address, selectors });
   }
   const risk = r.maxRisk ?? 0;
@@ -206,13 +206,13 @@ export function summarize(s: PolicySpec, n: Naming): string[] {
     out.push(
       `Được chi tối đa ${amountText(t.dailyCap, m)} mỗi ngày (UTC)` +
         (BigInt(t.verdictThreshold) < BigInt(t.dailyCap)
-          ? `; khoản chi vượt ${amountText(t.verdictThreshold, m)} cần Guardian kiểm tra và ký verdict.`
-          : "; không khoản chi nào cần verdict vì ngưỡng không nhỏ hơn hạn mức."),
+          ? `; khoản chi vượt ${amountText(t.verdictThreshold, m)} cần Guardian kiểm tra và duyệt.`
+          : "; không khoản chi nào cần Guardian duyệt vì ngưỡng không nhỏ hơn hạn mức."),
     );
   }
   if (native)
     out.push(
-      `Được chi tối đa ${amountText(s.native.dailyCap, NATIVE_META)} mỗi ngày; vượt ${amountText(s.native.verdictThreshold, NATIVE_META)} một lần cần verdict.`,
+      `Được chi tối đa ${amountText(s.native.dailyCap, NATIVE_META)} mỗi ngày; vượt ${amountText(s.native.verdictThreshold, NATIVE_META)} một lần cần Guardian duyệt.`,
     );
   return [...out, ...summarizePermissions(s, n)];
 }
@@ -231,7 +231,7 @@ export function summarizePermissions(s: PolicySpec, n: Naming): string[] {
     out.push(
       `Được cấp quyền chi tiêu cho ${people(allowedRecipients, n)}, tối đa ${approvable.map((t) => amountText(t.maxApproval, n.asset(t.token))).join(", ")}, luôn cần verdict và tự thu hồi sau mỗi giao dịch.`,
     );
-  else out.push("Không được cấp quyền chi tiêu (approval) cho ai.");
+  else out.push("Không được cấp quyền rút cho ai.");
   if (s.contracts.length)
     out.push(
       `Được gọi ${s.contracts
@@ -243,11 +243,11 @@ export function summarizePermissions(s: PolicySpec, n: Naming): string[] {
           "; ",
         )}. Giao dịch có gọi contract, hoặc chuyển tiền vào contract đó, mà làm vault chi tiền thì luôn cần verdict.`,
     );
-  else out.push("Không được gọi contract nào khác.");
+  else out.push("Không được dùng ứng dụng nào khác.");
   out.push(
     s.maxRisk === 0
-      ? "Chỉ chấp nhận verdict rủi ro THẤP."
-      : `Chấp nhận verdict rủi ro đến ${RISK_WORD[s.maxRisk]}.`,
+      ? "Chỉ chấp nhận giao dịch rủi ro thấp."
+      : `Chấp nhận giao dịch rủi ro đến ${RISK_WORD[s.maxRisk]}.`,
   );
   return out;
 }
@@ -259,26 +259,26 @@ export function specWarnings(s: PolicySpec, n: Naming): string[] {
     const m = n.asset(t.token);
     if (BigInt(t.dailyCap) > 0n && BigInt(t.verdictThreshold) >= BigInt(t.dailyCap))
       w.push(
-        `${m.symbol}: ngưỡng cần verdict không nhỏ hơn hạn mức, nên mọi khoản chi hợp lệ đều không cần Guardian ký.`,
+        `${m.symbol}: ngưỡng cần Guardian duyệt không nhỏ hơn hạn mức, nên mọi khoản chi hợp lệ đều không cần duyệt.`,
       );
     if (BigInt(t.maxApproval) > 0n && !s.spenders.length)
       w.push(`${m.symbol}: có hạn mức cấp quyền nhưng chưa chọn bên nhận quyền nào.`);
   }
   if (BigInt(s.native.dailyCap) > 0n && BigInt(s.native.verdictThreshold) >= BigInt(s.native.dailyCap))
-    w.push("AVAX: ngưỡng cần verdict không nhỏ hơn hạn mức.");
+    w.push("AVAX: ngưỡng cần Guardian duyệt không nhỏ hơn hạn mức.");
   // One on-chain list for recipients and spenders. A spender that is also an allowed contract can only be
   // paid with a verdict (AgentVault, review R3); any other spender is a plain recipient too.
   const inContracts = (a: Address) => contractAddresses(s).some((c) => c.toLowerCase() === a.toLowerCase());
   const both = s.spenders.filter((a) => !s.recipients.includes(a) && !inContracts(a));
   if (both.length)
     w.push(
-      `Trên vault hiện tại, bên nhận quyền dùng chung danh sách với người nhận: ${people(both, n)} cũng nhận được chuyển khoản trực tiếp.`,
+      `Trên két hiện tại, bên nhận quyền dùng chung danh sách với người nhận: ${people(both, n)} cũng nhận được chuyển khoản trực tiếp.`,
     );
   if (s.maxRisk > 0)
-    w.push(`Agent có thể chạy giao dịch Guardian chấm rủi ro ${RISK_WORD[s.maxRisk]} nếu có verdict.`);
+    w.push(`Agent có thể chạy giao dịch Guardian chấm rủi ro ${RISK_WORD[s.maxRisk]} nếu Guardian đã duyệt.`);
   if (s.contracts.length)
     w.push(
-      "Gọi contract: số dư thực giảm sau giao dịch vẫn bị tính vào hạn mức ngày, và mọi khoản chi trong giao dịch đó đều cần verdict, không áp dụng ngưỡng.",
+      "Dùng ứng dụng: số dư thực giảm sau giao dịch vẫn bị tính vào hạn mức ngày, và mọi khoản chi trong giao dịch đó đều cần Guardian duyệt, không áp dụng ngưỡng.",
     );
   return w;
 }
@@ -320,14 +320,14 @@ export function evaluate(s: PolicySpec, sc: Scenario, n: Naming): Outcome {
     return finish(
       "Chữ ký",
       "allowed",
-      "Không cần nếu lời gọi không làm vault chi tiền. Có chi, dù nhỏ, thì luôn cần Guardian ký.",
+      "Không cần nếu lời gọi không làm két chi tiền. Có chi, dù nhỏ, thì luôn cần Guardian duyệt.",
     );
   }
   if (sc.kind === "approve") {
     const t = s.tokens.find((x) => x.token.toLowerCase() === sc.token.toLowerCase());
     const m = n.asset(sc.token);
     if (!t) return finish("Tài sản", "blocked", `${m.symbol} chưa được bật.`);
-    if (sc.amount === 0n) return finish("Thu hồi quyền", "allowed", "Đưa approval về 0.");
+    if (sc.amount === 0n) return finish("Thu hồi quyền", "allowed", "Đưa quyền rút về 0.");
     if (!has(allowedRecipients, sc.spender))
       return finish("Bên nhận quyền", "blocked", `${who(sc.spender, n)} ngoài danh sách.`);
     checks.push({ label: "Bên nhận quyền", status: "allowed", detail: who(sc.spender, n) });
@@ -360,7 +360,7 @@ export function evaluate(s: PolicySpec, sc: Scenario, n: Naming): Outcome {
     return finish(
       "Chữ ký",
       "needs_verdict",
-      `${who(sc.to, n)} là contract được phép gọi: mọi khoản chuyển vào đó cần Guardian ký. Rủi ro tối đa ${RISK_WORD[s.maxRisk]}.`,
+      `${who(sc.to, n)} là ứng dụng được phép dùng: mọi khoản chuyển vào đó cần Guardian duyệt. Rủi ro tối đa ${RISK_WORD[s.maxRisk]}.`,
     );
   const threshold = amountText(rule.verdictThreshold, m);
   if (sc.amount > BigInt(rule.verdictThreshold))
@@ -409,7 +409,7 @@ export function exampleScenarios(s: PolicySpec): { label: string; scenario: Scen
   }
   if (approval && to)
     out.push({
-      label: "Cấp approval",
+      label: "Cấp quyền rút",
       scenario: {
         kind: "approve",
         token: approval.token,
@@ -419,7 +419,7 @@ export function exampleScenarios(s: PolicySpec): { label: string; scenario: Scen
     });
   if (contract && selector)
     out.push({
-      label: "Gọi contract",
+      label: "Dùng ứng dụng",
       scenario: { kind: "call", contract: contract.address, selector },
     });
   return out;
@@ -503,7 +503,7 @@ export function planChanges(s: PolicySpec, c: OnChainPolicy, agent: Address, n: 
       revoke.push({
         kind: "allow_target",
         params: { address: t.target, allowed: false },
-        reason: `Gỡ contract ${who(t.target, n)}`,
+        reason: `Gỡ ứng dụng ${who(t.target, n)}`,
       });
   }
   for (const want of s.contracts) {
@@ -531,7 +531,7 @@ export function planChanges(s: PolicySpec, c: OnChainPolicy, agent: Address, n: 
     revoke.push({
       kind: "token_policy",
       params: { token: t.token, tracked: true, dailyCap: "0", maxApproval: "0", verdictThreshold: "0" },
-      reason: `Khoá ${n.asset(t.token).symbol}: không có trong policy nên hạn mức về 0`,
+      reason: `Khoá ${n.asset(t.token).symbol}: không có trong bộ quy tắc nên hạn mức về 0`,
     });
   }
   for (const t of s.tokens) {
@@ -548,7 +548,7 @@ export function planChanges(s: PolicySpec, c: OnChainPolicy, agent: Address, n: 
     (lowers ? revoke : limits).push({
       kind: "token_policy",
       params: { token: t.token, tracked: true, ...pick(t) },
-      reason: `${m.symbol}: ${amountText(t.dailyCap, m)}/ngày, cấp quyền tối đa ${amountText(t.maxApproval, m)}, verdict từ ${amountText(t.verdictThreshold, m)}`,
+      reason: `${m.symbol}: ${amountText(t.dailyCap, m)}/ngày, cấp quyền tối đa ${amountText(t.maxApproval, m)}, cần Guardian duyệt từ ${amountText(t.verdictThreshold, m)}`,
     });
   }
   const tracked = new Set([
@@ -557,7 +557,7 @@ export function planChanges(s: PolicySpec, c: OnChainPolicy, agent: Address, n: 
   ]);
   if (tracked.size > POLICY_LIMITS.tokens)
     blockers.push(
-      `Vault theo dõi tối đa ${POLICY_LIMITS.tokens} token; policy và vault cộng lại vượt mức này.`,
+      `Két theo dõi tối đa ${POLICY_LIMITS.tokens} token; bộ quy tắc và két cộng lại vượt mức này.`,
     );
   if (
     c.nativeDailyCap !== BigInt(s.native.dailyCap) ||
@@ -566,7 +566,7 @@ export function planChanges(s: PolicySpec, c: OnChainPolicy, agent: Address, n: 
     (BigInt(s.native.dailyCap) <= c.nativeDailyCap ? revoke : limits).push({
       kind: "native_policy",
       params: { ...s.native },
-      reason: `AVAX: ${amountText(s.native.dailyCap, NATIVE_META)}/ngày, verdict từ ${amountText(s.native.verdictThreshold, NATIVE_META)}`,
+      reason: `AVAX: ${amountText(s.native.dailyCap, NATIVE_META)}/ngày, cần Guardian duyệt từ ${amountText(s.native.verdictThreshold, NATIVE_META)}`,
     });
   if (c.maxAgentRisk !== s.maxRisk)
     (s.maxRisk < c.maxAgentRisk ? revoke : limits).push({
@@ -580,16 +580,16 @@ export function planChanges(s: PolicySpec, c: OnChainPolicy, agent: Address, n: 
     changes.push({
       kind: "set_agent",
       params: { agent },
-      reason: `Đặt ${who(agent, n)} làm agent của vault`,
+      reason: `Đặt ${who(agent, n)} làm agent của két`,
     });
     if (c.agent !== zeroAddress)
-      notes.push(`Vault chỉ có một agent: agent hiện tại (${who(c.agent, n)}) sẽ mất quyền thực thi.`);
+      notes.push(`Két chỉ có một agent: agent hiện tại (${who(c.agent, n)}) sẽ mất quyền thực thi.`);
   }
   if (c.guardian === zeroAddress)
-    blockers.push("Vault chưa có Guardian: không giao dịch nào cần verdict chạy được.");
+    blockers.push("Két chưa có Guardian: không giao dịch nào cần duyệt chạy được.");
   if (c.paused)
-    notes.push("Vault đang tạm dừng: policy có hiệu lực nhưng agent chưa chạy được cho tới khi mở lại.");
-  notes.push("Đổi policy không xoá khoản đã chi hôm nay: bộ đếm theo ngày UTC của vault giữ nguyên.");
+    notes.push("Két đang khoá: bộ quy tắc có hiệu lực nhưng agent chưa chạy được cho tới khi mở khoá.");
+  notes.push("Đổi bộ quy tắc không xoá khoản đã chi hôm nay: bộ đếm theo ngày (UTC) của két giữ nguyên.");
   return { changes, blockers, notes };
 }
 

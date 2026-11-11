@@ -1,276 +1,206 @@
 "use client";
-// Cảnh báo tab: alert rules and the notifications they produced (rules are evaluated on each refresh).
+// Alert settings of a linked vault: the rules that create notifications (checked on each refresh). The
+// notifications themselves are in the top bar's bell.
+import { Plus, TrashBin } from "@gravity-ui/icons";
 import { Button } from "@heroui/react/button";
+import { Description } from "@heroui/react/description";
+import { Label } from "@heroui/react/label";
+import { NumberField } from "@heroui/react/number-field";
+import { Switch } from "@heroui/react/switch";
+import { toast } from "@heroui/react/toast";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { RULE_IDS } from "@guardian402/shared";
+import { errorOf } from "@/components/form";
+import { EditModal } from "@/components/edit-modal";
+import { SelectField, TextInput, useConfirm } from "@/components/fields";
+import { Card, Empty, ErrorBox, LoadingRows } from "@/components/ui";
 import { ruleLabel } from "@/lib/labels";
-import { formatTime } from "@/lib/format";
-import { Card, Empty, ErrorBox, Loading } from "@/components/ui";
-import { ConfirmInline, Field, FormError, INPUT, Pill, errorOf } from "@/components/form";
-import { useAlertRules, useInvalidate, useNotifications, wsApi, type AlertRule } from "@/lib/workspace";
+import { useAlertRules, useInvalidate, wsApi, type AlertRule } from "@/lib/workspace";
 
 const describeRule = (r: AlertRule) =>
   r.kind === "risk"
-    ? `Khi Guardian chấm rủi ro từ ${r.minRisk === "HIGH" ? "CAO" : "TRUNG BÌNH"} trở lên`
+    ? `Khi Guardian chấm rủi ro ${r.minRisk === "HIGH" ? "cao" : "từ trung bình trở lên"}`
     : r.kind === "rule"
-      ? `Khi luật “${ruleLabel(r.ruleId ?? "")}” kích hoạt`
-      : `Khi đã dùng từ ${r.capPercent}% hạn mức USDC trong ngày`;
+      ? `Khi có lý do “${ruleLabel(r.ruleId ?? "")}”`
+      : `Khi agent đã tiêu từ ${r.capPercent}% hạn mức USDC trong ngày`;
 
-export function AlertsTab({ vault }: { vault: string }) {
-  const n = useNotifications(vault);
-  const invalidate = useInvalidate(vault);
-  const readAll = useMutation({
-    mutationFn: () => wsApi(vault, "notifications/read", "POST", { all: true }),
-    onSuccess: () => invalidate("notifications"),
-  });
-  const readOne = useMutation({
-    mutationFn: (id: number) => wsApi(vault, "notifications/read", "POST", { ids: [id] }),
-    onSuccess: () => invalidate("notifications"),
-  });
-  return (
-    <div className="flex flex-col gap-6">
-      <Card
-        title="Thông báo"
-        actions={
-          n.data?.unread ? (
-            <Button
-              variant="secondary"
-              type="button"
-              isDisabled={readAll.isPending}
-              onPress={() => readAll.mutate()}
-            >
-              Đánh dấu đã đọc tất cả
-            </Button>
-          ) : null
-        }
-      >
-        {n.isPending ? (
-          <Loading label="Đang đối chiếu các lần kiểm tra của Guardian và hạn mức trên chain…" />
-        ) : n.isError ? (
-          <ErrorBox
-            title="Không đọc được thông báo"
-            detail={errorOf(n.error)}
-            onRetry={() => void n.refetch()}
-          />
-        ) : (
-          <>
-            {!n.data.sync.guardian || !n.data.sync.chain ? (
-              <p role="status" className="rounded-lg bg-medium-bg p-3 text-sm text-medium">
-                Lần làm mới này chưa đọc được {!n.data.sync.guardian ? "Guardian API" : ""}
-                {!n.data.sync.guardian && !n.data.sync.chain ? " và " : ""}
-                {!n.data.sync.chain ? "chain" : ""}; thông báo cũ vẫn hiển thị, cảnh báo mới sẽ có khi kết nối
-                lại.
-              </p>
-            ) : null}
-            {n.data.notifications.length === 0 ? (
-              <Empty>Chưa có thông báo. Thông báo xuất hiện khi một cảnh báo bên dưới khớp.</Empty>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {n.data.notifications.map((x) => (
-                  <li
-                    key={x.id}
-                    className={`flex flex-wrap items-start justify-between gap-3 rounded-[18px] p-4 ${x.readAt ? "bg-surface-2" : "bg-medium-bg"}`}
-                  >
-                    <div className="flex min-w-0 flex-col gap-1">
-                      <span className="font-semibold">
-                        {x.readAt ? null : <span className="sr-only">Chưa đọc: </span>}
-                        {x.title}
-                      </span>
-                      <span className="text-sm break-words text-muted">{x.body}</span>
-                      <span className="text-xs text-muted tabular-nums">{formatTime(x.createdAt)}</span>
-                    </div>
-                    {x.readAt ? (
-                      <Pill>Đã đọc</Pill>
-                    ) : (
-                      <Button variant="secondary" type="button" onPress={() => readOne.mutate(x.id)}>
-                        Đã đọc
-                      </Button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-        <FormError error={readAll.error ?? readOne.error} />
-      </Card>
-      <Rules vault={vault} />
-    </div>
-  );
-}
-
-function Rules({ vault }: { vault: string }) {
+export function AlertSettings({ vault }: { vault: string }) {
   const q = useAlertRules(vault);
   const invalidate = useInvalidate(vault);
-  const [confirm, setConfirm] = useState<number | null>(null);
+  const confirm = useConfirm();
+  const [adding, setAdding] = useState(false);
   const toggle = useMutation({
     mutationFn: (r: AlertRule) => wsApi(vault, `alert-rules/${r.id}`, "PATCH", { enabled: !r.enabled }),
-    onSuccess: () => invalidate("rules"),
-  });
-  const remove = useMutation({
-    mutationFn: (id: number) => wsApi(vault, `alert-rules/${id}`, "DELETE"),
-    onSuccess: () => {
-      setConfirm(null);
+    onSuccess: (_d, r) => {
       void invalidate("rules");
+      toast(r.enabled ? `Đã tắt “${r.name}”` : `Đã bật “${r.name}”`);
     },
+    onError: (e) => toast.danger("Chưa đổi được cảnh báo", { description: errorOf(e) }),
   });
   return (
-    <>
-      <Card title="Cảnh báo">
-        {q.isPending ? (
-          <Loading />
-        ) : q.isError ? (
-          <ErrorBox
-            title="Không đọc được cảnh báo"
-            detail={errorOf(q.error)}
-            onRetry={() => void q.refetch()}
-          />
-        ) : q.data.rules.length === 0 ? (
-          <Empty>Chưa có cảnh báo nào.</Empty>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {q.data.rules.map((r) => (
-              <li key={r.id} className="flex flex-col gap-2 rounded-[18px] bg-surface-2 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold">{r.name}</span>
-                  {r.enabled ? <Pill tone="ok">Đang bật</Pill> : <Pill>Đang tắt</Pill>}
-                </div>
-                <p className="text-sm text-muted">{describeRule(r)}</p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    type="button"
-                    isDisabled={toggle.isPending}
-                    onPress={() => toggle.mutate(r)}
-                  >
-                    {r.enabled ? "Tắt" : "Bật"}
-                  </Button>
-                  {confirm === r.id ? (
-                    <ConfirmInline
-                      text="Xoá cảnh báo này?"
-                      confirmLabel="Xoá"
-                      pending={remove.isPending}
-                      onConfirm={() => remove.mutate(r.id)}
-                      onCancel={() => setConfirm(null)}
-                    />
-                  ) : (
-                    <Button variant="secondary" type="button" onPress={() => setConfirm(r.id)}>
-                      Xoá
-                    </Button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-        <FormError error={toggle.error ?? remove.error} />
-      </Card>
-      <AddRule vault={vault} onAdded={() => invalidate("rules", "notifications")} />
-    </>
+    <Card
+      title="Cảnh báo"
+      description="Khi nào dashboard báo cho bạn ở biểu tượng chuông"
+      actions={
+        <Button size="sm" variant="secondary" onPress={() => setAdding(true)}>
+          <Plus aria-hidden="true" />
+          Thêm cảnh báo
+        </Button>
+      }
+    >
+      {q.isPending ? (
+        <LoadingRows rows={2} />
+      ) : q.isError ? (
+        <ErrorBox
+          title="Không đọc được cảnh báo"
+          detail={errorOf(q.error)}
+          onRetry={() => void q.refetch()}
+        />
+      ) : q.data.rules.length === 0 ? (
+        <Empty>Chưa có cảnh báo nào.</Empty>
+      ) : (
+        <ul className="flex flex-col divide-y divide-separator">
+          {q.data.rules.map((r) => (
+            <li
+              key={r.id}
+              className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+            >
+              <Switch
+                isSelected={r.enabled}
+                isDisabled={toggle.isPending}
+                onChange={() => toggle.mutate(r)}
+                className="min-w-0"
+              >
+                <Switch.Control>
+                  <Switch.Thumb />
+                </Switch.Control>
+                <Switch.Content>
+                  <Label>{r.name}</Label>
+                  <Description>{describeRule(r)}</Description>
+                </Switch.Content>
+              </Switch>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                aria-label={`Xoá cảnh báo ${r.name}`}
+                onPress={() =>
+                  confirm.ask({
+                    title: `Xoá cảnh báo “${r.name}”?`,
+                    body: "Thông báo cũ vẫn giữ; cảnh báo này sẽ không báo nữa.",
+                    confirmLabel: "Xoá cảnh báo",
+                    onConfirm: async () => {
+                      await wsApi(vault, `alert-rules/${r.id}`, "DELETE");
+                      await invalidate("rules");
+                      toast(`Đã xoá “${r.name}”`);
+                    },
+                  })
+                }
+              >
+                <TrashBin aria-hidden="true" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <AddRule
+        vault={vault}
+        isOpen={adding}
+        onOpenChange={setAdding}
+        onAdded={() => invalidate("rules", "notifications")}
+      />
+      {confirm.dialog}
+    </Card>
   );
 }
 
-function AddRule({ vault, onAdded }: { vault: string; onAdded: () => void }) {
+function AddRule({
+  vault,
+  isOpen,
+  onOpenChange,
+  onAdded,
+}: {
+  vault: string;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAdded: () => void;
+}) {
   const [kind, setKind] = useState<AlertRule["kind"]>("risk");
   const [name, setName] = useState("Rủi ro cao");
   const [minRisk, setMinRisk] = useState<"MEDIUM" | "HIGH">("HIGH");
   const [ruleId, setRuleId] = useState<string>(RULE_IDS[0] ?? "");
-  const [capPercent, setCapPercent] = useState("80");
+  const [capPercent, setCapPercent] = useState(80);
   const add = useMutation({
     mutationFn: () =>
       wsApi(vault, "alert-rules", "POST", {
         name,
         kind,
-        ...(kind === "risk"
-          ? { minRisk }
-          : kind === "rule"
-            ? { ruleId }
-            : { capPercent: Number(capPercent) }),
+        ...(kind === "risk" ? { minRisk } : kind === "rule" ? { ruleId } : { capPercent }),
       }),
-    onSuccess: onAdded,
+    onSuccess: () => {
+      onAdded();
+      onOpenChange(false);
+      toast.success(`Đã thêm cảnh báo “${name}”`, {
+        description: "Áp dụng cho các lần kiểm tra từ bây giờ.",
+      });
+    },
   });
   return (
-    <Card title="Thêm cảnh báo">
-      <p className="text-sm text-muted">
-        Cảnh báo chỉ xét các lần kiểm tra tạo sau khi bạn thêm nó, và mỗi lần kiểm tra (hoặc mỗi ngày với hạn
-        mức) chỉ báo một lần.
-      </p>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          add.mutate();
-        }}
-        className="flex flex-col gap-3"
-      >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Field id="rule-name" label="Tên">
-            <input
-              id="rule-name"
-              required
-              maxLength={60}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={INPUT}
-            />
-          </Field>
-          <Field id="rule-kind" label="Khi nào báo">
-            <select
-              id="rule-kind"
-              value={kind}
-              onChange={(e) => setKind(e.target.value as AlertRule["kind"])}
-              className={INPUT}
-            >
-              <option value="risk">Theo mức rủi ro</option>
-              <option value="rule">Theo một luật cụ thể</option>
-              <option value="cap_usage">Theo % hạn mức đã dùng</option>
-            </select>
-          </Field>
-          {kind === "risk" ? (
-            <Field id="rule-risk" label="Từ mức">
-              <select
-                id="rule-risk"
-                value={minRisk}
-                onChange={(e) => setMinRisk(e.target.value as "MEDIUM" | "HIGH")}
-                className={INPUT}
-              >
-                <option value="HIGH">CAO</option>
-                <option value="MEDIUM">TRUNG BÌNH trở lên</option>
-              </select>
-            </Field>
-          ) : kind === "rule" ? (
-            <Field id="rule-id" label="Luật">
-              <select
-                id="rule-id"
-                value={ruleId}
-                onChange={(e) => setRuleId(e.target.value)}
-                className={INPUT}
-              >
-                {RULE_IDS.map((id) => (
-                  <option key={id} value={id}>
-                    {ruleLabel(id)}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          ) : (
-            <Field id="rule-cap" label="Từ (% hạn mức USDC/ngày)">
-              <input
-                id="rule-cap"
-                inputMode="numeric"
-                required
-                value={capPercent}
-                onChange={(e) => setCapPercent(e.target.value)}
-                className={INPUT}
-              />
-            </Field>
-          )}
-        </div>
-        <FormError error={add.error} />
-        <Button variant="primary" type="submit" isDisabled={add.isPending} className="self-start">
-          {add.isPending ? "Đang lưu…" : "Thêm cảnh báo"}
-        </Button>
-      </form>
-    </Card>
+    <EditModal
+      isOpen={isOpen}
+      onOpenChange={(o) => {
+        add.reset();
+        onOpenChange(o);
+      }}
+      title="Thêm cảnh báo"
+      submitLabel={add.isPending ? "Đang lưu…" : "Thêm cảnh báo"}
+      isSubmitDisabled={add.isPending || !name.trim()}
+      onSubmit={() => add.mutate()}
+    >
+      <TextInput label="Tên" value={name} onChange={setName} isRequired maxLength={60} />
+      <SelectField
+        label="Báo khi"
+        value={kind}
+        onChange={setKind}
+        options={[
+          { id: "risk", label: "Guardian chấm rủi ro cao" },
+          { id: "rule", label: "Có một lý do cụ thể" },
+          { id: "cap_usage", label: "Agent tiêu gần hết hạn mức" },
+        ]}
+      />
+      {kind === "risk" ? (
+        <SelectField
+          label="Từ mức"
+          value={minRisk}
+          onChange={setMinRisk}
+          options={[
+            { id: "HIGH", label: "Rủi ro cao" },
+            { id: "MEDIUM", label: "Từ rủi ro trung bình" },
+          ]}
+        />
+      ) : kind === "rule" ? (
+        <SelectField
+          label="Lý do"
+          value={ruleId}
+          onChange={setRuleId}
+          options={RULE_IDS.map((id) => ({ id, label: ruleLabel(id) }))}
+        />
+      ) : (
+        <NumberField value={capPercent} onChange={setCapPercent} minValue={1} maxValue={100} step={5}>
+          <Label>Từ (% hạn mức USDC mỗi ngày)</Label>
+          <NumberField.Group>
+            <NumberField.DecrementButton />
+            <NumberField.Input className="tabular-nums" />
+            <NumberField.IncrementButton />
+          </NumberField.Group>
+        </NumberField>
+      )}
+      {add.error ? (
+        <p role="alert" className="text-sm text-danger">
+          {errorOf(add.error)}
+        </p>
+      ) : null}
+    </EditModal>
   );
 }

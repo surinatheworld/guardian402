@@ -1,17 +1,34 @@
-// Vietnamese labels for risk levels, rules and vault errors. Risk is always shown with a word, not only a colour.
+// The dashboard's one vocabulary (Phase 1 audit, "Từ điển thuật ngữ"). Every screen names a thing with the words
+// here; protocol terms (verdict, batch, endpoint paths, rule ids, revert names) appear only in "Chi tiết kỹ thuật".
+// Risk is always a word plus a colour and a mark, never a colour alone.
 import type { RiskLevel, RuleId } from "@guardian402/shared";
 
-export const RISK_LABEL: Record<RiskLevel, string> = { LOW: "THẤP", MEDIUM: "TRUNG BÌNH", HIGH: "CAO" };
+/** Lower-case risk word, for use inside a sentence: "rủi ro cao". */
+export const RISK_LABEL: Record<RiskLevel, string> = { LOW: "thấp", MEDIUM: "trung bình", HIGH: "cao" };
+/** Stand-alone risk label: "Rủi ro cao". */
+export const RISK_TITLE: Record<RiskLevel, string> = {
+  LOW: "Rủi ro thấp",
+  MEDIUM: "Rủi ro trung bình",
+  HIGH: "Rủi ro cao",
+};
+export const RISK_BY_CODE = ["LOW", "MEDIUM", "HIGH"] as const;
+
+/** What the vault accepts at most (AgentVault.maxAgentRisk), as the owner reads it. */
+export const MAX_RISK_LABEL: Record<RiskLevel, string> = {
+  LOW: "Chỉ giao dịch rủi ro thấp",
+  MEDIUM: "Đến rủi ro trung bình",
+  HIGH: "Cả giao dịch rủi ro cao",
+};
 
 export const RULE_LABEL: Record<RuleId, string> = {
-  SIMULATION_FAILED: "Mô phỏng thất bại",
-  POLICY_PRECHECK: "Vi phạm chính sách vault",
-  UNLIMITED_APPROVAL: "Cấp quyền không giới hạn",
-  UNKNOWN_CONTRACT: "Hợp đồng lạ",
+  SIMULATION_FAILED: "Chạy thử thất bại",
+  POLICY_PRECHECK: "Vi phạm quy tắc của két",
+  UNLIMITED_APPROVAL: "Cấp quyền rút không giới hạn",
+  UNKNOWN_CONTRACT: "Ứng dụng lạ",
   ADDRESS_POISONING: "Địa chỉ nhái",
-  DRAIN_PATTERN: "Rút cạn số dư",
-  ABNORMAL_SLIPPAGE: "Trượt giá bất thường",
-  RECIPIENT_NOT_ALLOWLISTED: "Người nhận ngoài danh sách",
+  DRAIN_PATTERN: "Rút gần hết số dư",
+  ABNORMAL_SLIPPAGE: "Giá swap lệch bất thường",
+  RECIPIENT_NOT_ALLOWLISTED: "Người nhận ngoài danh sách tin cậy",
   UNPROTECTED_SWAP: "Swap không đặt mức nhận tối thiểu",
 };
 
@@ -19,49 +36,70 @@ export const ruleLabel = (id: string) => RULE_LABEL[id as RuleId] ?? id;
 
 /** `evidence.reason` of a POLICY_PRECHECK finding (apps/guardian/src/rules/checks.ts). */
 export const PRECHECK_REASON_LABEL: Record<string, string> = {
-  paused: "vault đang tạm dừng",
-  "no-agent": "vault chưa có agent",
-  "bad-batch": "lô lệnh phải có từ 1 tới 8 lệnh",
-  "target-not-allowed": "hợp đồng đích không được phép",
-  "selector-not-allowed": "hàm không được phép",
+  paused: "két đang khoá",
+  "no-agent": "két chưa có agent",
+  "bad-batch": "giao dịch phải có từ 1 tới 8 bước",
+  "target-not-allowed": "ứng dụng không được phép",
+  "selector-not-allowed": "thao tác không được phép trên ứng dụng này",
   "value-target-not-allowed": "không được gửi AVAX tới địa chỉ này",
-  "recipient-not-allowed": "người nhận không được phép",
-  "spender-not-allowed": "bên được cấp quyền không được phép",
-  "approval-too-large": "cấp quyền vượt mức cho phép",
-  "daily-cap-exceeded": "vượt hạn mức trong ngày",
+  "recipient-not-allowed": "người nhận không nằm trong danh sách tin cậy",
+  "spender-not-allowed": "bên được cấp quyền rút không được phép",
+  "approval-too-large": "quyền rút vượt mức cho phép",
+  "daily-cap-exceeded": "vượt hạn mức mỗi ngày",
 };
 
 const REVERT_LABEL: Record<string, string> = {
-  RecipientNotAllowed: "người nhận không được phép",
-  TargetNotAllowed: "hợp đồng đích không được phép",
-  SelectorNotAllowed: "hàm không được phép",
-  RiskTooHigh: "rủi ro vượt mức cho phép",
-  InvalidVerdict: "verdict không khớp với lệnh",
-  VerdictExpired: "verdict đã hết hạn",
-  VerdictRequired: "thiếu verdict của Guardian",
-  BadSignature: "chữ ký verdict sai",
-  DailyCapExceeded: "vượt hạn mức trong ngày",
-  ApprovalTooLarge: "cấp quyền vượt mức cho phép",
-  NotAgent: "ví gửi không phải agent của vault",
-  CallFailed: "một lệnh trong batch thất bại",
-  Paused: "vault đang tạm dừng",
+  RecipientNotAllowed: "người nhận không nằm trong danh sách tin cậy",
+  TargetNotAllowed: "ứng dụng không được phép",
+  SelectorNotAllowed: "thao tác không được phép",
+  RiskTooHigh: "rủi ro vượt mức két chấp nhận",
+  InvalidVerdict: "phê duyệt của Guardian không khớp với giao dịch",
+  VerdictExpired: "phê duyệt của Guardian đã hết hạn",
+  VerdictRequired: "thiếu phê duyệt của Guardian",
+  BadSignature: "chữ ký phê duyệt sai",
+  DailyCapExceeded: "vượt hạn mức mỗi ngày",
+  ApprovalTooLarge: "quyền rút vượt mức cho phép",
+  NotAgent: "ví gửi không phải agent của két",
+  CallFailed: "một bước trong giao dịch thất bại",
+  Paused: "két đang khoá",
 };
 
+/** Why the vault reverted, in words. The raw error name stays in the technical details. */
 export const revertLabel = (name: string | undefined) =>
-  name ? (REVERT_LABEL[name] ? `${REVERT_LABEL[name]} (${name})` : name) : "không rõ lý do";
+  name ? (REVERT_LABEL[name] ?? name) : "không rõ lý do";
 
+/** Guardian endpoints by what they do for the owner (the paths are technical details). */
 export const ENDPOINT_LABEL: Record<string, string> = {
+  check: "Kiểm tra",
+  cosign: "Kiểm tra và duyệt",
+  demo: "Chạy thử",
+};
+export const ENDPOINT_PATH: Record<string, string> = {
   check: "/v1/check",
   cosign: "/v1/cosign",
   demo: "/v1/demo/check",
 };
 
-export const SCENARIO_LABEL: Record<string, string> = {
-  S0: "S0 · Chuyển 1.5 USDC an toàn",
-  S1: "S1 · Swap bình thường",
-  S2: "S2 · Rút cạn về ví kẻ tấn công",
-  S3: "S3 · Cấp quyền cho địa chỉ nhái",
-  S4: "S4 · Swap trượt giá",
-  S5: "S5 · Dùng lại verdict",
-  S6: "S6 · Chủ ví tạm dừng vault",
+/** Names of the dashboard's five destinations, also used for page titles. */
+export const PAGE = {
+  home: "Tổng quan",
+  activity: "Hoạt động",
+  trial: "Chạy thử",
+  rules: "Quy tắc chi tiêu",
+  agents: "Agent",
+  account: "Tài khoản",
+  about: "Về Guardian",
+} as const;
+
+/** Display names of the DEMO deployment (MockRouter, mWAVAX) in the owner's words. */
+export const DEMO_NAME = {
+  router: "Sàn swap thử nghiệm",
+  oracle: "Bảng giá thử nghiệm",
+  wavax: "WAVAX thử nghiệm",
+} as const;
+
+/** A finding in words; a vault-rule finding names the rule it breaks ("… : vượt hạn mức mỗi ngày"). */
+export const findingLabel = (f: { ruleId: string; evidence: Record<string, unknown> }) => {
+  const reason = f.ruleId === "POLICY_PRECHECK" ? String(f.evidence.reason ?? "") : "";
+  return reason ? `${ruleLabel(f.ruleId)}: ${PRECHECK_REASON_LABEL[reason] ?? reason}` : ruleLabel(f.ruleId);
 };

@@ -17,35 +17,35 @@ import { assetRows, NATIVE_ASSET, units, type AssetRow } from "./policy-form";
 
 const ACTIONS = [
   { id: "transfer", label: "Chuyển tiền" },
-  { id: "approve", label: "Cấp approval" },
-  { id: "call", label: "Gọi contract" },
+  { id: "approve", label: "Cấp quyền rút" },
+  { id: "call", label: "Dùng ứng dụng" },
 ];
 
 const OUTCOME = {
   allowed: { label: "Qua quy tắc đã xét", tone: "ok" },
-  needs_verdict: { label: "Cần Guardian ký", tone: "warn" },
+  needs_verdict: { label: "Cần Guardian duyệt", tone: "warn" },
   blocked: { label: "Bị chặn", tone: "high" },
 } as const;
 
-const CHECK_LABEL = { allowed: "Đạt", needs_verdict: "Cần ký", blocked: "Không đạt" };
+const CHECK_LABEL = { allowed: "Đạt", needs_verdict: "Cần duyệt", blocked: "Không đạt" };
 
 function OutcomeView({ title, caption, outcome }: { title: string; caption?: string; outcome: Outcome }) {
   const { tone, label } = OUTCOME[outcome.result];
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-xl bg-surface-2 p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-xl bg-surface-secondary p-4">
       <div className="flex flex-wrap items-start justify-between gap-2 @min-[28rem]:min-h-11">
         <div className="min-w-0">
-          <h4 className="text-sm font-bold">{title}</h4>
+          <h4 className="text-sm font-semibold">{title}</h4>
           {caption ? <p className="mt-1 text-xs text-muted wrap-anywhere">{caption}</p> : null}
         </div>
         <Pill tone={tone}>{label}</Pill>
       </div>
-      <ol className="divide-y divide-line border-t border-line">
+      <ol className="divide-y divide-separator border-t border-border">
         {outcome.checks.map((check) => (
           <li key={check.label} className="flex flex-wrap justify-between gap-x-2 gap-y-1 py-2.5 last:pb-0">
             <p className="text-sm font-semibold">{check.label}</p>
             <p
-              className={`text-xs font-semibold ${check.status === "blocked" ? "text-high" : check.status === "needs_verdict" ? "text-medium" : "text-muted"}`}
+              className={`text-xs font-semibold ${check.status === "blocked" ? "text-danger" : check.status === "needs_verdict" ? "text-warning-soft-foreground" : "text-muted"}`}
             >
               {CHECK_LABEL[check.status]}
             </p>
@@ -128,7 +128,7 @@ function ScenarioSummary({
   const name = (address: Address) => names.name(address) ?? shortHex(address);
   if (scenario.kind === "call") {
     return (
-      <p className="text-lg font-bold wrap-anywhere">
+      <p className="text-lg font-semibold wrap-anywhere">
         Gọi {names.fn?.(scenario.contract, scenario.selector) ?? scenario.selector} trên{" "}
         {name(scenario.contract)}
       </p>
@@ -137,19 +137,19 @@ function ScenarioSummary({
   const amount = formatUnits(scenario.amount, row.decimals);
   if (scenario.kind === "approve") {
     return (
-      <p className="text-lg font-bold tabular-nums wrap-anywhere">
+      <p className="text-lg font-semibold tabular-nums wrap-anywhere">
         Cấp quyền {amount} {row.symbol} cho {name(scenario.spender)}
       </p>
     );
   }
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-lg font-bold tabular-nums wrap-anywhere">
+      <p className="text-lg font-semibold tabular-nums wrap-anywhere">
         Chuyển {amount} {row.symbol} cho {name(scenario.to)}
       </p>
-      <dl className="grid grid-cols-3 gap-2 border-t border-line pt-3">
+      <dl className="grid grid-cols-3 gap-2 border-t border-border pt-3">
         <div className="min-w-0">
-          <dt className="text-xs text-muted">{liveSpent ? "Đã chi từ vault" : "Đã chi giả định"}</dt>
+          <dt className="text-xs text-muted">{liveSpent ? "Đã chi từ két" : "Đã chi giả định"}</dt>
           <dd className="font-semibold tabular-nums wrap-anywhere">
             {formatUnits(scenario.spentToday, row.decimals)}
           </dd>
@@ -160,7 +160,7 @@ function ScenarioSummary({
         </div>
         <div className="min-w-0">
           <dt className="text-xs text-muted">Tổng dự kiến</dt>
-          <dd className="font-bold tabular-nums wrap-anywhere">
+          <dd className="font-semibold tabular-nums wrap-anywhere">
             {formatUnits(scenario.spentToday + scenario.amount, row.decimals)} {row.symbol}
           </dd>
         </div>
@@ -236,8 +236,12 @@ export function PolicyPreview({
   return (
     <section aria-labelledby="wizard-preview-title" className="@container flex flex-col gap-4">
       <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h3 id="wizard-preview-title" tabIndex={-1} className="scroll-mt-5 text-base font-bold outline-none">
-          Phòng thử policy
+        <h3
+          id="wizard-preview-title"
+          tabIndex={-1}
+          className="scroll-mt-5 text-base font-semibold outline-none"
+        >
+          Thử bộ quy tắc
         </h3>
         <p className="text-xs text-muted">Đối chiếu cấu hình · Chưa mô phỏng trên fork</p>
       </header>
@@ -251,7 +255,7 @@ export function PolicyPreview({
                 type="button"
                 variant="secondary"
                 aria-pressed={isPicked}
-                className={`min-h-[42px] border ${isPicked ? "border-accent text-fg" : "border-transparent text-muted"}`}
+                className={` border ${isPicked ? "border-accent text-foreground" : "border-transparent text-muted"}`}
                 onPress={() => {
                   setInput(inputsFor(sample, rows));
                   setEditing(false);
@@ -264,7 +268,7 @@ export function PolicyPreview({
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 rounded-xl border border-line p-4">
+      <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
         {scenario ? (
           <ScenarioSummary scenario={scenario} row={row} names={names} liveSpent={liveSpent} />
         ) : (
@@ -281,7 +285,7 @@ export function PolicyPreview({
           {editing ? "Ẩn thông số" : "Chỉnh thông số"}
         </Button>
         <div id="policy-trial-inputs" hidden={!editing}>
-          <div className="grid gap-3 border-t border-line pt-3 @min-[28rem]:grid-cols-2">
+          <div className="grid gap-3 border-t border-border pt-3 @min-[28rem]:grid-cols-2">
             <PolicySelect
               label="Hành động"
               value={input.action}
@@ -311,8 +315,8 @@ export function PolicyPreview({
                   input.action === "transfer"
                     ? "Người nhận"
                     : input.action === "approve"
-                      ? "Bên nhận approval"
-                      : "Địa chỉ contract"
+                      ? "Bên nhận quyền rút"
+                      : "Địa chỉ ứng dụng"
                 }
                 list="preview-contacts"
                 placeholder="0x…"
@@ -352,7 +356,7 @@ export function PolicyPreview({
                   label="Đã chi hôm nay"
                   inputMode="decimal"
                   value={spent}
-                  hint={liveSpent ? "Số đọc từ vault trong ngày UTC." : "Số giả định cho tình huống thử."}
+                  hint={liveSpent ? "Số đọc từ két trong ngày (UTC)." : "Số giả định cho tình huống thử."}
                   onChange={(e) => change({ spent: e.target.value })}
                 />
                 {input.spent !== undefined && onChainSpent !== undefined ? (
@@ -362,7 +366,7 @@ export function PolicyPreview({
                     className="self-start px-0"
                     onPress={() => change({ spent: undefined })}
                   >
-                    Dùng số từ vault
+                    Dùng số thật của két
                   </Button>
                 ) : null}
               </div>
@@ -393,7 +397,7 @@ export function PolicyPreview({
         </div>
       ) : null}
       {draft && !current && !candidateIsEffective ? (
-        <p className="text-xs text-muted">Chưa có policy hiệu lực để so sánh.</p>
+        <p className="text-xs text-muted">Chưa có bộ quy tắc đang áp dụng để so sánh.</p>
       ) : null}
       {draft && scenario?.kind === "call" ? (
         <p className="text-xs text-muted">

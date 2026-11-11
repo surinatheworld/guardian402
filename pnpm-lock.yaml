@@ -88,6 +88,9 @@ importers:
 
   apps/dashboard:
     dependencies:
+      '@gravity-ui/icons':
+        specifier: 2.23.0
+        version: 2.23.0(react@19.2.9)
       '@guardian402/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -469,6 +472,14 @@ packages:
   '@eslint/plugin-kit@0.7.3':
     resolution: {integrity: sha512-IkO+/KEUvwbVpiURZg+P7zF74z5Jxe0UgJxVni+RtoHQ6IZieXaO02kmadomap/q+l6bc/jdPGGqTjhuZnuz1Q==}
     engines: {node: ^20.19.0 || ^22.13.0 || >=24}
+
+  '@gravity-ui/icons@2.23.0':
+    resolution: {integrity: sha512-xy/upFefm889FJkfQ2/4QRH6t4Xdv1VVdtv7hRznGqz3bJsS+h2IHDctABbjjHC5qO032NWWul4wQ0c2vShE5A==}
+    peerDependencies:
+      react: '*'
+    peerDependenciesMeta:
+      react:
+        optional: true
 
   '@heroui/react@3.2.7':
     resolution: {integrity: sha512-cFYqzjgkuni+UD8mKOzbUloi99DCFEt1bE7YLE/3/RpahdRsjzp10zjbNgDn7CJC0oES2AX81Siu/EeLk7bsVg==}
@@ -2931,6 +2942,12 @@ snapshots:
     dependencies:
       '@eslint/core': 1.2.1
       levn: 0.4.1
+
+  '@gravity-ui/icons@2.23.0(react@19.2.9)':
+    dependencies:
+      tslib: 2.9.1
+    optionalDependencies:
+      react: 19.2.9
 
   '@heroui/react@3.2.7(@internationalized/date@3.12.4)(@react-aria/ssr@3.10.1(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(@react-aria/utils@3.34.1(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(@react-spectrum/provider@3.11.1(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(@types/react-dom@19.2.7(@types/react@19.2.18))(@types/react@19.2.18)(react-aria-components@1.22.1(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react-aria@3.53.1(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(tailwindcss@4.3.3)':
     dependencies:

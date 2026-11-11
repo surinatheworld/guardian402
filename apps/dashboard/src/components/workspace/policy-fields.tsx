@@ -1,3 +1,5 @@
+"use client";
+// Fields of the rule-set builder, as HeroUI parts with their own styles.
 import { Checkbox } from "@heroui/react/checkbox";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
@@ -19,7 +21,7 @@ export function PolicyInput({
         {...props}
         id={id}
         aria-describedby={hint ? `${id}-hint` : undefined}
-        className={`min-h-[42px] w-full border border-line bg-surface text-sm ${className}`}
+        className={`w-full ${className}`}
       />
       {hint ? (
         <span id={`${id}-hint`} className="text-xs text-muted">
@@ -53,15 +55,15 @@ export function PolicySelect({
       value={value || null}
       onChange={(key) => onChange(key === null ? "" : String(key))}
     >
-      <Label className="text-sm font-medium">{label}</Label>
-      <Select.Trigger className="min-h-[42px] border border-line bg-surface text-sm">
+      <Label>{label}</Label>
+      <Select.Trigger>
         <Select.Value className="min-w-0 truncate" />
         <Select.Indicator />
       </Select.Trigger>
       <Select.Popover>
         <ListBox>
           {options.map((option) => (
-            <ListBox.Item key={option.id} id={option.id} textValue={option.label} className="min-h-[42px]">
+            <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
               <span className="min-w-0 wrap-anywhere">{option.label}</span>
               <ListBox.ItemIndicator />
             </ListBox.Item>
@@ -83,11 +85,11 @@ export function PolicyCheckbox({
 }) {
   return (
     <Checkbox isSelected={checked} onChange={onChange} className="min-w-0">
-      <Checkbox.Content className="min-h-[42px] min-w-0 gap-3 py-2">
+      <Checkbox.Content className="min-w-0 py-1.5">
         <Checkbox.Control className="shrink-0">
           <Checkbox.Indicator />
         </Checkbox.Control>
-        <Label className="min-w-0 text-sm wrap-anywhere">{children}</Label>
+        <Label className="min-w-0 wrap-anywhere">{children}</Label>
       </Checkbox.Content>
     </Checkbox>
   );

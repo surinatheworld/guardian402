@@ -36,7 +36,7 @@
   /* 15 Shimmer text, in the dashboard's muted and foreground colours. */
   --shimmer-dur: 2000ms;
   --shimmer-base: var(--muted);
-  --shimmer-highlight: var(--fg);
+  --shimmer-highlight: var(--foreground);
   --shimmer-band: 400%;
   --shimmer-ease: linear;
 }
@@ -242,17 +242,4 @@
   .t-shimmer::before {
     animation: none !important;
   }
-}
-
-/* ---------------------------------------------------------------- Shortcut hint on a dark primary button */
-/* A light Kbd on the near-black primary button sank into it; keep the button's own foreground. */
-.button--primary .kbd {
-  background: rgb(255 255 255 / 0.18);
-  color: var(--accent-fg);
-  box-shadow: none;
-  border: 0;
-}
-.button--primary .kbd .kbd__content,
-.button--primary .kbd .kbd__abbr {
-  color: inherit;
 }
