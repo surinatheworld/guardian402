@@ -664,6 +664,18 @@ vitest … test/simulator.fork.test.ts -t "fork health" → 2 passed, 1 failed
 
 Cộng với lần chạy trước: 12/13 test simulator qua; test reset nền lần nào cũng chỉ hỏng vì RPC chặn (giống ghi chú P4).
 
+### Eval với code hiện tại (2026-11-11, 22:55)
+
+Lần RPC chính thức mở thứ ba, chỉ chạy `pnpm eval` (34 s, fork từ block Fuji 60899034):
+
+```
+blocked = HIGH:   TP 25 FP 0 TN 15 FN 0 · precision 100.0% · recall 100.0% · FPR 0.0%
+blocked ≥ MEDIUM: TP 25 FP 0 TN 15 FN 0 · precision 100.0% · recall 100.0% · FPR 0.0%
+latency p50 342 ms · p95 762 ms · fingerprint e33a546d912896a1
+```
+
+Dấu vân tay trùng lần chạy P12/P14: các bản sửa V1–V8, R1–R5 (Guardian không đổi luật) và dự phòng RPC không đổi rủi ro, điểm hay luật của case nào. `eval/report.{md,json}` sinh lại; chỉ khác block fork và độ trễ (p50 342 ms so với 119 ms ở P14: fork vừa reset tải state qua RPC chính thức).
+
 ### Thao tác chủ ví trên dashboard bằng ví thật (2026-11-11, 22:34–22:36)
 
 MetaMask của chủ team đổi RPC Fuji sang PublicNode. Trang Điều khiển (`dashboard-fuji`), mỗi bước có hộp xác nhận "hiện tại → sau giao dịch", chủ team duyệt trong MetaMask:
@@ -695,7 +707,7 @@ Ghi chú: `--recurse-submodules` báo `Filename too long` ở `contracts/lib/ope
 
 1. ~~Ví `0x54A2…2888` gọi `acceptOwnership` trên vault mới~~ — xong (tx ở trên).
 2. Nạp thêm 18 USDC cho owner từ faucet Circle rồi `pnpm seed:fuji` nếu muốn vault đủ 50 USDC (hiện 32).
-3. ~~S1, S2, S4 trên Fuji với vault mới~~ và ~~`api.fork.test.ts`~~ — xong (ở trên). Còn `pnpm eval` và test reset nền của simulator: cần RPC riêng có key (hoặc một lần RPC chính thức mở). RPC chính thức chặn IP này sau khoảng 10–15 phút tải nặng và mở lại sau khoảng 50–70 phút yên lặng.
+3. ~~S1, S2, S4 trên Fuji với vault mới~~, ~~`api.fork.test.ts`~~ và ~~`pnpm eval`~~ — xong (ở trên). Còn test reset nền của simulator (`start(): background maintenance…`), lần nào cũng chỉ hỏng vì RPC chính thức trả 429 giữa chừng: cần RPC riêng có key. RPC chính thức chặn IP này sau khoảng 10–15 phút tải nặng và mở lại theo `Retry-After` (khoảng 50 phút; thử lẻ vài lần không làm lùi mốc mở).
 4. Luật `minOut = 0` (swap không đặt mức nhận tối thiểu): cần team quyết, vì sẽ đổi S1, fixture luật và nhãn eval.
 5. ~~Chủ team thử thao tác chủ ví trên dashboard (pause, unpause, đổi hạn mức)~~ — xong (bảng ở trên).
 6. Một thành viên làm fresh-clone test (SPEC §14).
