@@ -71,11 +71,14 @@ export function createResourceServer(opts: {
     if (!result.isValid)
       opts.log?.({ event: "verify-refused", reason: result.invalidReason, payer: result.payer });
   });
+  // @x402/core 2.28.0 runs afterSettle only after a successful settlement; a failed one (the facilitator said
+  // no, or could not be reached) goes to onSettleFailure. The caller then gets 402 and no check result.
+  server.onSettleFailure(async ({ error }) => {
+    const e = error as { errorReason?: string; payer?: string; message?: string };
+    opts.log?.({ event: "settle-failed", reason: e.errorReason ?? e.message ?? "unknown", payer: e.payer });
+  });
   server.onAfterSettle(async ({ result, requirements, transportContext }) => {
-    if (!result.success) {
-      opts.log?.({ event: "settle-failed", reason: result.errorReason, payer: result.payer });
-      return;
-    }
+    if (!result.success) return;
     const path = (transportContext as HTTPTransportContext | undefined)?.request.path ?? "";
     const endpoint = path.endsWith("/cosign") ? "cosign" : "check";
     const checkId = checkIdOf(transportContext);

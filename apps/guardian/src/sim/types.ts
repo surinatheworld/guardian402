@@ -36,6 +36,12 @@ export type SimResult = {
   calls: Call[];
   success: boolean;
   timedOut: boolean;
+  /**
+   * Set when the simulation could not run at all: a fork or RPC error, or a timeout (waiting for the fork or
+   * running on it). That is the Guardian's failure, not a property of the batch, so the pipeline refuses to
+   * score or sign it and the caller is not charged. The text is internal (it can hold RPC URLs): logs only.
+   */
+  unavailable?: string;
   /** Decoded with the known ABIs when possible, else the raw revert data. Untrusted text: never shown to the LLM. */
   revertReason?: string;
   revertData?: Hex;
