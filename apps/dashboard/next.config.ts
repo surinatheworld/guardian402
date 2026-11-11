@@ -9,6 +9,10 @@ import type { NextConfig } from "next";
 // The agent control API lives under /api/agent-control: /api/agent/v1/* is the dashboard's own agent REST
 // API, and a rewrite there would capture its dynamic routes (checks/:checkId, transactions/:hash).
 const config: NextConfig = {
+  allowedDevOrigins: (process.env.DASHBOARD_DEV_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
   transpilePackages: ["@guardian402/shared"],
   reactStrictMode: true,
   poweredByHeader: false,
@@ -16,7 +20,7 @@ const config: NextConfig = {
     return [
       {
         source: "/api/guardian/:path*",
-        destination: "http://127.0.0.1:4402/:path*",
+        destination: `${(process.env.GUARDIAN_PROXY_URL || "http://127.0.0.1:4402").replace(/\/$/, "")}/:path*`,
       },
       {
         source: "/api/agent-control/:path*",
