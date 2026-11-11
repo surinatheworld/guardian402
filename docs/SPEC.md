@@ -465,6 +465,7 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 
 - Each scenario prints, in Vietnamese: the Guardian risk and findings, the x402 settlement link, and the vault transaction link (success or revert).
 - Every attempt is appended to `apps/agent/data/attempts.jsonl`; the control API serves it at `GET /attempts`.
+- A `503` from the Guardian (busy, or the simulation could not run) is not a verdict and was not charged: the agent asks again after `Retry-After` (at most 10 s), twice at most, then reports the 503.
 - Lookalike address for S3: `scripts/mine-lookalike.sh` runs `cast wallet vanity --starts-with <first chars of router> --ends-with <last chars>`. Keep only the address in `apps/agent/fixtures/lookalike.json` and never fund it. If 4+4 characters takes too long, mine 3+3 and set the rule to 3/3 in DEMO mode (declare it).
 
 ## 11. Dashboard (`apps/dashboard`, Vietnamese UI)
@@ -519,7 +520,7 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 
 ## 13. Bonus (only after §14 is complete, in this order)
 
-1. **ERC-8004 identity.** Register the Guardian on the Fuji IdentityRegistry with a registration file: `type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1"`, `name`, `description`, `services` (web endpoint; MCP if built), `x402Support: true`, `registrations: [{ agentId, agentRegistry: "eip155:43113:<IdentityRegistry address>" }]`. Use the ABIs in `erc-8004-contracts/abis/`. Optional validation flow for HIGH verdicts: the requester calls `validationRequest(validatorAddress, agentId, requestURI, requestHash)`, the Guardian answers `validationResponse(requestHash, response 0..100, responseURI, responseHash, "tx-risk")`. Check that the ValidationRegistry address has code on Fuji first.
+1. **ERC-8004 identity.** Register the Guardian on the Fuji IdentityRegistry with a registration file: `type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1"`, `name`, `description`, `services` (web endpoint; MCP if built), `x402Support: true`, `registrations: [{ agentId, agentRegistry: "eip155:43113:<IdentityRegistry address>" }]`. Use the ABIs in `erc-8004-contracts/abis/`. Optional validation flow for HIGH verdicts: the requester calls `validationRequest(validatorAddress, agentId, requestURI, requestHash)`, the Guardian answers `validationResponse(requestHash, response 0..100, responseURI, responseHash, "tx-risk")`. Check that the ValidationRegistry address has code on Fuji first. Done in B1 (identity, agent 295); the validation flow is not built because there is no official ValidationRegistry on Fuji (§16, 2026-11-11).
 2. **MCP server** exposing `check_transaction` and `cosign_transaction` as paid tools with `@x402/mcp` (`createPaymentWrapper`), reusing the Guardian pipeline as a library. Done in P14 (`apps/guardian-mcp`).
 3. **On-chain receipts**: batched hashes of verdicts on C-Chain, or on an own L1 linked by ICM. Skip unless everything else is polished.
 
@@ -650,3 +651,7 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
   - §6.2 schemas (V5, V6): a `value` such as `"1e3"` and an address with a wrong mixed-case checksum are refused with 400 (they were 502); `callSchema` is `.strict()` like `CheckRequest`.
   - §6.4 (V8): a failed settlement is logged from `onSettleFailure`; `@x402/core` 2.28.0 runs `afterSettle` only after a success.
   - Not changed, team decision needed: a swap with `minOut = 0` is still LOW when the simulated output is good (THREAT_MODEL "Simulation divergence"). A `minOut` rule would change S1, the rule fixtures and the eval labels.
+- 2026-11-11 — Completion pass before the code freeze (same branch):
+  - §10: the demo agent retries a Guardian `503` after `Retry-After` (≤ 10 s, 2 retries), so a busy Guardian or a fork that could not run the batch no longer ends a scenario as a mismatch; nothing is charged for a 503. Test `apps/agent/test/guardian.test.ts`.
+  - §11: the dashboard shows a Vietnamese message for `503` (Guardian busy or simulation unavailable, not charged) and `429`, instead of the Guardian's English error text.
+  - §13.1: the official `erc-8004-contracts` README (checked 2026-11-11) lists only IdentityRegistry and ReputationRegistry for Avalanche Testnet and says the Validation Registry is "still under active update"; no ValidationRegistry address exists on Fuji, so the optional validation flow is not built. Revisit if an official Fuji deployment appears.
