@@ -14,6 +14,15 @@ import {
 import { agentVaultAbi, mockErc20Abi, mockOracleAbi, mockRouterAbi } from "@guardian402/shared";
 import type { ApprovalEvent, ApprovalForAllEvent, TransferEvent } from "./types.ts";
 
+/**
+ * `symbol()` is text written by whoever deployed the token, and the batch decides which tokens are touched.
+ * Keep it only when it looks like a ticker; anything else (sentences, quotes, markup, other scripts) becomes
+ * "?" before it reaches the response, the dashboard or the explainer (SPEC §9).
+ */
+export function cleanSymbol(symbol: string): string {
+  return /^[A-Za-z0-9.$_-]{1,16}$/.test(symbol) ? symbol : "?";
+}
+
 /** An approval at or above 2^128 counts as unlimited (SPEC §8 UNLIMITED_APPROVAL default). */
 export const UNLIMITED_APPROVAL = 1n << 128n;
 

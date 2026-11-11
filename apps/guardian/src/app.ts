@@ -5,7 +5,7 @@ import type { x402ResourceServer } from "@x402/express";
 import { paymentMiddleware } from "@x402/express";
 import { RULE_IDS, type Deployment } from "@guardian402/shared";
 import type { Address } from "viem";
-import { InputError, type Endpoint, type Pipeline } from "./pipeline.ts";
+import { InputError, UnavailableError, type Endpoint, type Pipeline } from "./pipeline.ts";
 import { RULE_SEVERITY } from "./rules/severity.ts";
 import type { RuleConfig } from "./rules/types.ts";
 import type { Store } from "./store.ts";
@@ -124,6 +124,14 @@ export function createApp(d: AppDeps) {
         res.status(400).json({ error: "invalid request", details: e.details });
         return;
       }
+      if (e instanceof UnavailableError) {
+        // The fork could not run the batch (error or timeout). ≥ 400, so not settled: nobody pays for the
+        // Guardian's own outage, and no HIGH verdict is signed for a batch that was never simulated.
+        d.log?.warn({ err: e.detail, endpoint }, "simulation unavailable");
+        res.setHeader("Retry-After", "5");
+        res.status(503).json({ error: "simulation unavailable, try again in a few seconds" });
+        return;
+      }
       d.log?.error({ err: (e as Error).message, endpoint }, "check failed");
       // ≥ 400: the x402 middleware does not settle, so the caller is not charged. The cause stays in the
       // log: an internal message (RPC URLs, node errors) is not for callers (P13).
@@ -166,14 +174,18 @@ export function createApp(d: AppDeps) {
 
   app.get("/v1/stats", (_req, res) => res.json({ ...d.store.stats(), recentPayments: d.store.payments(20) }));
 
+  // The free read endpoints never show a paid check before its payment settled, and never a verdict signature
+  // (the store drops it): a check is stored before the settlement, so both would be free otherwise.
+  const read = { settledOnly: d.resourceServer !== null };
+
   app.get("/v1/checks", (req, res) => {
     const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
-    res.json({ checks: d.store.recentChecks(limit) });
+    res.json({ checks: d.store.recentChecks(limit, read) });
   });
 
   app.get("/v1/checks/:checkId", (req, res) => {
     const row = /^0x[0-9a-fA-F]{64}$/.test(req.params.checkId)
-      ? d.store.getCheck(req.params.checkId)
+      ? d.store.getCheck(req.params.checkId, read)
       : undefined;
     if (!row) {
       res.status(404).json({ error: "not found" });

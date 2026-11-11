@@ -570,6 +570,35 @@ Theo hướng đã thống nhất trong `docs/PRODUCT_FLOWS.md`: user kết nố
 - Giới hạn hiện tại của contract được giữ nguyên và nói rõ trên giao diện: một agent thực thi cho mỗi vault, ngân sách tính chung cả vault (số dư giảm theo ngày UTC), người nhận và bên nhận quyền dùng chung một danh sách trên chain.
 - Kiểm thử: `test/policies.test.ts` (7 test), dashboard 37/37, toàn repo 217 test qua; lint, typecheck, build dashboard qua. Trên trình duyệt với vault Fuji thật: tạo policy, gán cho agent demo, kế hoạch đọc đúng vault (gỡ MockRouter, AVAX về 0, USDC lên 100/ngày), soạn 5 bản nháp đúng thứ tự; tạo key, gọi `me` (200), `cosign` (409 policy_not_active), vault khác (403), key đã thu hồi (401); x402 đi xuyên qua proxy kiểm bằng một Guardian giả. Điện thoại 375px không cuộn ngang. Chưa ký giao dịch thật từ trang (khung trình duyệt không có ví), chưa gọi Guardian thật qua proxy (Guardian không chạy lúc thử).
 
+## Soát lần hai, lần ba và hoàn thiện trước code freeze (2026-11-11)
+
+- Soát AgentVault lần hai (R1–R5, nhánh `fix/p-review-agentvault`, đã merge) và soát verdict/x402 lần ba (V1–V8, nhánh `fix/p-review-verdict-x402`): chi tiết trong `docs/THREAT_MODEL.md` và SPEC §16.
+- Hoàn thiện sau V2 (mô phỏng không chạy được → 503, không tính phí):
+  - Agent demo hỏi lại Guardian khi gặp 503, chờ theo `Retry-After` (tối đa 10 s), tối đa 2 lần. Trước đó một lúc Guardian bận là kịch bản báo lệch bảng §10. Test `apps/agent/test/guardian.test.ts`.
+  - Dashboard hiện thông báo tiếng Việt cho 503 và 429 thay cho câu tiếng Anh của Guardian.
+- ERC-8004: README chính thức của `erc-8004-contracts` (đọc 2026-11-11) chỉ có IdentityRegistry và ReputationRegistry cho Avalanche Testnet, và ghi Validation Registry "still under active update". Không có ValidationRegistry trên Fuji, nên luồng validation tuỳ chọn của §13.1 không làm được.
+- `pnpm format:check` đang lỗi: đã định dạng README và THREAT_MODEL, bỏ qua `docs/design` (bản xuất thiết kế). `.env.example` có đủ các key mà `llm:compare` đọc.
+
+Test:
+
+```
+forge test                  → 9 suite, 166 passed, 0 failed
+pnpm test:crosscheck        → VerdictCrossCheck 16 passed
+pnpm test                   → shared 48, agent 17, dashboard 47, guardian 137, eval 5, guardian-mcp 6 — tất cả pass
+pnpm typecheck, pnpm lint, pnpm format:check → sạch
+pnpm --filter @guardian402/dashboard build → xong
+```
+
+Chưa chạy được: `pnpm --filter @guardian402/guardian test:fork` và `pnpm eval`. RPC chính thức của Fuji chặn IP máy này (HTTP 429, Cloudflare 1015) suốt lúc làm, còn RPC khác (PublicNode, dRPC) không giữ state cũ nên fork không chạy được. Commit V1–V8 cũng chưa chạy test fork. Cần chạy lại hai lệnh này khi RPC mở.
+
+### Việc còn lại (cập nhật 2026-11-11)
+
+1. **Vault trên Fuji (`0x3f6a…7651`) chưa có bản sửa R1–R5.** Owner vẫn là OWNER_PK, vault có 32 USDC. Muốn có bản sửa trên Fuji: `pnpm redeploy-vault:fuji` → `pnpm seed:fuji` → `pnpm handoff:fuji` → `pnpm known-contracts`, rồi ví `0x54A2…2888` accept lại. Trong lúc chưa deploy lại: không cho phép target có hàm payable, không cấp allowance đứng từ vault bằng `ownerExecute`.
+2. Luật `minOut = 0` (swap không đặt mức nhận tối thiểu): cần team quyết, vì sẽ đổi S1, fixture luật và nhãn eval.
+3. Chạy `test:fork` và `pnpm eval` khi RPC Fuji mở lại.
+4. Việc của người: ví `0x54A2…2888` gọi `acceptOwnership`; thử thao tác chủ ví trên dashboard bằng ví thật; một thành viên làm fresh-clone test (SPEC §14).
+5. Không làm (ngoài phạm vi hackathon): email xác minh/quên mật khẩu (chưa có dịch vụ mail), §13.3 biên nhận on-chain.
+
 ## Checklist trước demo
 
 - [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault mới `0x3f6a5852788ff6a46d924C407976bB89487f7651` (tx [0xed5a391b…b28e](https://testnet.snowtrace.io/tx/0xed5a391be502ad3f2d042885e5871bea507ac1fa3a0d1784a001a27bc5c4b28e)). Vault cũ `0x32cb…Ab99` đã rút hết tiền và tạm dừng, không cần accept nữa. Các bước:

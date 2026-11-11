@@ -50,6 +50,17 @@ export class InputError extends Error {
   }
 }
 
+/**
+ * The simulation could not run (fork or RPC error, timeout): the Guardian's failure, not a finding about the
+ * batch. Nothing is scored, signed or stored; the API answers 503 and the payment is not settled. `detail` is
+ * internal (it can hold RPC URLs): for the log, never for the caller.
+ */
+export class UnavailableError extends Error {
+  constructor(readonly detail: string) {
+    super("simulation unavailable");
+  }
+}
+
 type Cached<T> = { at: number; value: T };
 
 export class Pipeline {
@@ -82,12 +93,14 @@ export class Pipeline {
 
     // 2. Vault context. A vault this Guardian does not know still gets checked against its own policy.
     const [policy, oracle] = await Promise.all([this.#readPolicy(req.vault), this.#readOracle()]);
-    // 3. Simulate (800 ms budget inside the simulator; a timeout becomes SIMULATION_FAILED).
+    // 3. Simulate (800 ms budget inside the simulator). A call that reverts is a result (SIMULATION_FAILED);
+    // a simulation that could not run is not: without one there is nothing true to score or sign.
     const sim = await d.simulator.simulate(
       req.vault,
       calls,
       policy.tokens.map((t) => t.token),
     );
+    if (sim.unavailable !== undefined) throw new UnavailableError(sim.unavailable);
     const touched = [
       ...calls.map((c) => c.target),
       ...sim.approvals.map((a) => a.spender),

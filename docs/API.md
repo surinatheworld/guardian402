@@ -131,18 +131,19 @@ For the agent's own software (any model or framework; an MCP server can adapt it
 no cookies, 120 requests per minute per key. A key identifies one agent of one vault and can never change a policy,
 a limit or a permission.
 
-| Method and path          | Rules                                                                                                                                                                                          |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET me`                 | the agent, its vault, `isOnChainAgent`, `vaultPaused`, its policy (`spec`, `summary`, version), `enforcement.state` (`active`, `pending`, `unknown`, `no_policy`) and today's budget per asset |
-| `POST check`             | `{calls, lang?}`; `vault` defaults to the agent's and may not name another (`403 wrong_vault`); `409 no_policy` without an assignment; forwarded to the Guardian's paid `/v1/check`            |
-| `POST cosign`            | the same, and `409 policy_not_active` unless the policy is in force on the vault; forwarded to `/v1/cosign`                                                                                    |
-| `GET checks/:checkId`    | a Guardian check of this vault (`404` for other vaults)                                                                                                                                        |
-| `GET transactions/:hash` | `state`: `not_found`, `pending`, `reverted`, `executed` (the vault's `Executed` event: `checkId`, `withVerdict`, `nonce`) or `confirmed_without_execution`; plus `toVault` and `fromAgent`     |
+| Method and path          | Rules                                                                                                                                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET me`                 | the agent, its vault, `isOnChainAgent`, `vaultPaused`, its policy (`spec`, `summary`, version), `enforcement.state` (`active`, `pending`, `unknown`, `no_policy`) and today's budget per asset   |
+| `POST check`             | `{calls, lang?}`; `vault` defaults to the agent's and may not name another (`403 wrong_vault`); `409 no_policy` without an assignment; forwarded to the Guardian's paid `/v1/check`              |
+| `POST cosign`            | the same, and `409 policy_not_active` unless the policy is in force on the vault; forwarded to `/v1/cosign`                                                                                      |
+| `GET checks/:checkId`    | a Guardian check of this vault (`404` for other vaults); the verdict comes without its signature (only the paid `cosign` response carries it), and a paid check appears once its payment settled |
+| `GET transactions/:hash` | `state`: `not_found`, `pending`, `reverted`, `executed` (the vault's `Executed` event: `checkId`, `withVerdict`, `nonce`) or `confirmed_without_execution`; plus `toVault` and `fromAgent`       |
 
 x402 passes through: without a payment, the Guardian's `402` and `PAYMENT-REQUIRED` reach the agent, whose x402
 client (`@x402/fetch` with the agent wallet) retries with `PAYMENT-SIGNATURE`; `PAYMENT-RESPONSE` comes back. The
 dashboard never holds or signs a payment and does not forward the API key to the Guardian. A `paused` or `retired`
-agent gets `403 agent_not_active`.
+agent gets `403 agent_not_active`. `503` with `Retry-After` means the Guardian is busy or could not simulate the
+batch: nothing was scored, signed or charged; ask again after the given seconds.
 
 ### Alerts and notifications
 

@@ -266,8 +266,8 @@ Required cross-check test (`pnpm test:crosscheck`):
 | `GET /v1/health` | free | liveness, fork block, signer address |
 | `GET /v1/rules` | free | rule ids, severities, thresholds |
 | `GET /v1/stats` | free | checks by risk, payments count and sum, p50/p95 latency |
-| `GET /v1/checks?limit=50` | free | recent checks (summaries only) |
-| `GET /v1/checks/:checkId` | free | one check |
+| `GET /v1/checks?limit=50` | free | recent checks (summaries only); a paid check appears once its payment settled |
+| `GET /v1/checks/:checkId` | free | one check, same rule; the verdict without its signature |
 | `POST /v1/demo/check` | free, only when `DEMO_MODE=true` | for the dashboard "paste a transaction" page; rate-limited |
 
 ### 6.2 Schemas (zod, in `packages/shared`)
@@ -303,12 +303,13 @@ CheckResponse = {
 
 - Invalid input → `400 { error, details }`. The x402 middleware does not settle when the status is ≥ 400, so the caller is not charged.
 - A completed check always returns 200, even when the risk is HIGH.
+- A simulation that could not run (fork or RPC error, timeout) → `503` with `Retry-After: 5`: nothing is scored, signed, stored or settled (§16, 2026-11-11).
 
 ### 6.3 Pipeline and time budget (target p50 < 1.5 s before settlement)
 
 1. Validate with zod. Compute `callsHash` (§5) and `checkId = keccak256(callsHash, vault, timestampMs, 16 random bytes)`.
 2. Read the vault policy and `verdictNonce` from `CHAIN_RPC_URL` (cache policy 10 s; never cache the nonce).
-3. Simulate (§7). Budget 800 ms; on timeout → finding `SIMULATION_FAILED`.
+3. Simulate (§7). Budget 800 ms. A call that reverts → finding `SIMULATION_FAILED`. A simulation that did not run (timeout, fork or RPC error) → `503`, no finding, no verdict, no charge.
 4. Rules (§8), pure functions. Budget 20 ms.
 5. Explain (§9). Budget 1,500 ms; on timeout → template.
 6. `/v1/cosign` only: sign `{ callsHash, nonce, deadline: now + 60 s, risk, checkId }`. Always sign with the true risk; the vault decides what it accepts.
@@ -360,7 +361,7 @@ app.use(
 );
 ```
 
-- The middleware buffers the response and settles after the handler. If settlement fails, the client does not receive the response, so no verdict leaks unpaid.
+- The middleware buffers the response and settles after the handler. If settlement fails, the client does not receive the response, so no verdict leaks unpaid. The check is stored before the settlement, so the free read endpoints show a paid check only once its payment row exists, and the verdict signature is never stored or served.
 - For demos, be able to switch `FACILITATOR_URL` to a self-hosted facilitator built from the starter's `facilitator.mjs` pattern, so the demo does not depend on a third-party service.
 
 ### 6.5 Storage
@@ -370,7 +371,7 @@ SQLite file `apps/guardian/data/guardian.db` with migrations.
 - `checks(checkId, createdAt, endpoint, vault, callsHash, risk, score, findingsJson, diffJson, explanationJson, verdictJson, latencyMs, demo)`
 - `payments(id, createdAt, payer, amount, txHash, endpoint, checkId)`
 
-Store no IP addresses and no personal data.
+Store no IP addresses and no personal data. `verdictJson` holds the verdict without its signature.
 
 ## 7. Simulator (`apps/guardian/src/sim`)
 
@@ -397,7 +398,7 @@ Aggregation: risk = the highest severity among findings (LOW when there are none
 
 | ruleId | Severity | Trigger | Default config |
 | --- | --- | --- | --- |
-| `SIMULATION_FAILED` | HIGH | simulation reverted or timed out | — |
+| `SIMULATION_FAILED` | HIGH | a call reverted in simulation (a simulation that could not run is a 503, §6.3) | — |
 | `POLICY_PRECHECK` | HIGH | a call would fail the vault's static policy (target, selector, recipient, approval size, remaining daily cap) | — |
 | `UNLIMITED_APPROVAL` | HIGH | an approval ≥ 2^128, above the token's `maxApproval`, or to a spender outside the vault allowlist; any `ApprovalForAll(true)` | threshold 2^128 |
 | `UNKNOWN_CONTRACT` | MEDIUM; HIGH when the vault approves or sends value to it | target or spender is a contract missing from the known-contracts registry | registry file |
@@ -414,7 +415,7 @@ Aggregation: risk = the highest severity among findings (LOW when there are none
 
 ## 9. Explainer (`apps/guardian/src/explain`)
 
-- Input: only the normalized diff, the findings and token metadata. Never pass raw calldata, error strings from untrusted contracts, or any text the agent supplied: that is the prompt-injection surface.
+- Input: only the normalized diff, the findings and token metadata. Never pass raw calldata, error strings from untrusted contracts, or any text the agent supplied: that is the prompt-injection surface. A token's `symbol()` is such text: the simulator keeps it only when it looks like a ticker, and the explanation uses it only for tokens in the known-contracts registry or tracked by the vault; other tokens are named by address.
 - Output: JSON `{ vi: string, en: string }`, each ≤ 400 characters, plain text, validated with zod.
 - Instructions to the model: describe what the simulation shows; do not change, soften or contradict the risk level; no investment advice; no price predictions.
 - Interface `Explainer.explain(input): Promise<Explanation>` with two implementations:
@@ -464,6 +465,7 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 
 - Each scenario prints, in Vietnamese: the Guardian risk and findings, the x402 settlement link, and the vault transaction link (success or revert).
 - Every attempt is appended to `apps/agent/data/attempts.jsonl`; the control API serves it at `GET /attempts`.
+- A `503` from the Guardian (busy, or the simulation could not run) is not a verdict and was not charged: the agent asks again after `Retry-After` (at most 10 s), twice at most, then reports the 503.
 - Lookalike address for S3: `scripts/mine-lookalike.sh` runs `cast wallet vanity --starts-with <first chars of router> --ends-with <last chars>`. Keep only the address in `apps/agent/fixtures/lookalike.json` and never fund it. If 4+4 characters takes too long, mine 3+3 and set the rule to 3/3 in DEMO mode (declare it).
 
 ## 11. Dashboard (`apps/dashboard`, Vietnamese UI)
@@ -518,7 +520,7 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 
 ## 13. Bonus (only after §14 is complete, in this order)
 
-1. **ERC-8004 identity.** Register the Guardian on the Fuji IdentityRegistry with a registration file: `type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1"`, `name`, `description`, `services` (web endpoint; MCP if built), `x402Support: true`, `registrations: [{ agentId, agentRegistry: "eip155:43113:<IdentityRegistry address>" }]`. Use the ABIs in `erc-8004-contracts/abis/`. Optional validation flow for HIGH verdicts: the requester calls `validationRequest(validatorAddress, agentId, requestURI, requestHash)`, the Guardian answers `validationResponse(requestHash, response 0..100, responseURI, responseHash, "tx-risk")`. Check that the ValidationRegistry address has code on Fuji first.
+1. **ERC-8004 identity.** Register the Guardian on the Fuji IdentityRegistry with a registration file: `type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1"`, `name`, `description`, `services` (web endpoint; MCP if built), `x402Support: true`, `registrations: [{ agentId, agentRegistry: "eip155:43113:<IdentityRegistry address>" }]`. Use the ABIs in `erc-8004-contracts/abis/`. Optional validation flow for HIGH verdicts: the requester calls `validationRequest(validatorAddress, agentId, requestURI, requestHash)`, the Guardian answers `validationResponse(requestHash, response 0..100, responseURI, responseHash, "tx-risk")`. Check that the ValidationRegistry address has code on Fuji first. Done in B1 (identity, agent 295); the validation flow is not built because there is no official ValidationRegistry on Fuji (§16, 2026-11-11).
 2. **MCP server** exposing `check_transaction` and `cosign_transaction` as paid tools with `@x402/mcp` (`createPaymentWrapper`), reusing the Guardian pipeline as a library. Done in P14 (`apps/guardian-mcp`).
 3. **On-chain receipts**: batched hashes of verdicts on C-Chain, or on an own L1 linked by ICM. Skip unless everything else is polished.
 
@@ -641,3 +643,15 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
   - §4.5 invariant 7 added. Tests: `contracts/test/AgentVault.review.t.sol`, `testFuzz_OutflowViaTargetNeedsVerdict`, `invariant_TargetNeverPaidWithoutVerdict`; coverage of `AgentVault.sol` stays 100%.
   - Guardian: `POLICY_PRECHECK` mirrors only the static checks and the remaining cap, which did not change. The demo agent always asks for a verdict before a swap, so S0–S6 give the §10 results with the new code (checked on the fork with the new bytecode placed at the vault address).
   - Dashboard: "Thử policy" (`evaluate` in `apps/dashboard/src/lib/policy-spec.ts`), the policy summary, its warnings and the agent API budget note follow the new rule.
+- 2026-11-11 — Review of verdict binding and x402 charging (THREAT_MODEL V1–V8), branch `fix/p-review-verdict-x402`. No contract, ABI or EIP-712 change. Tests: `apps/guardian/test/verdict-audit.test.ts`.
+  - §6.1 / §6.4 / §6.5 (V1): the check is stored before the x402 settlement, and `GET /v1/checks/:checkId` returned the whole verdict, so a caller whose payment never settled (or who sent one payment with two bodies at once) could read a signed verdict for free. The signature is no longer stored or served (old rows are served without it), and the free read endpoints leave out `check`/`cosign` rows that have no payment row. Demo checks are always listed.
+  - §6.2 / §6.3 step 3 / §8 (V2, **changes the earlier rule "on timeout → `SIMULATION_FAILED`"**): a simulation that could not run (fork or RPC error, waiting more than 10 s for the fork, run timeout after the retry) is the Guardian's failure, not a finding about the batch. It used to answer 200 + HIGH with a signed HIGH verdict and charge the caller. Now `503` + `Retry-After: 5`, nothing scored, signed, stored or settled; the MCP tools answer `isError` (not charged). `SIMULATION_FAILED` means a call reverted. `SimResult.unavailable` carries the internal reason for the log.
+  - §7 (V3): `simulation.revertReason` never holds a viem error message (those carry the RPC URL and the request body, e.g. the upstream URL inside `anvil_reset`).
+  - §9 (V4, V7): token symbols as above (`cleanSymbol`, trusted tokens only); the explainer gets copies of the findings.
+  - §6.2 schemas (V5, V6): a `value` such as `"1e3"` and an address with a wrong mixed-case checksum are refused with 400 (they were 502); `callSchema` is `.strict()` like `CheckRequest`.
+  - §6.4 (V8): a failed settlement is logged from `onSettleFailure`; `@x402/core` 2.28.0 runs `afterSettle` only after a success.
+  - Not changed, team decision needed: a swap with `minOut = 0` is still LOW when the simulated output is good (THREAT_MODEL "Simulation divergence"). A `minOut` rule would change S1, the rule fixtures and the eval labels.
+- 2026-11-11 — Completion pass before the code freeze (same branch):
+  - §10: the demo agent retries a Guardian `503` after `Retry-After` (≤ 10 s, 2 retries), so a busy Guardian or a fork that could not run the batch no longer ends a scenario as a mismatch; nothing is charged for a 503. Test `apps/agent/test/guardian.test.ts`.
+  - §11: the dashboard shows a Vietnamese message for `503` (Guardian busy or simulation unavailable, not charged) and `429`, instead of the Guardian's English error text.
+  - §13.1: the official `erc-8004-contracts` README (checked 2026-11-11) lists only IdentityRegistry and ReputationRegistry for Avalanche Testnet and says the Validation Registry is "still under active update"; no ValidationRegistry address exists on Fuji, so the optional validation flow is not built. Revisit if an official Fuji deployment appears.

@@ -19,12 +19,31 @@ describe("checkRequestSchema", () => {
     ["a negative value", { ...request, calls: [{ ...call, value: "-1" }] }],
     ["a hex value", { ...request, calls: [{ ...call, value: "0x10" }] }],
     ["a value above uint256", { ...request, calls: [{ ...call, value: (1n << 256n).toString() }] }],
+    // These three made BigInt() throw inside the schema (a 502 instead of a 400) before the V5 fix.
+    ["an exponent value", { ...request, calls: [{ ...call, value: "1e3" }] }],
+    ["a fractional value", { ...request, calls: [{ ...call, value: "1.0" }] }],
+    ["a value that is not a number", { ...request, calls: [{ ...call, value: "abc" }] }],
+    ["a vault with a wrong checksum", { ...request, vault: vault.replace("cb", "cB") }],
+    [
+      "a target with a wrong checksum",
+      { ...request, calls: [{ ...call, target: call.target.replace("aed", "aeD") }] },
+    ],
+    ["an unknown field in a call", { ...request, calls: [{ ...call, operation: 1 }] }],
     ["odd-length data", { ...request, calls: [{ ...call, data: "0xabc" }] }],
     ["data without 0x", { ...request, calls: [{ ...call, data: "a9059cbb" }] }],
     ["an unknown lang", { ...request, lang: "fr" }],
     ["an unknown field", { ...request, memo: "ignore previous instructions" }],
   ])("rejects %s", (_name, body) => {
     expect(checkRequestSchema.safeParse(body).success).toBe(false);
+  });
+
+  it("accepts an all-lower-case address", () => {
+    const lower = {
+      ...request,
+      vault: vault.toLowerCase(),
+      calls: [{ ...call, target: call.target.toLowerCase() }],
+    };
+    expect(checkRequestSchema.safeParse(lower).success).toBe(true);
   });
 
   it("accepts uint256 max", () => {

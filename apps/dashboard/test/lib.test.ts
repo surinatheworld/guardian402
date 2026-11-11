@@ -55,3 +55,17 @@ describe("presets", () => {
     ]);
   });
 });
+
+describe("errorText", () => {
+  it("explains a busy or failed Guardian simulation in Vietnamese, without blaming the transaction", async () => {
+    const { errorText, HttpError } = await import("../src/lib/api");
+    const busy = errorText(
+      new HttpError(503, { error: "simulation unavailable, try again in a few seconds" }),
+    );
+    expect(busy).toContain("HTTP 503");
+    expect(busy).toContain("không tính phí");
+    expect(busy).not.toContain("simulation unavailable");
+    expect(errorText(new HttpError(429, null))).toContain("HTTP 429");
+    expect(errorText(new HttpError(502, { error: "check failed" }))).toBe("HTTP 502: check failed");
+  });
+});

@@ -11,7 +11,7 @@ import { createPaymentWrapper } from "@x402/mcp";
 import { z } from "zod";
 import type { Address } from "viem";
 import { FUJI_CAIP2, FUJI_CHAIN_ID, PRICES } from "@guardian402/shared";
-import { InputError, type Pipeline } from "@guardian402/guardian/pipeline";
+import { InputError, UnavailableError, type Pipeline } from "@guardian402/guardian/pipeline";
 import { usdc } from "@guardian402/guardian/x402";
 
 export const TOOL_NAMES = ["check_transaction", "cosign_transaction"] as const;
@@ -127,7 +127,9 @@ export async function createGuardianMcpServer(d: McpDeps): Promise<McpServer> {
           const body =
             e instanceof InputError
               ? { error: "invalid request", details: e.details }
-              : { error: "check failed" };
+              : e instanceof UnavailableError
+                ? { error: "simulation unavailable, try again in a few seconds" }
+                : { error: "check failed" };
           return { content: text(body), isError: true };
         }
       }),
