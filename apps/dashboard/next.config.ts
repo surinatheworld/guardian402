@@ -15,7 +15,18 @@ const config: NextConfig = {
     .filter(Boolean),
   transpilePackages: ["@guardian402/shared"],
   reactStrictMode: true,
+  experimental: { optimizePackageImports: ["@gravity-ui/icons"] },
   poweredByHeader: false,
+  // The five destinations of the Phase 15 redesign replaced these pages; keep old links working.
+  async redirects() {
+    return [
+      { source: "/kiem-tra", destination: "/chay-thu", permanent: false },
+      { source: "/demo", destination: "/chay-thu", permanent: false },
+      { source: "/da-chan", destination: "/hoat-dong?xem=rejected", permanent: false },
+      { source: "/dieu-khien", destination: "/quy-tac", permanent: false },
+      { source: "/doanh-thu", destination: "/ve-guardian", permanent: false },
+    ];
+  },
   async rewrites() {
     return [
       {

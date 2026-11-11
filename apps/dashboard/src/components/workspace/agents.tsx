@@ -1,13 +1,30 @@
 "use client";
-// Agents tab: the AI agents connected to this vault. Each one shows three separate things: its policy (what it
-// may do), its Guardian API keys (who may call the API as it), and its wallet authority on the vault (whether
-// it can execute at all). Guardian does not run the agent: its model, prompts and schedule stay outside.
-import { Button } from "@heroui/react/button";
+// The AI agents registered for a linked vault. Each one shows three separate things: its rule set (what it may
+// do), its Guardian API keys (who may call the Guardian as it), and whether the vault lets it spend at all.
+// The Guardian does not run the agent: its model, prompts and schedule stay outside.
+import { Copy, CopyCheck, Ellipsis, Key, Plus, TrashBin } from "@gravity-ui/icons";
+import { Button, buttonVariants } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
+import { Description } from "@heroui/react/description";
+import { Dropdown } from "@heroui/react/dropdown";
+import { Label } from "@heroui/react/label";
+import { Modal } from "@heroui/react/modal";
+import { Switch } from "@heroui/react/switch";
+import { toast } from "@heroui/react/toast";
 import { useMutation } from "@tanstack/react-query";
+import NextLink from "next/link";
 import { useState, useSyncExternalStore } from "react";
+import { isAddress, type Address } from "viem";
+import { useWriteContract } from "wagmi";
+import { avalancheFuji } from "wagmi/chains";
+import { agentVaultAbi } from "@guardian402/shared";
+import { EditModal } from "@/components/edit-modal";
+import { TextInput, useConfirm } from "@/components/fields";
+import { errorOf } from "@/components/form";
+import type { useOwnerAction } from "@/components/owner-action";
+import { AddressLink, Card, Empty, ErrorBox, Expand, LoadingRows } from "@/components/ui";
+import type { OwnerGate } from "@/components/wallet";
 import { formatTime } from "@/lib/format";
-import { AddressLink, Card, Empty, ErrorBox, Loading } from "@/components/ui";
-import { ConfirmInline, Field, FormError, INPUT, Pill, errorOf } from "@/components/form";
 import {
   AGENT_STATUS_LABEL,
   useAgentKeys,
@@ -20,20 +37,26 @@ import {
   type AssignmentOverview,
 } from "@/lib/workspace";
 
-export function AgentsTab({
+type Owner = ReturnType<typeof useOwnerAction>;
+
+export function AgentsList({
   vault,
-  onOpenPolicy,
-  onOpenChanges,
+  gate,
+  owner,
+  adding,
+  setAdding,
 }: {
-  vault: string;
-  onOpenPolicy: (agentId: number) => void;
-  onOpenChanges: () => void;
+  vault: Address;
+  gate: OwnerGate;
+  owner: Owner;
+  adding: boolean;
+  setAdding: (open: boolean) => void;
 }) {
   const q = useAgents(vault);
   const overview = useAssignments(vault);
   const invalidate = useInvalidate(vault);
   const [prefill, setPrefill] = useState("");
-  if (q.isPending) return <Loading />;
+  if (q.isPending) return <LoadingRows rows={3} label="Đang tải agent" />;
   if (q.isError)
     return (
       <ErrorBox
@@ -43,330 +66,417 @@ export function AgentsTab({
       />
     );
   const { agents, onChainAgent } = q.data;
-  const unregistered = onChainAgent && !agents.some((a) => a.isOnChainAgent);
+  const unregistered = onChainAgent && !agents.some((a) => a.isOnChainAgent) ? onChainAgent : null;
   return (
-    <div className="flex flex-col gap-6">
-      <Card title="Agent đang kết nối">
-        <p className="text-sm text-muted">
-          Kết nối một AI bạn đang chạy ở nơi khác: đăng ký địa chỉ ví thực thi của nó, gán policy, rồi cấp API
-          key để nó gọi Guardian. Vault chỉ có một agent thực thi; agent đó do ví chủ đặt trên chain.
-        </p>
-        {unregistered ? (
-          <div className="flex flex-col gap-2 rounded-[18px] bg-medium-bg p-4 text-sm text-medium">
-            <p>
-              Vault đang cho phép <AddressLink address={onChainAgent} /> thực thi nhưng địa chỉ này chưa có
-              trong danh sách.
-            </p>
+    <div className="flex flex-col gap-4">
+      {unregistered ? (
+        <Card
+          title="Agent chưa có trong danh sách"
+          description="Két đang cho địa chỉ này chi tiêu, nhưng bạn chưa đặt tên hay cấp khoá API cho nó."
+          actions={
             <Button
+              size="sm"
               variant="secondary"
-              type="button"
-              className="self-start"
-              onPress={() => setPrefill(onChainAgent)}
+              onPress={() => {
+                setPrefill(unregistered);
+                setAdding(true);
+              }}
             >
               Đăng ký agent này
             </Button>
-          </div>
-        ) : null}
-        {agents.length === 0 ? (
-          <Empty>Chưa có agent nào. Đăng ký agent ở bên dưới.</Empty>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {agents.map((a) => (
-              <AgentItem
-                key={a.id}
-                vault={vault}
-                agent={a}
-                overview={overview.data?.agents.find((x) => x.agent.id === a.id)}
-                onChanged={() => invalidate("agents", "assignments")}
-                onOpenPolicy={onOpenPolicy}
-                onOpenChanges={onOpenChanges}
-              />
-            ))}
-          </ul>
-        )}
-      </Card>
-
+          }
+        >
+          <AddressLink address={unregistered} />
+        </Card>
+      ) : null}
+      {agents.length === 0 ? (
+        <Card title="Chưa có agent nào">
+          <Empty
+            action={
+              <Button size="sm" variant="primary" onPress={() => setAdding(true)}>
+                <Plus aria-hidden="true" />
+                Thêm agent
+              </Button>
+            }
+          >
+            Thêm AI agent bạn đang chạy ở nơi khác: đặt tên, nhập địa chỉ ví của nó, rồi cấp khoá API.
+          </Empty>
+        </Card>
+      ) : (
+        agents.map((a) => (
+          <AgentCard
+            key={a.id}
+            vault={vault}
+            agent={a}
+            overview={overview.data?.agents.find((x) => x.agent.id === a.id)}
+            gate={gate}
+            owner={owner}
+            onChanged={() => invalidate("agents", "assignments")}
+          />
+        ))
+      )}
       <AddAgent
         key={prefill}
         vault={vault}
         prefill={prefill}
+        isOpen={adding}
+        onOpenChange={(o) => {
+          setAdding(o);
+          if (!o) setPrefill("");
+        }}
         onAdded={() => invalidate("agents", "assignments")}
       />
     </div>
   );
 }
 
-function AgentItem({
+function AgentCard({
   vault,
   agent,
   overview,
+  gate,
+  owner,
   onChanged,
-  onOpenPolicy,
-  onOpenChanges,
 }: {
-  vault: string;
+  vault: Address;
   agent: Agent;
   overview: AssignmentOverview["agents"][number] | undefined;
+  gate: OwnerGate;
+  owner: Owner;
   onChanged: () => void;
-  onOpenPolicy: (agentId: number) => void;
-  onOpenChanges: () => void;
 }) {
-  const invalidate = useInvalidate(vault);
-  const [confirm, setConfirm] = useState<"delete" | "revoke" | null>(null);
+  const { writeContractAsync } = useWriteContract();
+  const confirm = useConfirm();
   const update = useMutation({
     mutationFn: (status: Agent["status"]) => wsApi(vault, `agents/${agent.id}`, "PATCH", { status }),
-    onSuccess: onChanged,
-  });
-  const remove = useMutation({
-    mutationFn: () => wsApi(vault, `agents/${agent.id}`, "DELETE"),
-    onSuccess: onChanged,
-  });
-  const revokeWallet = useMutation({
-    mutationFn: () =>
-      wsApi(vault, "policy-changes", "POST", {
-        kind: "revoke_agent",
-        note: `Thu hồi quyền thực thi của ${agent.name}`,
-      }),
-    onSuccess: () => {
-      setConfirm(null);
-      void invalidate("policy");
-      onOpenChanges();
+    onSuccess: (_d, status) => {
+      onChanged();
+      toast(
+        status === "active"
+          ? `${agent.name} được gọi Guardian trở lại`
+          : `Đã ${AGENT_STATUS_LABEL[status].toLowerCase()}`,
+      );
     },
+    onError: (e) => toast.danger("Chưa đổi được trạng thái", { description: errorOf(e) }),
   });
   const a = overview?.assignment;
   const e = overview?.enforcement;
+
+  const setAsAgent = () =>
+    owner.request({
+      title: `Cho ${agent.name} chi tiêu từ két`,
+      summary: (
+        <>
+          Két chỉ có một agent. <AddressLink address={agent.address} name={agent.name} /> sẽ thay agent hiện
+          tại và chi tiêu theo quy tắc của két.
+        </>
+      ),
+      call: `AgentVault.setAgent(${agent.address})`,
+      confirmLabel: "Ký và đặt agent",
+      successTitle: `${agent.name} là agent của két`,
+      send: () =>
+        writeContractAsync({
+          address: vault,
+          abi: agentVaultAbi,
+          functionName: "setAgent",
+          args: [agent.address],
+          chainId: avalancheFuji.id,
+        }),
+    });
+
   return (
-    <li className="flex flex-col gap-4 rounded-[18px] bg-surface-2 p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-semibold">{agent.name}</span>
-        {agent.isOnChainAgent ? (
-          <Pill tone="ok">Được thực thi trên vault</Pill>
-        ) : (
-          <Pill>Chưa có quyền thực thi</Pill>
-        )}
-        {agent.status !== "active" ? <Pill tone="warn">{AGENT_STATUS_LABEL[agent.status]}</Pill> : null}
-      </div>
-      <div className="flex flex-col gap-1 text-sm">
-        <span className="text-muted">Ví thực thi</span>
-        <AddressLink address={agent.address} />
-      </div>
-      {agent.description ? (
-        <p className="text-sm">
-          <span className="text-muted">Nhiệm vụ: </span>
-          {agent.description}
-        </p>
-      ) : null}
-
-      <section aria-label="Policy" className="flex flex-col gap-2 border-t border-line pt-3 text-sm">
-        <span className="font-semibold">Policy</span>
-        {a ? (
-          <p className="flex flex-wrap items-center gap-2">
-            {a.policy.name} · phiên bản {a.version.version}
-            {e?.state === "active" ? (
-              <Pill tone="ok">Đang hiệu lực</Pill>
-            ) : e?.state === "pending" ? (
-              <Pill tone="warn">Chờ chủ ví ký {e.plan.changes.length} thay đổi</Pill>
-            ) : (
-              <Pill>Chưa đọc được vault</Pill>
-            )}
-          </p>
-        ) : (
-          <p className="text-muted">Chưa gán policy: Guardian không cấp verdict cho agent này.</p>
-        )}
-        <Button
-          variant="secondary"
-          type="button"
-          className="self-start"
-          onPress={() => onOpenPolicy(agent.id)}
-        >
-          {a ? "Xem và đổi policy" : "Gán policy"}
-        </Button>
-      </section>
-
-      <AgentKeys vault={vault} agent={agent} />
-
-      <section aria-label="Quản lý agent" className="flex flex-col gap-2 border-t border-line pt-3">
-        <div className="flex flex-wrap items-end gap-3">
-          <Field id={`agent-status-${agent.id}`} label="Trạng thái trong Guardian">
-            <select
-              id={`agent-status-${agent.id}`}
-              value={agent.status}
-              disabled={update.isPending}
-              onChange={(ev) => update.mutate(ev.target.value as Agent["status"])}
-              className={INPUT}
-            >
-              {Object.entries(AGENT_STATUS_LABEL).map(([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
-                </option>
-              ))}
-            </select>
-          </Field>
+    <Card
+      title={
+        <span className="flex flex-wrap items-center gap-2">
+          {agent.name}
           {agent.isOnChainAgent ? (
-            confirm === "revoke" ? (
-              <ConfirmInline
-                text="Soạn giao dịch thu hồi quyền thực thi? Ví chủ cần ký."
-                confirmLabel="Soạn thu hồi"
-                pending={revokeWallet.isPending}
-                onConfirm={() => revokeWallet.mutate()}
-                onCancel={() => setConfirm(null)}
-              />
-            ) : (
-              <Button variant="danger-soft" type="button" onPress={() => setConfirm("revoke")}>
-                Thu hồi quyền ví
-              </Button>
-            )
-          ) : confirm === "delete" ? (
-            <ConfirmInline
-              text="Xoá agent khỏi danh sách? Policy đang gán và API key của nó cũng bị xoá."
-              confirmLabel="Xoá"
-              pending={remove.isPending}
-              onConfirm={() => remove.mutate()}
-              onCancel={() => setConfirm(null)}
-            />
-          ) : (
-            <Button
-              variant="secondary"
-              type="button"
-              onPress={() => {
-                remove.reset();
-                setConfirm("delete");
+            <Chip size="sm" variant="soft" color="success">
+              Đang chi tiêu từ két
+            </Chip>
+          ) : null}
+          {agent.status !== "active" ? (
+            <Chip size="sm" variant="soft" color="warning">
+              {AGENT_STATUS_LABEL[agent.status]}
+            </Chip>
+          ) : null}
+        </span>
+      }
+      description={agent.description ?? undefined}
+      actions={
+        <Dropdown>
+          <Button isIconOnly size="sm" variant="ghost" aria-label={`Thao tác khác với ${agent.name}`}>
+            <Ellipsis aria-hidden="true" />
+          </Button>
+          <Dropdown.Popover placement="bottom end">
+            <Dropdown.Menu
+              aria-label={`Thao tác với ${agent.name}`}
+              disabledKeys={[
+                ...(agent.isOnChainAgent ? ["delete"] : []),
+                ...(agent.status === "retired" ? ["retire"] : []),
+              ]}
+              onAction={(key) => {
+                if (key === "retire")
+                  confirm.ask({
+                    title: `Ngừng dùng ${agent.name}?`,
+                    body: "Khoá API của agent này không gọi được Guardian nữa. Két không đổi gì.",
+                    confirmLabel: "Ngừng dùng",
+                    onConfirm: () => update.mutateAsync("retired"),
+                  });
+                if (key === "delete")
+                  confirm.ask({
+                    title: `Xoá ${agent.name} khỏi danh sách?`,
+                    body: "Bộ quy tắc đang gán và khoá API của nó cũng bị xoá. Két không đổi gì.",
+                    confirmLabel: "Xoá agent",
+                    onConfirm: async () => {
+                      await wsApi(vault, `agents/${agent.id}`, "DELETE");
+                      onChanged();
+                      toast(`Đã xoá ${agent.name}`);
+                    },
+                  });
               }}
             >
-              Xoá
+              <Dropdown.Item id="retire" textValue="Ngừng dùng">
+                <Label>Ngừng dùng</Label>
+              </Dropdown.Item>
+              <Dropdown.Item id="delete" textValue="Xoá khỏi danh sách" variant="danger">
+                <Label>Xoá khỏi danh sách</Label>
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown.Popover>
+        </Dropdown>
+      }
+    >
+      <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-muted">Ví của agent</span>
+          <AddressLink address={agent.address} />
+          {!agent.isOnChainAgent ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="mt-1 self-start"
+              isDisabled={!gate.ok}
+              onPress={setAsAgent}
+            >
+              Cho chi tiêu từ két
             </Button>
-          )}
+          ) : null}
         </div>
-        <p className="text-xs text-muted">
-          “Tạm nghỉ” chặn agent gọi Guardian API; “Thu hồi quyền ví” là giao dịch trên vault, chặn agent thực
-          thi kể cả khi nó không qua Guardian.
-        </p>
-      </section>
-      <FormError error={update.error ?? remove.error ?? revokeWallet.error} />
-    </li>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-muted">Bộ quy tắc</span>
+          {a ? (
+            <span className="flex flex-wrap items-center gap-2 text-sm">
+              {a.policy.name} · phiên bản {a.version.version}
+              {e?.state === "active" ? (
+                <Chip size="sm" variant="soft" color="success">
+                  Đang áp dụng
+                </Chip>
+              ) : e?.state === "pending" ? (
+                <Chip size="sm" variant="soft" color="warning">
+                  Chờ ký {e.plan.changes.length} thay đổi
+                </Chip>
+              ) : null}
+            </span>
+          ) : (
+            <span className="text-sm text-muted">
+              Chưa gán: Guardian không duyệt giao dịch cho agent này.
+            </span>
+          )}
+          <NextLink
+            href={`/quy-tac?agent=${agent.id}#bo-quy-tac`}
+            className={buttonVariants({ variant: "secondary", size: "sm", className: "mt-1 self-start" })}
+          >
+            {a ? "Đổi bộ quy tắc" : "Gán bộ quy tắc"}
+          </NextLink>
+        </div>
+      </div>
+
+      <div className="border-t border-separator pt-4">
+        <Switch
+          isSelected={agent.status === "active"}
+          isDisabled={agent.status === "retired" || update.isPending}
+          onChange={(on) => update.mutate(on ? "active" : "paused")}
+        >
+          <Switch.Control>
+            <Switch.Thumb />
+          </Switch.Control>
+          <Switch.Content>
+            <Label>Cho phép gọi Guardian</Label>
+            <Description>
+              Tắt để tạm ngưng mọi khoá API của agent này. Muốn chặn chi tiêu ngay trên két, dùng Gỡ quyền
+              agent.
+            </Description>
+          </Switch.Content>
+        </Switch>
+      </div>
+
+      <AgentKeys vault={vault} agent={agent} />
+      {confirm.dialog}
+    </Card>
   );
 }
 
 // ------------------------------------------------------------------ API keys and integration
 
-function AgentKeys({ vault, agent }: { vault: string; agent: Agent }) {
+function AgentKeys({ vault, agent }: { vault: Address; agent: Agent }) {
   const q = useAgentKeys(vault, agent.id);
   const invalidate = useInvalidate(vault);
+  const confirm = useConfirm();
+  const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
   const [fresh, setFresh] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [confirm, setConfirm] = useState<number | null>(null);
   const create = useMutation({
     mutationFn: () =>
       wsApi<{ key: string; apiKey: ApiKey }>(vault, `agents/${agent.id}/keys`, "POST", { name }),
     onSuccess: (r) => {
-      setFresh(r.key);
-      setCopied(false);
+      setNaming(false);
       setName("");
-      void invalidate("keys");
-    },
-  });
-  const revoke = useMutation({
-    mutationFn: (id: number) => wsApi(vault, `agents/${agent.id}/keys/${id}`, "DELETE"),
-    onSuccess: () => {
-      setConfirm(null);
+      setCopied(false);
+      setFresh(r.key);
       void invalidate("keys");
     },
   });
   const active = (q.data?.keys ?? []).filter((k) => k.revokedAt === null);
-  const revoked = (q.data?.keys ?? []).filter((k) => k.revokedAt !== null);
+  const revoked = (q.data?.keys ?? []).filter((k) => k.revokedAt !== null).length;
   return (
-    <section aria-label="API key" className="flex flex-col gap-3 border-t border-line pt-3 text-sm">
-      <span className="font-semibold">Guardian API key</span>
-      <p className="text-muted">
-        Hệ thống AI của bạn dùng key để đọc policy, gửi giao dịch nhờ Guardian kiểm tra và lấy verdict. Key
-        không đổi được policy hay hạn mức, và không phải khoá ví.
-      </p>
-      {fresh ? (
-        <div role="status" className="flex flex-col gap-2 rounded-lg bg-low-bg p-3 text-low">
-          <p className="font-semibold">Key mới, chỉ hiện một lần. Lưu vào biến môi trường của agent.</p>
-          <code className="font-mono text-xs break-all text-fg">{fresh}</code>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
-              type="button"
-              onPress={() => {
-                navigator.clipboard
-                  .writeText(fresh)
-                  .then(() => setCopied(true))
-                  .catch(() => setCopied(false));
-              }}
-            >
-              {copied ? "Đã sao chép" : "Sao chép"}
-            </Button>
-            <Button variant="secondary" type="button" onPress={() => setFresh(null)}>
-              Tôi đã lưu key
-            </Button>
-          </div>
-        </div>
-      ) : null}
+    <section
+      aria-label={`Khoá API của ${agent.name}`}
+      className="flex flex-col gap-3 border-t border-separator pt-4"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">Khoá API</h3>
+        {agent.status !== "retired" ? (
+          <Button size="sm" variant="secondary" onPress={() => setNaming(true)}>
+            <Key aria-hidden="true" />
+            Tạo khoá API
+          </Button>
+        ) : null}
+      </div>
       {q.isPending ? (
-        <Loading />
+        <LoadingRows rows={1} />
       ) : q.isError ? (
-        <FormError error={q.error} />
+        <p role="alert" className="text-sm text-danger">
+          {errorOf(q.error)}
+        </p>
       ) : active.length === 0 ? (
-        <p className="text-muted">Chưa có key nào đang dùng.</p>
+        <p className="text-sm text-muted">Chưa có khoá nào. Agent cần khoá API để gọi Guardian.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col divide-y divide-separator">
           {active.map((k) => (
             <li
               key={k.id}
-              className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[14px] border border-line bg-surface p-3"
+              className="flex flex-wrap items-center justify-between gap-3 py-2 first:pt-0 last:pb-0"
             >
-              <span className="font-semibold">{k.name}</span>
-              <code className="font-mono text-xs">{k.prefix}…</code>
-              <span className="text-xs text-muted tabular-nums">
-                Tạo {formatTime(k.createdAt)} ·{" "}
-                {k.lastUsedAt ? `dùng gần nhất ${formatTime(k.lastUsedAt)}` : "chưa dùng"}
-              </span>
-              {confirm === k.id ? (
-                <ConfirmInline
-                  text="Thu hồi key? Agent dùng key này sẽ không gọi được Guardian API."
-                  confirmLabel="Thu hồi key"
-                  pending={revoke.isPending}
-                  onConfirm={() => revoke.mutate(k.id)}
-                  onCancel={() => setConfirm(null)}
-                />
-              ) : (
-                <Button variant="secondary" type="button" onPress={() => setConfirm(k.id)}>
-                  Thu hồi key
-                </Button>
-              )}
+              <div className="flex min-w-0 flex-col">
+                <span className="text-sm font-medium">
+                  {k.name} <code className="font-mono text-xs text-muted">{k.prefix}…</code>
+                </span>
+                <span className="text-xs text-muted tabular-nums">
+                  Tạo {formatTime(k.createdAt)} ·{" "}
+                  {k.lastUsedAt ? `dùng lần cuối ${formatTime(k.lastUsedAt)}` : "chưa dùng"}
+                </span>
+              </div>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                aria-label={`Thu hồi khoá ${k.name}`}
+                onPress={() =>
+                  confirm.ask({
+                    title: `Thu hồi khoá “${k.name}”?`,
+                    body: "Agent dùng khoá này sẽ không gọi được Guardian nữa.",
+                    confirmLabel: "Thu hồi khoá",
+                    onConfirm: async () => {
+                      await wsApi(vault, `agents/${agent.id}/keys/${k.id}`, "DELETE");
+                      await invalidate("keys");
+                      toast(`Đã thu hồi khoá “${k.name}”`);
+                    },
+                  })
+                }
+              >
+                <TrashBin aria-hidden="true" />
+              </Button>
             </li>
           ))}
         </ul>
       )}
-      {revoked.length ? <p className="text-xs text-muted">{revoked.length} key đã thu hồi.</p> : null}
-      {agent.status !== "retired" ? (
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(ev) => {
-            ev.preventDefault();
-            create.mutate();
-          }}
-        >
-          <Field id={`key-name-${agent.id}`} label="Tên key (không bắt buộc)">
-            <input
-              id={`key-name-${agent.id}`}
-              maxLength={60}
-              placeholder="ví dụ: server production"
-              value={name}
-              onChange={(ev) => setName(ev.target.value)}
-              className={`${INPUT} sm:w-64`}
-            />
-          </Field>
-          <Button variant="secondary" type="submit" isDisabled={create.isPending}>
-            {create.isPending ? "Đang tạo…" : "Tạo API key"}
-          </Button>
-        </form>
-      ) : null}
-      <FormError error={create.error ?? revoke.error} />
-      <Integration />
+      {revoked ? <p className="text-xs text-muted">{revoked} khoá đã thu hồi.</p> : null}
+      <Expand label="Hướng dẫn tích hợp">
+        <Integration />
+      </Expand>
+
+      <EditModal
+        isOpen={naming}
+        onOpenChange={(o) => {
+          create.reset();
+          setNaming(o);
+        }}
+        title="Tạo khoá API"
+        submitLabel={create.isPending ? "Đang tạo…" : "Tạo khoá"}
+        isSubmitDisabled={create.isPending}
+        onSubmit={() => create.mutate()}
+      >
+        <TextInput
+          label="Tên khoá (không bắt buộc)"
+          value={name}
+          onChange={setName}
+          maxLength={60}
+          placeholder="Ví dụ: máy chủ chính"
+          description="Khoá chỉ dùng để gọi Guardian; nó không đổi được quy tắc và không phải khoá ví."
+          autoFocus
+        />
+        {create.error ? (
+          <p role="alert" className="text-sm text-danger">
+            {errorOf(create.error)}
+          </p>
+        ) : null}
+      </EditModal>
+
+      <Modal.Backdrop
+        isOpen={fresh !== null}
+        isDismissable={false}
+        onOpenChange={(o) => !o && setFresh(null)}
+      >
+        <Modal.Container>
+          <Modal.Dialog className="sm:max-w-lg">
+            <Modal.Header>
+              <Modal.Heading className="text-lg font-semibold">Lưu khoá API ngay</Modal.Heading>
+            </Modal.Header>
+            <Modal.Body className="flex flex-col gap-3">
+              <p className="text-sm">
+                Khoá chỉ hiện một lần. Lưu vào biến môi trường của agent, ví dụ{" "}
+                <code className="font-mono">GUARDIAN_API_KEY</code>.
+              </p>
+              <code className="rounded-xl bg-surface-secondary p-3 font-mono text-xs break-all">{fresh}</code>
+            </Modal.Body>
+            <Modal.Footer>
+              <Button
+                variant="secondary"
+                onPress={() => {
+                  if (!fresh) return;
+                  navigator.clipboard
+                    .writeText(fresh)
+                    .then(() => {
+                      setCopied(true);
+                      toast.success("Đã sao chép khoá");
+                    })
+                    .catch(() =>
+                      toast.danger("Không sao chép được", { description: "Hãy chọn và chép thủ công." }),
+                    );
+                }}
+              >
+                {copied ? <CopyCheck aria-hidden="true" /> : <Copy aria-hidden="true" />}
+                {copied ? "Đã sao chép" : "Sao chép"}
+              </Button>
+              <Button variant="primary" onPress={() => setFresh(null)}>
+                Tôi đã lưu khoá
+              </Button>
+            </Modal.Footer>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+      {confirm.dialog}
     </section>
   );
 }
@@ -380,124 +490,98 @@ function Integration() {
   );
   const base = `${origin}/api/agent/v1`;
   return (
-    <details className="rounded-[14px] border border-line bg-surface p-3">
-      <summary className="cursor-pointer font-semibold">Hướng dẫn tích hợp (REST)</summary>
-      <div className="mt-3 flex flex-col gap-3">
-        <p className="text-muted">
-          Agent giữ nguyên mô hình AI và khoá của nó. Gửi key trong header{" "}
-          <code className="font-mono text-xs">Authorization: Bearer …</code>. Kiểm tra và ký verdict là dịch
-          vụ trả phí qua x402: lần gọi đầu nhận 402 kèm PAYMENT-REQUIRED, ví agent trả USDC rồi gọi lại (thư
-          viện @x402/fetch làm việc này).
-        </p>
-        <table className="w-full text-left text-xs">
-          <tbody>
-            {[
-              ["GET", "/me", "Agent, policy đang hiệu lực, ngân sách hôm nay"],
-              ["POST", "/check", "Guardian kiểm tra một batch {calls} (trả phí)"],
-              ["POST", "/cosign", "Kiểm tra và ký verdict; chỉ khi policy đang hiệu lực (trả phí)"],
-              ["GET", "/checks/:checkId", "Kết quả một lần kiểm tra"],
-              ["GET", "/transactions/:hash", "Trạng thái thực thi đã xác minh trên chain"],
-            ].map(([m, p, d]) => (
-              <tr key={p} className="border-t border-line align-top">
-                <td className="py-1.5 pr-2 font-mono">{m}</td>
-                <td className="py-1.5 pr-2 font-mono break-all">{p}</td>
-                <td className="py-1.5 text-muted">{d}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <pre className="overflow-x-auto rounded-lg bg-surface-2 p-3 font-mono text-xs">
-          {`curl -H "Authorization: Bearer $GUARDIAN_API_KEY" \\
+    <div className="flex flex-col gap-3 text-sm">
+      <p className="text-muted">
+        Agent giữ nguyên mô hình AI và khoá ví của nó, gửi khoá API trong header{" "}
+        <code className="font-mono text-xs">Authorization: Bearer …</code>. Kiểm tra và duyệt là dịch vụ trả
+        phí qua x402: lần gọi đầu nhận 402, ví agent trả USDC rồi gọi lại (thư viện @x402/fetch tự làm việc
+        này).
+      </p>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+        {[
+          ["GET /me", "Agent, bộ quy tắc đang áp dụng, hạn mức hôm nay"],
+          ["POST /check", "Guardian kiểm tra một giao dịch (trả phí)"],
+          ["POST /cosign", "Kiểm tra và ký duyệt khi bộ quy tắc đang áp dụng (trả phí)"],
+          ["GET /checks/:checkId", "Kết quả một lần kiểm tra"],
+          ["GET /transactions/:hash", "Trạng thái thực thi đã xác minh trên chain"],
+        ].map(([path, text]) => (
+          <div key={path} className="contents">
+            <dt className="font-mono">{path}</dt>
+            <dd className="text-muted">{text}</dd>
+          </div>
+        ))}
+      </dl>
+      <pre className="overflow-x-auto rounded-xl bg-surface-secondary p-3 font-mono text-xs">
+        {`curl -H "Authorization: Bearer $GUARDIAN_API_KEY" \\
   ${base}/me`}
-        </pre>
-        <pre className="overflow-x-auto rounded-lg bg-surface-2 p-3 font-mono text-xs">
-          {`// Node: @x402/fetch trả phí bằng ví agent (tối đa 0.02 USDC/lần)
-const pay = wrapFetchWithPaymentFromConfig(fetch, {
-  schemes: [{ network: "eip155:43113", client: new ExactEvmScheme(agentAccount) }],
-});
-const res = await pay("${base}/cosign", {
-  method: "POST",
-  headers: {
-    "content-type": "application/json",
-    authorization: \`Bearer \${process.env.GUARDIAN_API_KEY}\`,
-  },
-  body: JSON.stringify({ calls, lang: "vi" }),
-});`}
-        </pre>
-        <p className="text-xs text-muted">
-          Vault mới là nơi cưỡng chế policy: agent gọi thẳng vault mà không qua API vẫn bị giới hạn y như vậy.
-        </p>
-      </div>
-    </details>
+      </pre>
+      <p className="text-xs text-muted">
+        Két mới là nơi cưỡng chế quy tắc: agent gọi thẳng két mà không qua API vẫn bị giới hạn y như vậy.
+      </p>
+    </div>
   );
 }
 
-function AddAgent({ vault, prefill, onAdded }: { vault: string; prefill: string; onAdded: () => void }) {
+function AddAgent({
+  vault,
+  prefill,
+  isOpen,
+  onOpenChange,
+  onAdded,
+}: {
+  vault: Address;
+  prefill: string;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAdded: () => void;
+}) {
   const [name, setName] = useState("");
   const [address, setAddress] = useState(prefill);
   const [description, setDescription] = useState("");
   const add = useMutation({
     mutationFn: () => wsApi(vault, "agents", "POST", { name, address: address.trim(), description }),
     onSuccess: () => {
+      onAdded();
+      onOpenChange(false);
+      toast.success(`Đã thêm ${name}`, { description: "Tiếp theo: gán bộ quy tắc và tạo khoá API." });
       setName("");
       setAddress("");
       setDescription("");
-      onAdded();
     },
   });
+  const badAddress = address.trim() !== "" && !isAddress(address.trim());
   return (
-    <Card title="Đăng ký agent">
-      <p className="text-sm text-muted">
-        Chỉ lưu địa chỉ công khai của ví thực thi, không bao giờ lưu khoá. Ví chủ không được làm agent. Đăng
-        ký chưa cấp quyền gì: agent chỉ thực thi được khi được gán policy và ví chủ ký áp dụng lên vault.
-      </p>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          add.mutate();
-        }}
-        className="flex flex-col gap-3"
-      >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field id="agent-name" label="Tên agent">
-            <input
-              id="agent-name"
-              required
-              maxLength={60}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={INPUT}
-            />
-          </Field>
-          <Field id="agent-address" label="Địa chỉ ví thực thi (0x…)">
-            <input
-              id="agent-address"
-              required
-              spellCheck={false}
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className={`${INPUT} font-mono`}
-            />
-          </Field>
-          <Field
-            id="agent-description"
-            label="Mô tả nhiệm vụ (không bắt buộc)"
-            hint="Để bạn nhận ra agent, ví dụ: trả tiền nhà cung cấp hằng tuần. Guardian không chạy agent."
-          >
-            <input
-              id="agent-description"
-              maxLength={300}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className={INPUT}
-            />
-          </Field>
-        </div>
-        <FormError error={add.error} />
-        <Button variant="primary" type="submit" isDisabled={add.isPending} className="self-start">
-          {add.isPending ? "Đang lưu…" : "Đăng ký agent"}
-        </Button>
-      </form>
-    </Card>
+    <EditModal
+      isOpen={isOpen}
+      onOpenChange={(o) => {
+        add.reset();
+        onOpenChange(o);
+      }}
+      title="Thêm agent"
+      submitLabel={add.isPending ? "Đang lưu…" : "Thêm agent"}
+      isSubmitDisabled={add.isPending || !name.trim() || !isAddress(address.trim())}
+      onSubmit={() => add.mutate()}
+    >
+      <TextInput label="Tên agent" value={name} onChange={setName} isRequired maxLength={60} autoFocus />
+      <TextInput
+        label="Địa chỉ ví của agent"
+        value={address}
+        onChange={setAddress}
+        isRequired
+        mono
+        placeholder="0x…"
+        error={
+          badAddress ? "Địa chỉ phải có dạng 0x và 40 ký tự hex." : add.error ? errorOf(add.error) : null
+        }
+        description="Chỉ lưu địa chỉ công khai, không bao giờ lưu khoá. Ví chủ két không được làm agent."
+      />
+      <TextInput
+        label="Nhiệm vụ (không bắt buộc)"
+        value={description}
+        onChange={setDescription}
+        maxLength={300}
+        placeholder="Ví dụ: trả tiền nhà cung cấp hằng tuần"
+      />
+    </EditModal>
   );
 }

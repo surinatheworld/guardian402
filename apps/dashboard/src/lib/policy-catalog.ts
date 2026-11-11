@@ -20,7 +20,7 @@ const swapSelector = toFunctionSelector(swapItem);
 export const CONTRACTS: CatalogContract[] = [
   {
     address: deployment.router,
-    name: "MockRouter",
+    name: "Sàn swap thử nghiệm",
     demo: true,
     functions: [
       {
@@ -56,7 +56,7 @@ export const TEMPLATES: { id: TemplateId; name: string; description: string }[] 
   {
     id: "swap",
     name: "Swap có kiểm soát",
-    description: "Swap qua MockRouter với approval giới hạn.",
+    description: "Swap qua sàn thử nghiệm, quyền rút có giới hạn.",
   },
   {
     id: "custom",

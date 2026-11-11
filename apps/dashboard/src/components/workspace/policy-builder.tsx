@@ -3,6 +3,7 @@
 import { Accordion } from "@heroui/react/accordion";
 import { AlertDialog } from "@heroui/react/alert-dialog";
 import { Button } from "@heroui/react/button";
+import { Description } from "@heroui/react/description";
 import { Label } from "@heroui/react/label";
 import { Radio } from "@heroui/react/radio";
 import { RadioGroup } from "@heroui/react/radio-group";
@@ -10,7 +11,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 import { formatUnits, getAddress, isAddress, toFunctionSelector, type Address, type Hex } from "viem";
 import { ConfirmInline, FormError, Pill, errorOf } from "@/components/form";
-import { Card, ErrorBox, Loading } from "@/components/ui";
+import { Card, ErrorBox, Expand, Loading } from "@/components/ui";
 import { accountApi, AccountApiError } from "@/lib/account";
 import { CONTRACTS, naming, TEMPLATES, templateSpec, type TemplateId } from "@/lib/policy-catalog";
 import {
@@ -49,7 +50,7 @@ const STEPS = [
   {
     label: "Quyền thực thi",
     title: "Agent được làm gì?",
-    next: "Xem lại policy",
+    next: "Xem lại",
   },
   {
     label: "Xem lại",
@@ -119,7 +120,7 @@ export function PolicyBuilder({
   const warnings = spec ? specWarnings(spec, names) : [];
   const save = useMutation({
     mutationFn: async () => {
-      if (!spec || !name.trim()) throw new Error(specError || "Nhập tên policy.");
+      if (!spec || !name.trim()) throw new Error(specError || "Nhập tên bộ quy tắc.");
       const body = { name: name.trim(), description, spec, note, template };
       if (initial) {
         const r = await accountApi<{ newVersion: number | null }>(
@@ -162,7 +163,7 @@ export function PolicyBuilder({
     if (target > step) {
       const nextIssue =
         step === 0 && !name.trim()
-          ? { message: "Nhập tên policy để tiếp tục.", field: "policy-name" }
+          ? { message: "Nhập tên bộ quy tắc để tiếp tục.", field: "policy-name" }
           : step === 1
             ? firstBudgetIssue(form, rows)
             : step === 2 && !spec
@@ -195,7 +196,7 @@ export function PolicyBuilder({
   return (
     <div ref={top} className="mx-auto flex w-full max-w-[66rem] min-w-0 scroll-mt-5 flex-col gap-5">
       <PolicyStageHeader
-        title={previewOpen ? "Thử bản đang soạn" : initial ? "Chỉnh sửa policy" : "Tạo policy"}
+        title={previewOpen ? "Thử bản đang soạn" : initial ? "Sửa bộ quy tắc" : "Tạo bộ quy tắc"}
         caption={name.trim() || undefined}
         vault={vault}
         vaultLabel={vaultLabel}
@@ -205,14 +206,17 @@ export function PolicyBuilder({
       />
 
       <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-6">
-        <nav aria-label="Tiến độ soạn policy" className="min-w-0 lg:sticky lg:top-5 lg:pt-2">
+        <nav aria-label="Các bước soạn bộ quy tắc" className="min-w-0 lg:sticky lg:top-5 lg:pt-2">
           <div className="lg:hidden">
             <p className="mb-2 text-sm font-semibold text-muted">
               Bước {step + 1}/{STEPS.length} · {current.label}
             </p>
             <div aria-hidden="true" className="grid grid-cols-4 gap-1.5">
               {STEPS.map(({ label }, i) => (
-                <span key={label} className={`h-1 rounded-full ${i <= step ? "bg-accent" : "bg-line"}`} />
+                <span
+                  key={label}
+                  className={`h-1 rounded-full ${i <= step ? "bg-accent" : "bg-separator"}`}
+                />
               ))}
             </div>
           </div>
@@ -226,7 +230,7 @@ export function PolicyBuilder({
                     type="button"
                     isDisabled={save.isPending}
                     onPress={() => go(i)}
-                    className="min-h-[42px] justify-start gap-3 px-3 text-sm"
+                    className=" justify-start gap-3 px-3 text-sm"
                   >
                     <span
                       aria-hidden="true"
@@ -238,10 +242,10 @@ export function PolicyBuilder({
                   </Button>
                 ) : (
                   <div
-                    className={`flex min-h-[42px] items-center gap-3 rounded-xl px-3 text-sm ${i === step ? "bg-surface font-semibold text-fg" : "text-muted"}`}
+                    className={`flex items-center gap-3 rounded-xl px-3 text-sm ${i === step ? "bg-surface font-semibold text-foreground" : "text-muted"}`}
                   >
                     <span
-                      className={`inline-grid size-6 shrink-0 place-items-center rounded-full text-xs tabular-nums ${i === step ? "bg-accent text-accent-fg" : "border border-current"}`}
+                      className={`inline-grid size-6 shrink-0 place-items-center rounded-full text-xs tabular-nums ${i === step ? "bg-accent text-accent-foreground" : "border border-current"}`}
                     >
                       {i + 1}
                     </span>
@@ -255,20 +259,20 @@ export function PolicyBuilder({
         <Card className="gap-0! overflow-visible! p-0!">
           <div className={previewOpen ? "hidden" : "flex min-w-0 flex-col gap-5 p-5 sm:p-6"}>
             <div>
-              <h2 ref={heading} tabIndex={-1} className="text-xl font-bold tracking-tight outline-none">
-                {step === 0 && initial ? "Tên policy" : current.title}
+              <h2 ref={heading} tabIndex={-1} className="text-xl font-semibold tracking-tight outline-none">
+                {step === 0 && initial ? "Tên bộ quy tắc" : current.title}
               </h2>
             </div>
             {step === 0 ? (
               <>
                 {!initial ? (
                   <RadioGroup
-                    aria-label="Mẫu policy"
+                    aria-label="Mẫu"
                     value={template}
                     onChange={(value) => pickTemplate(value as TemplateId)}
                   >
-                    <Label className="text-sm font-semibold">Mẫu policy</Label>
-                    <div className="divide-y divide-line">
+                    <Label className="text-sm font-semibold">Mẫu</Label>
+                    <div className="divide-y divide-separator">
                       {TEMPLATES.map((t) => (
                         <Choice
                           key={t.id}
@@ -292,7 +296,7 @@ export function PolicyBuilder({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <PolicyInput
                     id="policy-name"
-                    label="Tên policy"
+                    label="Tên bộ quy tắc"
                     required
                     maxLength={60}
                     value={name}
@@ -316,16 +320,16 @@ export function PolicyBuilder({
             {step === 1 ? (
               <section aria-label="Tài sản và hạn mức">
                 <p className="text-sm text-muted">
-                  Hạn mức tính theo số dư giảm trong ngày UTC, chung cho vault. Tắt tài sản đang theo dõi sẽ
+                  Hạn mức tính theo số dư giảm trong ngày UTC, chung cho cả két. Tắt tài sản đang theo dõi sẽ
                   đưa hạn mức về 0 khi áp dụng.
                 </p>
-                <div className="mt-2 divide-y divide-line">
+                <div className="mt-2 divide-y divide-separator">
                   {rows.map((row) => {
                     const a = form.assets[row.key] ?? OFF;
                     return (
                       <div
                         key={row.key}
-                        className={`px-3 py-1 ${a.enabled ? "rounded-xl bg-surface-2" : ""}`}
+                        className={`px-3 py-1 ${a.enabled ? "rounded-xl bg-surface-secondary" : ""}`}
                       >
                         <PolicyCheckbox
                           checked={a.enabled}
@@ -399,10 +403,10 @@ export function PolicyBuilder({
                     }}
                   />
                 </section>
-                <Accordion aria-label="Quyền contract và approval" allowsMultipleExpanded>
+                <Accordion aria-label="Ứng dụng và quyền rút" allowsMultipleExpanded>
                   <Accordion.Item id="contracts">
                     <Accordion.Heading>
-                      <Accordion.Trigger className="min-h-[42px] text-left">
+                      <Accordion.Trigger className=" text-left">
                         Gọi contract{" "}
                         <Pill>{form.contracts.reduce((n, c) => n + c.selectors.length, 0)} thao tác</Pill>
                         <Accordion.Indicator />
@@ -414,7 +418,7 @@ export function PolicyBuilder({
                           Vault kiểm tra địa chỉ contract và selector. Số dư thực giảm vẫn tính vào hạn mức.
                         </p>
                         {CONTRACTS.map((c) => (
-                          <section key={c.address} className="border-b border-line pb-2">
+                          <section key={c.address} className="border-b border-border pb-2">
                             <h4 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                               {c.name}
                               {c.demo ? <Pill tone="warn">DEMO</Pill> : null}
@@ -447,7 +451,7 @@ export function PolicyBuilder({
                             .map((selector) => (
                               <div
                                 key={`${c.address}-${selector}`}
-                                className="flex flex-wrap items-center justify-between gap-2 border-b border-line py-2"
+                                className="flex flex-wrap items-center justify-between gap-2 border-b border-border py-2"
                               >
                                 <div className="min-w-0 font-mono text-xs wrap-anywhere">
                                   {c.address}
@@ -473,15 +477,15 @@ export function PolicyBuilder({
                   </Accordion.Item>
                   <Accordion.Item id="approval">
                     <Accordion.Heading>
-                      <Accordion.Trigger className="min-h-[42px] text-left">
-                        Cấp approval <Pill>{form.spenders.length} bên được chọn</Pill>
+                      <Accordion.Trigger className=" text-left">
+                        Cấp quyền rút <Pill>{form.spenders.length} bên được chọn</Pill>
                         <Accordion.Indicator />
                       </Accordion.Trigger>
                     </Accordion.Heading>
                     <Accordion.Panel>
                       <Accordion.Body className="flex flex-col gap-3">
-                        <p className="rounded-lg bg-medium-bg p-3 text-sm text-medium">
-                          Địa chỉ được cấp approval cũng có quyền nhận tiền trên vault này.
+                        <p className="rounded-lg bg-warning-soft p-3 text-sm text-warning-soft-foreground">
+                          Địa chỉ được cấp quyền rút cũng được nhận tiền từ két này.
                         </p>
                         <p className="text-sm text-muted">
                           Approval khác 0 cần Guardian ký. Vault thu hồi quyền còn lại sau batch.
@@ -516,20 +520,20 @@ export function PolicyBuilder({
                               ))}
                           </div>
                         ) : (
-                          <p className="text-sm text-muted">Bật một token ở bước 1 để đặt mức approval.</p>
+                          <p className="text-sm text-muted">Bật một token ở bước 1 để đặt quyền rút.</p>
                         )}
                       </Accordion.Body>
                     </Accordion.Panel>
                   </Accordion.Item>
                 </Accordion>
                 <RadioGroup
-                  aria-label="Mức rủi ro verdict tối đa"
+                  aria-label="Mức rủi ro tối đa"
                   value={String(form.maxRisk)}
                   onChange={(value) => set({ maxRisk: Number(value) as RiskCode })}
                 >
-                  <Label className="text-sm font-semibold">Rủi ro tối đa khi có verdict</Label>
+                  <Label className="text-sm font-semibold">Mức rủi ro tối đa</Label>
                   <p className="text-sm text-muted">Guardian chấm rủi ro bằng luật.</p>
-                  <div className="divide-y divide-line">
+                  <div className="divide-y divide-separator">
                     {RISKS.map((label, i) => (
                       <Choice
                         key={label}
@@ -555,7 +559,7 @@ export function PolicyBuilder({
                 {description ? <p className="text-sm text-muted wrap-anywhere">{description}</p> : null}
                 {spec ? <Summary spec={spec} names={names} rows={rows} /> : null}
                 {warnings.length ? (
-                  <ul className="flex list-disc flex-col gap-2 rounded-xl bg-medium-bg py-3 pr-4 pl-8 text-sm text-medium">
+                  <ul className="flex list-disc flex-col gap-2 rounded-xl bg-warning-soft py-3 pr-4 pl-8 text-sm text-warning-soft-foreground">
                     {warnings.map((warning) => (
                       <li key={warning}>{warning}</li>
                     ))}
@@ -570,14 +574,14 @@ export function PolicyBuilder({
                     onChange={(e) => setNote(e.target.value)}
                   />
                 ) : null}
-                <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
+                <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
                   <Button variant="secondary" type="button" onPress={() => setPreviewState("open")}>
-                    Thử policy
+                    Thử bộ quy tắc
                   </Button>
                   <span className="text-sm text-muted">Tuỳ chọn</span>
                 </div>
                 <p className="text-sm text-muted">
-                  Để áp dụng lên vault, gán policy cho agent rồi ký bằng ví chủ.
+                  Để áp dụng lên két, gán bộ quy tắc cho agent rồi ký bằng ví chủ két.
                 </p>
               </>
             ) : null}
@@ -594,15 +598,15 @@ export function PolicyBuilder({
             ) : null}
           </div>
           {previewOpen ? (
-            <footer className="flex justify-end border-t border-line px-5 py-3 sm:px-6">
+            <footer className="flex justify-end border-t border-border px-5 py-3 sm:px-6">
               <Button variant="primary" type="button" onPress={() => setPreviewState("closed")}>
                 Về bước xem lại
               </Button>
             </footer>
           ) : (
-            <footer className="sticky bottom-0 z-10 flex flex-col gap-2 rounded-b-[20px] border-t border-line bg-surface px-5 py-3 sm:px-6">
+            <footer className="sticky bottom-0 z-10 flex flex-col gap-2 rounded-b-2xl border-t border-border bg-surface px-5 py-3 sm:px-6">
               {issue ? (
-                <p role="alert" className="text-sm text-high">
+                <p role="alert" className="text-sm text-danger">
                   {issue.message}
                 </p>
               ) : null}
@@ -638,7 +642,7 @@ export function PolicyBuilder({
         <AlertDialog.Container>
           <AlertDialog.Dialog>
             <AlertDialog.Header>
-              <AlertDialog.Heading>Rời trình tạo policy?</AlertDialog.Heading>
+              <AlertDialog.Heading>Rời trình tạo bộ quy tắc?</AlertDialog.Heading>
             </AlertDialog.Header>
             <AlertDialog.Body>
               <p className="text-sm text-muted">Thay đổi chưa lưu trong trình tạo sẽ bị bỏ.</p>
@@ -674,24 +678,27 @@ function Summary({
   });
   return (
     <div className="flex flex-col gap-4">
-      <section className="rounded-xl bg-surface-2 px-4 py-3 sm:px-5" aria-labelledby="policy-review-budget">
+      <section
+        className="rounded-xl bg-surface-secondary px-4 py-3 sm:px-5"
+        aria-labelledby="policy-review-budget"
+      >
         <h3 id="policy-review-budget" className="text-sm font-semibold">
           Hạn mức mỗi ngày <span className="font-normal text-muted">· UTC</span>
         </h3>
         {limits.length ? (
-          <ul className="mt-1 divide-y divide-line">
+          <ul className="mt-1 divide-y divide-separator">
             {limits.map(({ row, rule }) => (
               <li
                 key={row.key}
                 className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2"
               >
-                <span className="min-w-0 font-bold tabular-nums wrap-anywhere">
+                <span className="min-w-0 font-semibold tabular-nums wrap-anywhere">
                   <span className="text-xl">{formatUnits(BigInt(rule.dailyCap), row.decimals)}</span>{" "}
                   {row.symbol}
                 </span>
                 <span className="text-sm text-muted wrap-anywhere">
                   {BigInt(rule.verdictThreshold) < BigInt(rule.dailyCap)
-                    ? `Guardian ký khi chi vượt ${formatUnits(BigInt(rule.verdictThreshold), row.decimals)} ${row.symbol}`
+                    ? `Cần Guardian duyệt khi chi vượt ${formatUnits(BigInt(rule.verdictThreshold), row.decimals)} ${row.symbol}`
                     : "Ngưỡng ký bằng hoặc cao hơn hạn mức"}
                 </span>
               </li>
@@ -725,17 +732,15 @@ function Choice({
 }) {
   return (
     <Radio value={value} className="min-w-0">
-      <Radio.Content className="min-h-[42px] w-full items-start gap-3 rounded-lg border-s-2 border-transparent px-3 py-2.5 data-[selected]:border-accent data-[selected]:bg-surface-2">
-        <Radio.Control className="mt-0.5 shrink-0 border border-muted/45">
+      <Radio.Content className="items-start">
+        <Radio.Control>
           <Radio.Indicator />
         </Radio.Control>
-        <Label className="flex min-w-0 flex-col gap-0.5 text-sm">
-          <span className="font-semibold">
-            {title} {demo ? <Pill tone="warn">DEMO</Pill> : null}
-          </span>
-          {description ? <span className="text-muted">{description}</span> : null}
-        </Label>
+        <span className="flex min-w-0 flex-wrap items-center gap-2 font-medium">
+          {title} {demo ? <Pill tone="warn">DEMO</Pill> : null}
+        </span>
       </Radio.Content>
+      {description ? <Description>{description}</Description> : null}
     </Radio>
   );
 }
@@ -773,7 +778,7 @@ function AddressChecklist({
       ) : null}
       <p className="text-sm tabular-nums text-muted">{value.length} địa chỉ đã chọn</p>
       {visible.length ? (
-        <ul className="max-h-64 divide-y divide-line overflow-y-auto rounded-xl bg-surface-2 px-3">
+        <ul className="max-h-64 divide-y divide-separator overflow-y-auto rounded-xl bg-surface-secondary px-3">
           {visible.map((option) => (
             <li key={option.address}>
               <PolicyCheckbox
@@ -834,7 +839,7 @@ function QuickContact({ vault, onAdded }: { vault: Address; onAdded: (contact: C
     );
   const lookalike = add.error instanceof AccountApiError && add.error.code === "lookalike";
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-surface-2 p-4">
+    <div className="flex flex-col gap-3 rounded-xl bg-surface-secondary p-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <PolicyInput
           id="policy-contact-name"
@@ -853,7 +858,7 @@ function QuickContact({ vault, onAdded }: { vault: Address; onAdded: (contact: C
         />
       </div>
       {lookalike ? (
-        <p role="alert" className="text-sm text-high">
+        <p role="alert" className="text-sm text-danger">
           {errorOf(add.error)} Kiểm tra và xác nhận ở tab Danh bạ.
         </p>
       ) : (
@@ -883,7 +888,7 @@ function OtherContract({ onAdd }: { onAdd: (address: Address, selector: Hex) => 
   const add = () => {
     const a = address.trim();
     const f = fn.trim();
-    if (!isAddress(a)) return setError("Địa chỉ contract không hợp lệ.");
+    if (!isAddress(a)) return setError("Địa chỉ ứng dụng không hợp lệ.");
     try {
       const selector = /^0x[0-9a-fA-F]{8}$/.test(f)
         ? (f.toLowerCase() as Hex)
@@ -896,14 +901,11 @@ function OtherContract({ onAdd }: { onAdd: (address: Address, selector: Hex) => 
     }
   };
   return (
-    <details>
-      <summary className="min-h-[42px] cursor-pointer py-2.5 text-sm font-semibold">
-        Thêm thao tác tuỳ chỉnh
-      </summary>
+    <Expand label="Thêm thao tác tuỳ chỉnh">
       <div className="grid gap-3 sm:grid-cols-2">
         <PolicyInput
           id="custom-contract-address"
-          label="Địa chỉ contract"
+          label="Địa chỉ ứng dụng"
           value={address}
           spellCheck={false}
           onChange={(e) => setAddress(e.target.value)}
@@ -921,6 +923,6 @@ function OtherContract({ onAdd }: { onAdd: (address: Address, selector: Hex) => 
       <Button variant="secondary" type="button" className="mt-3" onPress={add}>
         Thêm thao tác
       </Button>
-    </details>
+    </Expand>
   );
 }

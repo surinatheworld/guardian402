@@ -9,6 +9,7 @@
 // - Every operation is scoped to a vault linked to the caller; anything else is a 404.
 import { encodeFunctionData, getAddress, isAddress, zeroAddress, type Address, type Hex } from "viem";
 import { agentVaultAbi } from "@guardian402/shared";
+import { looksLike } from "../lib/lookalike";
 import { AccountError } from "./accounts";
 import type { Db } from "./db";
 import { sameAddress, type ChainPort, type GuardianCheck, type GuardianPort, type RiskLevel } from "./ports";
@@ -81,17 +82,7 @@ function id(value: unknown): number {
   return n;
 }
 
-/**
- * Same first and last 3 hex characters, different address: the lookalike pattern of address poisoning. Wallets
- * show about 4+4 characters, and an attacker mines whatever is cheapest (the DEMO lookalike matches 3+3), so the
- * address book is stricter than the Guardian's production rule (4+4); a true coincidence is ~1 in 16^6 and can
- * be confirmed explicitly.
- */
-export function looksLike(a: string, b: string): boolean {
-  const x = a.toLowerCase().slice(2);
-  const y = b.toLowerCase().slice(2);
-  return x !== y && x.slice(0, 3) === y.slice(0, 3) && x.slice(-3) === y.slice(-3);
-}
+export { looksLike };
 
 const RISK_RANK: Record<RiskLevel, number> = { LOW: 0, MEDIUM: 1, HIGH: 2 };
 const RISK_VI: Record<RiskLevel, string> = { LOW: "THẤP", MEDIUM: "TRUNG BÌNH", HIGH: "CAO" };

@@ -80,7 +80,7 @@ describe("vault decision", () => {
   it("uses the static policy reasons first", () => {
     expect(vaultDecision({ findings: [precheck("spender-not-allowed")], riskCode: 2 }, 0)).toEqual({
       blocked: true,
-      text: "Vault sẽ từ chối lô lệnh này: bên được cấp quyền không được phép.",
+      text: "Két sẽ từ chối giao dịch này: bên được cấp quyền rút không được phép.",
     });
   });
 
@@ -88,7 +88,7 @@ describe("vault decision", () => {
     expect(vaultDecision({ findings: [], riskCode: 2 }, 1).blocked).toBe(true);
     expect(vaultDecision({ findings: [], riskCode: 1 }, 1)).toEqual({
       blocked: false,
-      text: "Luật của vault không chặn lô lệnh này.",
+      text: "Quy tắc của két không chặn giao dịch này.",
     });
     expect(vaultDecision({ findings: [], riskCode: 2 }, undefined).blocked).toBe(false);
   });

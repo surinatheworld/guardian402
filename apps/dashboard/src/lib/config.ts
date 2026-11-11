@@ -40,11 +40,13 @@ const tokens: Record<string, TokenMeta> = {
 export const tokenMeta = (address: string): TokenMeta =>
   tokens[address.toLowerCase()] ?? { symbol: "token", decimals: 18 };
 
+// Names the owner reads next to an address. The DEMO contracts carry their role, not their class name.
 const names: Record<string, string> = {
-  [deployment.vault.toLowerCase()]: "AgentVault",
-  [deployment.router.toLowerCase()]: "MockRouter",
-  [deployment.oracle.toLowerCase()]: "MockOracle",
+  [deployment.vault.toLowerCase()]: "Két demo",
+  [deployment.router.toLowerCase()]: "Sàn swap thử nghiệm",
+  [deployment.oracle.toLowerCase()]: "Bảng giá thử nghiệm",
   [deployment.usdc.toLowerCase()]: "USDC",
-  [deployment.mWAVAX.toLowerCase()]: "mWAVAX",
+  [deployment.mWAVAX.toLowerCase()]: "WAVAX thử nghiệm",
+  [deployment.deployer.toLowerCase()]: "Treasury",
 };
 export const knownName = (address: string): string | undefined => names[address.toLowerCase()];

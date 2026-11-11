@@ -87,17 +87,29 @@ export function useExecutedEvents() {
         fromBlock: to > 99n ? to - 99n : 0n,
         toBlock: to,
       });
-      return logs
+      const recent = logs
         .filter((l) => l.transactionHash && l.blockNumber !== null)
-        .map((l) => ({
+        .reverse()
+        .slice(0, WANT);
+      // Block times, so fork events sort with the Guardian's checks (at most WANT blocks, fork-local RPC).
+      const times = new Map<bigint, number>();
+      await Promise.all(
+        [...new Set(recent.map((l) => l.blockNumber as bigint))].map(async (n) => {
+          const block = await client.getBlock({ blockNumber: n }).catch(() => null);
+          if (block) times.set(n, Number(block.timestamp) * 1000);
+        }),
+      );
+      return recent.map((l) => {
+        const timeMs = times.get(l.blockNumber as bigint);
+        return {
           txHash: l.transactionHash as Hex,
           blockNumber: l.blockNumber as bigint,
+          ...(timeMs ? { timeMs } : {}),
           checkId: l.args.checkId ?? "0x",
           withVerdict: l.args.withVerdict ?? false,
           nonceUsed: l.args.nonceUsed ?? 0n,
-        }))
-        .reverse()
-        .slice(0, WANT);
+        };
+      });
     },
   });
 }

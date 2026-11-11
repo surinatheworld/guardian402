@@ -101,7 +101,7 @@ describe("policy spec", () => {
     expect(s.recipients).toEqual([supplierA]);
     expect(s.contracts[0]?.selectors).toEqual(["0xabcdef01"]);
     expect(s.native).toEqual({ dailyCap: "0", verdictThreshold: "0" });
-    expect(() => parseSpec({ recipients: [VAULT] }, VAULT)).toThrow(/chính vault/);
+    expect(() => parseSpec({ recipients: [VAULT] }, VAULT)).toThrow(/chính két/);
     expect(() => parseSpec({ tokens: [{ token: USDC, dailyCap: "-1", verdictThreshold: "0" }] })).toThrow(
       /số nguyên/,
     );
@@ -111,19 +111,21 @@ describe("policy spec", () => {
         tokens: [{ token: USDC, dailyCap: "1", verdictThreshold: "0" }],
         contracts: [{ address: USDC, selectors: ["0xa9059cbb"] }],
       }),
-    ).toThrow(/transfer\/approve/);
+    ).toThrow(/chuyển hoặc cấp quyền rút/);
     expect(canonicalSpec({ ...payments, recipients: [treasury, supplierA] })).toBe(canonicalSpec(payments));
   });
 
   it("summarises the policy in words", () => {
     const text = summarize(payments, naming([{ name: "Nhà cung cấp A", address: supplierA }])).join(" ");
     expect(text).toContain("Được chi tối đa 100 USDC mỗi ngày");
-    expect(text).toContain("vượt 10 USDC cần Guardian kiểm tra và ký verdict");
+    expect(text).toContain("vượt 10 USDC cần Guardian kiểm tra và duyệt");
     expect(text).toContain("Nhà cung cấp A");
-    expect(text).toContain("Không được cấp quyền chi tiêu");
+    expect(text).toContain("Không được cấp quyền rút");
     const swap = summarize(templateSpec("swap", []), n);
-    expect(swap).toContain("Chỉ được gửi tiền cho MockRouter.");
-    expect(swap.some((line) => line.startsWith("Được cấp quyền chi tiêu cho MockRouter"))).toBe(true);
+    expect(swap).toContain("Chỉ được gửi tiền cho Sàn swap thử nghiệm.");
+    expect(swap.some((line) => line.startsWith("Được cấp quyền chi tiêu cho Sàn swap thử nghiệm"))).toBe(
+      true,
+    );
   });
 
   it("answers the proposal's example transactions from the configuration", () => {
@@ -158,13 +160,13 @@ describe("policy spec", () => {
       ["Thao tác", "allowed"],
       ["Chữ ký", "allowed"],
     ]);
-    expect(call.checks.at(-1)?.detail).toContain("luôn cần Guardian ký");
+    expect(call.checks.at(-1)?.detail).toContain("luôn cần Guardian duyệt");
     // AgentVault review R3: paying an address that is also an allowed contract needs a verdict at any amount,
     // while a plain recipient is still paid without one up to the threshold.
     const pay = (to: Address, amount: bigint) =>
       evaluate(swap, { kind: "transfer", asset: USDC, to, amount, spentToday: 0n }, n);
     expect(pay(ROUTER, 1n).result).toBe("needs_verdict");
-    expect(pay(ROUTER, 1n).checks.at(-1)?.detail).toContain("contract được phép gọi");
+    expect(pay(ROUTER, 1n).checks.at(-1)?.detail).toContain("ứng dụng được phép dùng");
     expect(pay(ROUTER, 0n).result).toBe("allowed");
     const swapAndPay = { ...swap, recipients: [supplierA] };
     expect(

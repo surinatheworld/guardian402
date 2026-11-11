@@ -86,6 +86,7 @@ export async function signInWithWallet(
   return accountApi("/api/auth/siwe/verify", "POST", { message, signature });
 }
 
+/** Every audit event the server writes (accounts, workspace, rule sets, agent API), in words. */
 export const EVENT_LABEL: Record<string, string> = {
   register: "Tạo tài khoản",
   login: "Đăng nhập",
@@ -94,7 +95,26 @@ export const EVENT_LABEL: Record<string, string> = {
   password_changed: "Đổi mật khẩu",
   wallet_linked: "Liên kết ví",
   wallet_unlinked: "Gỡ ví",
-  vault_linked: "Liên kết vault",
-  vault_unlinked: "Gỡ vault",
-  vault_lost: "Vault đã chuyển chủ trên chain",
+  vault_linked: "Liên kết két",
+  vault_unlinked: "Gỡ két",
+  vault_lost: "Két đã chuyển chủ trên chain",
+  agent_added: "Thêm agent",
+  agent_removed: "Xoá agent",
+  api_key_created: "Tạo khoá API",
+  api_key_revoked: "Thu hồi khoá API",
+  contact_added: "Thêm người nhận vào danh bạ",
+  contact_added_lookalike: "Thêm người nhận trông giống địa chỉ khác",
+  policy_created: "Tạo bộ quy tắc",
+  policy_versioned: "Sửa bộ quy tắc",
+  policy_archived: "Lưu trữ bộ quy tắc",
+  policy_assigned: "Gán bộ quy tắc cho agent",
+  policy_unassigned: "Bỏ gán bộ quy tắc",
+  policy_apply_drafted: "Soạn thay đổi để áp dụng bộ quy tắc",
+  policy_drafted: "Soạn thay đổi cho két",
+  policy_submitted: "Gửi thay đổi lên chain",
+  policy_confirmed: "Thay đổi đã áp dụng trên két",
+  policy_failed: "Thay đổi thất bại trên chain",
+  policy_cancelled: "Huỷ thay đổi",
+  check_reviewed: "Đánh giá một lần kiểm tra",
 };
+export const eventLabel = (event: string) => EVENT_LABEL[event] ?? "Thay đổi khác";
