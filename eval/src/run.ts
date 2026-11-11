@@ -21,7 +21,8 @@ import { writeReport, type CaseResult, type ReportData } from "./report.ts";
 const FORK_RPC_URL = process.env.FORK_RPC_URL || "http://127.0.0.1:8545";
 const FUJI_RPC_URL = process.env.FUJI_RPC_URL || undefined;
 // Production uses 800 ms. The eval allows 10 s so latency to the public Fuji RPC (cold fork cache after each
-// case reset) cannot turn into SIMULATION_FAILED and change a label between runs. Latency is still measured.
+// case reset) cannot make a simulation unavailable (UnavailableError, a 503 in the API), which would stop the
+// run rather than give a case a label. Latency is still measured.
 const SIM_TIMEOUT_MS = 10_000;
 
 const cases = loadCases(join(ROOT, "eval/cases"));

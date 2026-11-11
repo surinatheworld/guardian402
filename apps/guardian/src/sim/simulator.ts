@@ -25,7 +25,7 @@ import {
   type TransactionReceipt,
 } from "viem";
 import { fujiChain, type Call } from "@guardian402/shared";
-import { decodeLogs, decodeRevert, extractRevertData, netTransferDelta } from "./decode.ts";
+import { cleanSymbol, decodeLogs, decodeRevert, extractRevertData, netTransferDelta } from "./decode.ts";
 import { runWithBudget } from "./budget.ts";
 import { Mutex } from "./mutex.ts";
 import type { SimResult, TokenDelta } from "./types.ts";
@@ -116,9 +116,10 @@ export class Simulator {
   }
 
   /**
-   * Never throws: a timeout or any error becomes `success: false`, which the rules turn into
-   * SIMULATION_FAILED. The time budget counts from the moment the run holds the fork, and a run that times
-   * out is retried once (src/sim/budget.ts). A timed-out run keeps the mutex until its snapshot is reverted.
+   * Never throws: a timeout or any error becomes `success: false` with `unavailable` set (the simulation did
+   * not run; the pipeline answers 503 and nobody is charged). A call that reverts is a normal result, without
+   * `unavailable`. The time budget counts from the moment the run holds the fork, and a run that times out is
+   * retried once (src/sim/budget.ts). A timed-out run keeps the mutex until its snapshot is reverted.
    */
   async simulate(
     vault: Address,
@@ -268,7 +269,9 @@ export class Simulator {
         } catch (error) {
           failedCallIndex = index;
           revertData = extractRevertData(error);
-          if (!revertData) sendError = (error as BaseError).shortMessage ?? String(error);
+          // shortMessage only: the full message of a viem error carries the RPC URL and the request body.
+          if (!revertData)
+            sendError = (error as BaseError).shortMessage ?? "transaction rejected by the fork";
           break;
         }
         await this.#test.mine({ blocks: 1 }); // one block per call, so a revert can be replayed on block − 1
@@ -465,7 +468,7 @@ export class Simulator {
         this.#public.readContract({ address: token, abi: erc20Abi, functionName: "symbol" }),
         this.#public.readContract({ address: token, abi: erc20Abi, functionName: "decimals" }),
       ]);
-      meta = { symbol, decimals };
+      meta = { symbol: cleanSymbol(symbol), decimals };
     } catch {
       meta = null;
     }
@@ -473,11 +476,12 @@ export class Simulator {
     return meta;
   }
 
+  /** `detail` is internal (viem errors carry RPC URLs and request bodies): it never goes into `revertReason`. */
   #failure(
     vault: Address,
     calls: readonly Call[],
     started: number,
-    reason: string,
+    detail: string,
     timedOut: boolean,
   ): SimResult {
     return {
@@ -485,7 +489,8 @@ export class Simulator {
       calls: [...calls],
       success: false,
       timedOut,
-      revertReason: reason,
+      unavailable: detail,
+      revertReason: timedOut ? "simulation timed out" : "simulation unavailable",
       gasUsed: 0n,
       forkBlock: this.#lastForkBlock,
       tokenDeltas: [],

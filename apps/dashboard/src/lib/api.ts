@@ -63,6 +63,10 @@ export const useAttempts = (enabled: boolean) =>
 
 export function errorText(e: unknown): string {
   if (e instanceof HttpError) {
+    // The Guardian's own state, not a judgement on the transaction; nothing was signed or charged.
+    if (e.status === 503)
+      return "Guardian đang bận hoặc chưa mô phỏng được giao dịch (HTTP 503, không tính phí). Thử lại sau vài giây.";
+    if (e.status === 429) return "Gửi quá nhiều yêu cầu (HTTP 429). Chờ khoảng một phút rồi thử lại.";
     const b = e.body as { error?: string } | null;
     return `${e.message}${b?.error ? `: ${b.error}` : ""}`;
   }

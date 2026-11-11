@@ -16,7 +16,26 @@ const MIGRATIONS = [
      txHash TEXT NOT NULL, endpoint TEXT NOT NULL, checkId TEXT)`,
   `CREATE INDEX checks_created ON checks (createdAt DESC)`,
   `ALTER TABLE checks ADD COLUMN simulationJson TEXT`,
+  `CREATE INDEX payments_check ON payments (checkId)`,
 ];
+
+/** A check the free endpoints may show: a demo check, or a paid one whose payment has settled. */
+const SETTLED = `(c.endpoint = 'demo' OR EXISTS (SELECT 1 FROM payments p WHERE p.checkId = c.checkId))`;
+
+export type ReadOptions = {
+  /**
+   * Leave out paid checks (`check`, `cosign`) that have no payment row. The check is stored before the x402
+   * settlement, so without this a caller whose payment never settles could read the result for free.
+   */
+  settledOnly?: boolean;
+};
+
+/** The verdict as stored and served: never the signature, which only the paid response carries. */
+function withoutSignature(verdict: unknown): unknown {
+  if (!verdict || typeof verdict !== "object") return undefined;
+  const { signature: _signature, ...rest } = verdict as Record<string, unknown>;
+  return rest;
+}
 
 export type CheckRow = {
   checkId: string;
@@ -91,7 +110,7 @@ export class Store {
         JSON.stringify(res.findings),
         JSON.stringify(res.diff),
         JSON.stringify(res.explanation),
-        res.verdict ? JSON.stringify(res.verdict) : null,
+        res.verdict ? JSON.stringify(withoutSignature(res.verdict)) : null,
         Math.round(res.latencyMs),
         res.demoMode ? 1 : 0,
         JSON.stringify(res.simulation),
@@ -106,13 +125,13 @@ export class Store {
       .run(createdAt, p.payer, p.amount, p.txHash, p.endpoint, p.checkId);
   }
 
-  recentChecks(limit: number): CheckListRow[] {
+  recentChecks(limit: number, opts: ReadOptions = {}): CheckListRow[] {
     const rows = this.#db
       .prepare(
         `SELECT c.checkId, c.createdAt, c.endpoint, c.vault, c.risk, c.score, c.latencyMs, c.demo,
                 c.findingsJson, c.explanationJson,
                 (SELECT p.txHash FROM payments p WHERE p.checkId = c.checkId LIMIT 1) AS paymentTx
-           FROM checks c ORDER BY c.createdAt DESC LIMIT ?`,
+           FROM checks c ${opts.settledOnly ? `WHERE ${SETTLED}` : ""} ORDER BY c.createdAt DESC LIMIT ?`,
       )
       .all(limit) as (Omit<CheckRow, "demo"> & {
       demo: number;
@@ -129,9 +148,10 @@ export class Store {
     }));
   }
 
-  getCheck(checkId: string): (CheckRow & Record<string, unknown>) | undefined {
-    const r = this.#db.prepare("SELECT * FROM checks WHERE checkId = ?").get(checkId) as
-      Record<string, unknown> | undefined;
+  getCheck(checkId: string, opts: ReadOptions = {}): (CheckRow & Record<string, unknown>) | undefined {
+    const r = this.#db
+      .prepare(`SELECT * FROM checks c WHERE c.checkId = ? ${opts.settledOnly ? `AND ${SETTLED}` : ""}`)
+      .get(checkId) as Record<string, unknown> | undefined;
     if (!r) return undefined;
     const parse = (v: unknown) => (typeof v === "string" ? JSON.parse(v) : undefined);
     return {
@@ -146,7 +166,8 @@ export class Store {
       findings: parse(r.findingsJson),
       diff: parse(r.diffJson),
       explanation: parse(r.explanationJson),
-      verdict: parse(r.verdictJson),
+      // Rows written before the signature was dropped from storage still hold one.
+      verdict: withoutSignature(parse(r.verdictJson)),
       simulation: parse(r.simulationJson),
       payment: this.#db
         .prepare("SELECT createdAt, payer, amount, txHash, endpoint FROM payments WHERE checkId = ?")

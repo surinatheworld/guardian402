@@ -140,8 +140,8 @@ describe("Simulator on the fork", () => {
   it("a timeout becomes a failed result and leaves the fork clean", async () => {
     const hasty = new Simulator({ forkRpcUrl: FORK_RPC_URL, timeoutMs: 1 });
     const r = await hasty.simulate(a.vault, [transfer(treasury(a), 1n)]);
-    expect(r).toMatchObject({ success: false, timedOut: true });
-    expect(r.revertReason).toMatch(/timed out after 1 ms/);
+    expect(r).toMatchObject({ success: false, timedOut: true, revertReason: "simulation timed out" });
+    expect(r.unavailable).toMatch(/timed out after 1 ms/);
     await hasty.ensureForkHealthy(a.vault); // waits for the timed-out run to revert its snapshot
     expect(await usdcOf(a.vault)).toBeGreaterThanOrEqual(10_000_000n);
     const ok = await sim.simulate(a.vault, [transfer(treasury(a), 1n)], [a.usdc]);
@@ -150,8 +150,8 @@ describe("Simulator on the fork", () => {
 
   it("fails cleanly when the vault has no code on the fork", async () => {
     const r = await sim.simulate("0x00000000000000000000000000000000000b0b01", [transfer(treasury(a), 1n)]);
-    expect(r.success).toBe(false);
-    expect(r.revertReason).toMatch(/has no code on the fork/);
+    expect(r).toMatchObject({ success: false, revertReason: "simulation unavailable" });
+    expect(r.unavailable).toMatch(/has no code on the fork/);
   });
 
   it("latency over 20 runs (target p50 < 800 ms)", async () => {
