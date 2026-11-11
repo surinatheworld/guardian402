@@ -613,18 +613,32 @@ Test sau khi đổi địa chỉ: `pnpm test` → shared 48, agent 17, dashboard
 
 Lưu ý: tài khoản dashboard đã liên kết vault cũ (`apps/dashboard/data/accounts.db`, chỉ ở máy từng chạy) cần liên kết vault mới ở trang Tài khoản.
 
+Chủ team nhận quyền owner vault mới: `acceptOwnership` từ ví `0x54A2…2888` [0xaa92a946…6049](https://testnet.snowtrace.io/tx/0xaa92a94601eacd8dd3d42d9edab13fe4b52c134756bca8eb29852183e6456049) (status 1). Đọc lại: `owner()` = `0x54A2…2888`, `pendingOwner()` = 0. Từ đây OWNER_PK chỉ còn nạp tiền được; S6 bằng dòng lệnh không chạy trên vault Fuji nữa, pause làm từ ví chủ trên trang Điều khiển. Dashboard chạy ở chế độ Fuji bằng cấu hình `dashboard-fuji` trong `.claude/launch.json` (ghi đè `NEXT_PUBLIC_NETWORK=fuji`, không sửa `apps/dashboard/.env.local`).
+
+Test fork khi RPC chính thức mở lại một lúc (2026-11-11, vault mới):
+
+```
+pnpm --filter @guardian402/guardian test:fork
+  simulator.fork.test.ts: 12/13 pass (cả hai test đổi theo V3: timeout và vault không có code)
+    [latency] simulate() 20 lần: p50 281 ms, p95 296 ms
+    × start(): background maintenance resets a lagging fork — RPC chính thức trả 429 giữa chừng, fork không reset được
+  api.fork.test.ts: 5 skipped — bước chuẩn bị gặp 429 ("failed to fetch network chain ID")
+```
+
+RPC chính thức chặn lại IP này sau một loạt request. Muốn chạy hết `test:fork`, `pnpm eval` và kịch bản trên Fuji cần RPC riêng có key trong `FUJI_RPC_URL`.
+
 ### Việc còn lại (cập nhật 2026-11-11)
 
-1. Ví `0x54A2…2888` gọi `acceptOwnership` trên vault mới `0x6A8CCC88…Cf3c` (checklist bên dưới).
+1. ~~Ví `0x54A2…2888` gọi `acceptOwnership` trên vault mới~~ — xong (tx ở trên).
 2. Nạp thêm 18 USDC cho owner từ faucet Circle rồi `pnpm seed:fuji` nếu muốn vault đủ 50 USDC (hiện 32).
-3. Khi RPC Fuji mở lại: `pnpm --filter @guardian402/guardian test:fork`, `pnpm eval`, và chạy S1, S2, S4 trên Fuji với vault mới.
+3. Cần RPC riêng có key (hoặc RPC chính thức không chặn): chạy lại `api.fork.test.ts` và test reset nền, `pnpm eval`, và S1, S2, S4 trên Fuji với vault mới.
 4. Luật `minOut = 0` (swap không đặt mức nhận tối thiểu): cần team quyết, vì sẽ đổi S1, fixture luật và nhãn eval.
 5. Việc của người: thử thao tác chủ ví trên dashboard bằng ví thật; một thành viên làm fresh-clone test (SPEC §14).
 6. Không làm (ngoài phạm vi hackathon): email xác minh/quên mật khẩu (chưa có dịch vụ mail), §13.3 biên nhận on-chain.
 
 ## Checklist trước demo
 
-- [ ] **Owner accepts ownership from 0x54A2…2888 before the demo** (chỉ làm sau khi P8 xong). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault mới `0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c` (có bản sửa R1–R5; tx [0xf0c8c7d4…38cb](https://testnet.snowtrace.io/tx/0xf0c8c7d46c594e69a2ccd9ea1f80c931a677d7f00b875cce622003a79ca738cb)). Các vault cũ `0x3f6a…7651` và `0x32cb…Ab99` đã rút hết tiền và tạm dừng, không cần accept nữa. Các bước:
+- [x] **Owner accepts ownership from 0x54A2…2888 before the demo** — xong 2026-11-11, tx [0xaa92a946…6049](https://testnet.snowtrace.io/tx/0xaa92a94601eacd8dd3d42d9edab13fe4b52c134756bca8eb29852183e6456049). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault mới `0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c` (có bản sửa R1–R5; tx [0xf0c8c7d4…38cb](https://testnet.snowtrace.io/tx/0xf0c8c7d46c594e69a2ccd9ea1f80c931a677d7f00b875cce622003a79ca738cb)). Các vault cũ `0x3f6a…7651` và `0x32cb…Ab99` đã rút hết tiền và tạm dừng, không cần accept nữa. Các bước:
   1. Trong Core hoặc MetaMask, chọn ví `0x54A2…2888` và mạng Avalanche Fuji C-Chain (chain id 43113). Ví cần một ít AVAX testnet để trả gas.
   2. Mở https://testnet.snowtrace.io/address/0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c (AgentVault, đã verify), chọn tab **Contract** rồi **Write Contract**.
   3. Bấm **Connect to Web3** và kết nối ví `0x54A2…2888`.
