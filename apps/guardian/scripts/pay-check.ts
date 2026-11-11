@@ -10,7 +10,16 @@ import { privateKeyToAccount } from "viem/accounts";
 import { decodePaymentRequiredHeader, decodePaymentResponseHeader } from "@x402/core/http";
 import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
-import { FUJI_CAIP2, getAddresses, mockRouterAbi, parseNetwork, txUrl, USDC_FUJI } from "@guardian402/shared";
+import {
+  DEMO_ORACLE_PRICE,
+  FUJI_CAIP2,
+  getAddresses,
+  minOutUsdcToWavax,
+  mockRouterAbi,
+  parseNetwork,
+  txUrl,
+  USDC_FUJI,
+} from "@guardian402/shared";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 if (existsSync(join(ROOT, ".env.local"))) process.loadEnvFile(join(ROOT, ".env.local"));
@@ -40,7 +49,7 @@ const body = {
       data: encodeFunctionData({
         abi: mockRouterAbi,
         functionName: "swapExactIn",
-        args: [a.usdc, a.mWAVAX, 2_000_000n, 0n, 0, a.vault],
+        args: [a.usdc, a.mWAVAX, 2_000_000n, minOutUsdcToWavax(2_000_000n, DEMO_ORACLE_PRICE), 0, a.vault],
       }),
     },
   ],

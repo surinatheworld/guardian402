@@ -192,7 +192,7 @@ describe("free endpoints", () => {
     const health = await json(await fetch(`${base}/v1/health`));
     expect(health).toMatchObject({ ok: true, forkBlock: "123", signer: signer.address, demoMode: true });
     const rules = await json(await fetch(`${base}/v1/rules`));
-    expect(rules.rules).toHaveLength(8);
+    expect(rules.rules).toHaveLength(9);
     expect(rules.thresholds.addressPoisoning).toEqual({ prefix: 3, suffix: 3 });
     const list = await json(await fetch(`${base}/v1/checks?limit=3`));
     expect(list.checks.length).toBe(3);

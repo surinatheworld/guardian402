@@ -12,6 +12,7 @@ export const RULE_LABEL: Record<RuleId, string> = {
   DRAIN_PATTERN: "Rút cạn số dư",
   ABNORMAL_SLIPPAGE: "Trượt giá bất thường",
   RECIPIENT_NOT_ALLOWLISTED: "Người nhận ngoài danh sách",
+  UNPROTECTED_SWAP: "Swap không đặt mức nhận tối thiểu",
 };
 
 export const ruleLabel = (id: string) => RULE_LABEL[id as RuleId] ?? id;

@@ -4,5 +4,6 @@
   "addressPoisoning": { "prefix": 4, "suffix": 4, "demoPrefix": 3, "demoSuffix": 3 },
   "drainPattern": { "percent": 50 },
   "abnormalSlippage": { "mediumBps": 200, "highBps": 1000 },
+  "unprotectedSwap": { "maxGapBps": 300 },
   "explorerLookup": { "enabled": false, "timeoutMs": 1000, "cacheTtlMs": 600000, "newContractDays": 7 }
 }

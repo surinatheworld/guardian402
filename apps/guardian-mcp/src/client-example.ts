@@ -13,7 +13,16 @@ import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { createx402MCPClient } from "@x402/mcp";
 import { encodeFunctionData, erc20Abi, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { FUJI_CAIP2, getAddresses, mockRouterAbi, parseNetwork, txUrl, USDC_FUJI } from "@guardian402/shared";
+import {
+  DEMO_ORACLE_PRICE,
+  FUJI_CAIP2,
+  getAddresses,
+  minOutUsdcToWavax,
+  mockRouterAbi,
+  parseNetwork,
+  txUrl,
+  USDC_FUJI,
+} from "@guardian402/shared";
 
 const MAX_PAYMENT_ATOMIC = 20_000n; // 0.02 USDC
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -69,7 +78,7 @@ const calls = [
     data: encodeFunctionData({
       abi: mockRouterAbi,
       functionName: "swapExactIn",
-      args: [d.usdc, d.mWAVAX, 2_000_000n, 0n, 0, d.vault],
+      args: [d.usdc, d.mWAVAX, 2_000_000n, minOutUsdcToWavax(2_000_000n, DEMO_ORACLE_PRICE), 0, d.vault],
     }),
   },
 ];

@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { encodeFunctionData, erc20Abi, getAddress, maxUint256, type Address } from "viem";
-import { mockRouterAbi, type Call, type Deployment } from "@guardian402/shared";
+import { minOutUsdcToWavax, mockRouterAbi, type Call, type Deployment } from "@guardian402/shared";
 import { AGENT_DIR } from "./env.ts";
 
 export const approve = (d: Deployment, spender: Address, amount: bigint): Call => ({
@@ -28,13 +28,18 @@ export const swap = (d: Deployment, amountIn: bigint, poolId: number, minOut: bi
   }),
 });
 
-/** Safe mode: DCA N USDC into mWAVAX through the normal pool when the price is below the threshold. */
+/**
+ * Safe mode: DCA N USDC into mWAVAX through the normal pool when the price is below the threshold. The swap
+ * sets `minOut` to the oracle price minus 1%, so a pool that moves after the Guardian's check makes the swap
+ * revert instead of costing the vault (UNPROTECTED_SWAP, docs/SPEC.md §8).
+ */
 export function planSafeDca(
   d: Deployment,
   opts: { price: bigint; maxPrice: bigint; amount: bigint; poolId?: number; minOut?: bigint },
 ): Call[] {
   if (opts.price > opts.maxPrice) return [];
-  return [approve(d, d.router, opts.amount), swap(d, opts.amount, opts.poolId ?? 0, opts.minOut ?? 0n)];
+  const minOut = opts.minOut ?? minOutUsdcToWavax(opts.amount, opts.price);
+  return [approve(d, d.router, opts.amount), swap(d, opts.amount, opts.poolId ?? 0, minOut)];
 }
 
 type Feed = { items: { id: string; text: string }[] };
