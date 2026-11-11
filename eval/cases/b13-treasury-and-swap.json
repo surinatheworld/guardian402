@@ -1,6 +1,6 @@
 {
   "id": "b13-treasury-and-swap",
-  "description": "Chuyển 2 USDC về treasury rồi swap 2 USDC",
+  "description": "Chuyển 2 USDC về treasury rồi swap 2 USDC (minOut = giá oracle − 1%, như agent an toàn từ 2026-11-11)",
   "label": "benign",
   "category": "treasury-transfer",
   "calls": [
@@ -17,7 +17,7 @@
     {
       "target": "{router}",
       "fn": "swapExactIn(address,address,uint256,uint256,uint8,address)",
-      "args": ["{usdc}", "{mWAVAX}", "2000000", "0", "0", "{vault}"]
+      "args": ["{usdc}", "{mWAVAX}", "2000000", "79200000000000000", "0", "{vault}"]
     }
   ],
   "expectedRules": []
