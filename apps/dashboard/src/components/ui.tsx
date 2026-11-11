@@ -1,4 +1,5 @@
 import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
 // Small presentational pieces shared by every page.
 import type { ReactNode } from "react";
 import { Card as HeroCard } from "@heroui/react/card";
@@ -12,8 +13,8 @@ const SNOWTRACE = "https://testnet.snowtrace.io";
 export function PageHeader({ title, lead }: { title: string; lead: string }) {
   return (
     <header className="flex flex-col gap-1">
-      <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{title}</h1>
-      <p className="max-w-[65ch] text-muted">{lead}</p>
+      <h1 className="text-2xl font-bold tracking-tight sm:text-[28px]">{title}</h1>
+      <p className="max-w-[65ch] text-sm leading-relaxed text-muted">{lead}</p>
     </header>
   );
 }
@@ -46,23 +47,25 @@ export function Card({
   );
 }
 
-const riskClass: Record<RiskLevel, string> = {
-  LOW: "bg-low-bg text-low border-low/40",
-  MEDIUM: "bg-medium-bg text-medium border-medium/40",
-  HIGH: "bg-high-bg text-high border-high/40",
+const riskColor: Record<RiskLevel, "success" | "warning" | "danger"> = {
+  LOW: "success",
+  MEDIUM: "warning",
+  HIGH: "danger",
 };
 const riskMark: Record<RiskLevel, string> = { LOW: "●", MEDIUM: "▲", HIGH: "■" };
 
 /** Risk with colour, a shape and a word, so it reads without colour too. */
 export function RiskBadge({ risk, score }: { risk: RiskLevel; score?: number }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${riskClass[risk]}`}
-    >
-      <span aria-hidden="true">{riskMark[risk]}</span>
-      Rủi ro {RISK_LABEL[risk]}
-      {score !== undefined ? <span className="font-normal opacity-80">· {score}/100</span> : null}
-    </span>
+    <Chip color={riskColor[risk]} variant="soft" size="sm" className="max-w-full font-semibold">
+      <Chip.Label className="whitespace-normal break-words">
+        <span aria-hidden="true" className="mr-1">
+          {riskMark[risk]}
+        </span>
+        Rủi ro {RISK_LABEL[risk]}
+        {score !== undefined ? ` · ${score}/100` : ""}
+      </Chip.Label>
+    </Chip>
   );
 }
 
@@ -71,8 +74,10 @@ export function RuleChips({ ids }: { ids: readonly string[] | undefined }) {
   return (
     <ul className="flex flex-wrap gap-1.5" aria-label="Luật đã kích hoạt">
       {ids.map((id) => (
-        <li key={id} className="rounded-md bg-surface-2 px-2 py-0.5 text-xs text-fg" title={id}>
-          {ruleLabel(id)}
+        <li key={id} className="max-w-full" title={id}>
+          <Chip variant="secondary" size="sm" className="max-w-full">
+            <Chip.Label className="whitespace-normal break-words">{ruleLabel(id)}</Chip.Label>
+          </Chip>
         </li>
       ))}
     </ul>
@@ -104,6 +109,16 @@ export function TxLink({ hash, label }: { hash: string; label?: string }) {
 
 export function AddressLink({ address }: { address: string }) {
   const name = knownName(address);
+  if (NETWORK === "local") {
+    return (
+      <span className="inline-flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+        <span className="font-mono text-xs" title={address}>
+          {shortHex(address)}
+        </span>
+        {name ? <span className="text-xs text-muted">{name}</span> : null}
+      </span>
+    );
+  }
   return (
     <span className="inline-flex min-w-0 flex-wrap items-baseline gap-x-1.5">
       <a

@@ -1,16 +1,20 @@
 "use client";
 // Đã chặn: HIGH checks and the agent attempts the vault reverted, with reasons (SPEC §11).
 import { CheckCard } from "@/components/check-card";
+import { Chip } from "@heroui/react/chip";
 import { Card, Empty, ErrorBox, Loading, PageHeader, RiskBadge, TxLink } from "@/components/ui";
 import { errorText, useAgentHealth, useAttempts, useChecks } from "@/lib/api";
-import { NETWORK } from "@/lib/config";
+import { useSelectedVault } from "@/lib/vault-context";
+import { deployment, NETWORK } from "@/lib/config";
 import { formatTime } from "@/lib/format";
 import { revertLabel, SCENARIO_LABEL } from "@/lib/labels";
 
 export default function Blocked() {
+  const { address: vault } = useSelectedVault();
+  const isDemoVault = vault.toLowerCase() === deployment.vault.toLowerCase();
   const checks = useChecks(200);
   const agent = useAgentHealth();
-  const attempts = useAttempts(agent.isSuccess);
+  const attempts = useAttempts(agent.isSuccess && isDemoVault);
   const high = checks.data?.checks.filter((c) => c.risk === "HIGH") ?? [];
   // Attempts from another network (e.g. fork runs) have hashes that are not on this network's explorer.
   const reverted = (attempts.data?.attempts ?? []).filter(
@@ -25,8 +29,14 @@ export default function Blocked() {
       />
 
       <Card title="Vault đã từ chối">
-        {agent.isPending ? <Loading /> : null}
-        {agent.isError ? (
+        {!isDemoVault ? (
+          <Empty>
+            Danh sách lần thử của agent demo chỉ áp dụng cho vault demo. Kiểm tra rủi ro của vault này được
+            hiển thị bên dưới.
+          </Empty>
+        ) : null}
+        {isDemoVault && agent.isPending ? <Loading /> : null}
+        {isDemoVault && agent.isError ? (
           <Empty>
             Control API của agent không chạy (chỉ có ở DEMO, lệnh{" "}
             <code className="font-mono">pnpm dev:agent</code>), nên không có danh sách lần thử. Các check rủi
@@ -51,7 +61,9 @@ export default function Blocked() {
                     {formatTime(Date.parse(a.at))}
                   </time>
                   {a.mode === "scripted-attack" ? (
-                    <span className="rounded bg-demo-bg px-1.5 text-xs text-demo">tấn công mô phỏng</span>
+                    <Chip variant="secondary" size="sm">
+                      tấn công mô phỏng
+                    </Chip>
                   ) : null}
                 </div>
                 <ul className="flex flex-col gap-1 text-sm">
@@ -71,6 +83,10 @@ export default function Blocked() {
       </Card>
 
       <Card title="Guardian đánh giá rủi ro CAO">
+        <p className="text-sm text-muted">
+          Lọc từ 200 lần kiểm tra gần nhất trên Guardian; đánh giá rủi ro cao không tự chứng minh giao dịch đã
+          bị vault từ chối.
+        </p>
         {checks.isPending ? <Loading /> : null}
         {checks.isError ? (
           <ErrorBox
@@ -79,7 +95,9 @@ export default function Blocked() {
             onRetry={() => void checks.refetch()}
           />
         ) : null}
-        {checks.data && !high.length ? <Empty>Chưa có giao dịch nào bị đánh giá rủi ro CAO.</Empty> : null}
+        {checks.data && !high.length ? (
+          <Empty>Không thấy đánh giá rủi ro cao của vault này trong 200 lần gần nhất.</Empty>
+        ) : null}
         {high.length ? (
           <ul className="flex flex-col gap-3">
             {high.map((c) => (

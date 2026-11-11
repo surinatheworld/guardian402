@@ -3,6 +3,7 @@
 // manage the profile, linked wallets and linked AgentVaults. The account database is off-chain and never holds
 // keys; balances, policy and ownership are always read from the chain.
 import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
 import { useMutation } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { useAccount, useSignMessage } from "wagmi";
@@ -375,7 +376,9 @@ function Wallets({ me }: { me: MeResponse }) {
               <div className="flex flex-wrap items-center gap-2">
                 <AddressLink address={w.address} />
                 {w.isPrimary ? (
-                  <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-semibold">Ví chính</span>
+                  <Chip variant="secondary" size="sm">
+                    Ví chính
+                  </Chip>
                 ) : null}
                 <span className="text-xs text-muted">xác minh {formatTime(w.verifiedAt)}</span>
               </div>

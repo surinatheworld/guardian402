@@ -39,6 +39,7 @@ export function PoliciesTab({
   vaultLabel,
   ownerWallet,
   onBuilderChange,
+  initialAgent,
   onOpenAgents,
   onOpenChecks,
 }: {
@@ -46,14 +47,15 @@ export function PoliciesTab({
   vaultLabel: string;
   ownerWallet: Address;
   onBuilderChange: (open: boolean) => void;
+  initialAgent: number | undefined;
   onOpenAgents: () => void;
   onOpenChecks: () => void;
 }) {
   const [mode, setMode] = useState<Mode>({ kind: "list" });
-  const [pane, setPane] = useState<"library" | "deploy">("library");
+  const [pane, setPane] = useState<"library" | "deploy">(initialAgent === undefined ? "library" : "deploy");
   const [saved, setSaved] = useState<string | null>(null);
   const [suggested, setSuggested] = useState<number>();
-  const [preferredAgent, setPreferredAgent] = useState<number>();
+  const [preferredAgent, setPreferredAgent] = useState<number | undefined>(initialAgent);
   const assignments = useAssignments(vault);
   const invalidate = useInvalidate(vault);
   const assignmentHeading = useRef<HTMLHeadingElement>(null);
@@ -97,7 +99,7 @@ export function PoliciesTab({
         budgets={assignments.data?.onChain?.budgets}
         onSaved={(result) => {
           void invalidate("policies", "assignments");
-          openDeployment(result.policyId, undefined, result.message);
+          openDeployment(result.policyId, preferredAgent, result.message);
         }}
         onCancel={focusHub}
       />
@@ -214,7 +216,7 @@ export function PoliciesTab({
               setMode({ kind: "trial", policy });
               onBuilderChange(true);
             }}
-            onDeploy={(policy) => openDeployment(policy.id)}
+            onDeploy={(policy) => openDeployment(policy.id, preferredAgent)}
           />
         </Tabs.Panel>
         <Tabs.Panel id="deploy" className="p-0 pt-3">
@@ -228,6 +230,11 @@ export function PoliciesTab({
             preferredAgent={preferredAgent}
             saved={saved}
             onOpenAgents={onOpenAgents}
+            onCreatePolicy={() => {
+              setSaved(null);
+              setMode({ kind: "create" });
+              onBuilderChange(true);
+            }}
           />
         </Tabs.Panel>
       </Tabs>
@@ -335,6 +342,7 @@ function AssignmentsCard({
   preferredAgent,
   saved,
   onOpenAgents,
+  onCreatePolicy,
 }: {
   vault: string;
   ownerWallet: Address;
@@ -344,6 +352,7 @@ function AssignmentsCard({
   preferredAgent: number | undefined;
   saved: string | null;
   onOpenAgents: () => void;
+  onCreatePolicy: () => void;
 }) {
   const policies = usePolicies(vault);
   const [selectedAgent, selectAgent] = useState(preferredAgent);
@@ -415,6 +424,11 @@ function AssignmentsCard({
                   detail={errorOf(policies.error)}
                   onRetry={() => void policies.refetch()}
                 />
+              ) : null}
+              {policies.isSuccess && !policies.data.policies.some((p) => !p.archived) ? (
+                <Button variant="secondary" type="button" className="self-start" onPress={onCreatePolicy}>
+                  Tạo policy cho agent này
+                </Button>
               ) : null}
               <AgentAssignment
                 key={selected.agent.id}

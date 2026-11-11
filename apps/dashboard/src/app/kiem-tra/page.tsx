@@ -31,6 +31,7 @@ import { errorText, getJson, HttpError, useGuardianHealth } from "@/lib/api";
 import { deployment, GUARDIAN_URL, tokenMeta } from "@/lib/config";
 import { RISK_LABEL } from "@/lib/labels";
 import { PRESETS } from "@/lib/presets";
+import { useSelectedVault } from "@/lib/vault-context";
 import { useVaultPolicy } from "@/lib/vault";
 
 type Mode = "kich-ban" | "chuyen" | "json";
@@ -47,6 +48,7 @@ const amountText = (n: number) =>
   Number.isFinite(n) ? n.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 6 }) : "";
 
 export default function CheckPage() {
+  const { address: vault } = useSelectedVault();
   const health = useGuardianHealth();
   const policy = useVaultPolicy();
   const [mode, setMode] = useState<Mode>("kich-ban");
@@ -66,8 +68,8 @@ export default function CheckPage() {
 
   const preset = PRESETS.find((p) => p.id === presetId) ?? PRESETS[0];
   const presetCalls = useMemo(
-    () => (preset ? preset.calls(deployment, usdcOf(policy.data)) : []),
-    [preset, policy.data],
+    () => (preset ? preset.calls({ ...deployment, vault }, usdcOf(policy.data)) : []),
+    [preset, policy.data, vault],
   );
 
   const run = useMutation({
@@ -75,7 +77,7 @@ export default function CheckPage() {
       getJson<CheckResponse>(`${GUARDIAN_URL}/v1/demo/check`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chainId: FUJI_CHAIN_ID, vault: deployment.vault, calls: r.calls, lang: "vi" }),
+        body: JSON.stringify({ chainId: FUJI_CHAIN_ID, vault, calls: r.calls, lang: "vi" }),
       }),
     onSuccess: (data, r) => {
       if (r.preset) setLastRisk((prev) => ({ ...prev, [r.preset as string]: data.risk }));
@@ -346,7 +348,7 @@ export default function CheckPage() {
               {/* No wrap: the button keeps its row when its label grows to "Đang kiểm tra…"; the note wraps instead. */}
               <div className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-4">
                 <span className="inline-flex min-w-0 flex-1 flex-wrap items-baseline gap-x-1.5 text-xs text-muted">
-                  Vault <AddressLink address={deployment.vault} /> · không ký, không gửi lên chain
+                  Vault <AddressLink address={vault} /> · không ký, không gửi lên chain
                 </span>
                 <Button
                   variant="primary"

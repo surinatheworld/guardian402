@@ -35,7 +35,12 @@
   --field-radius: 0.8rem;
   --surface-shadow: 0 2px 3px #20273506, 0 6px 18px #20273505, 0 0 1px #2027350d;
   --overlay-shadow: 0 24px 80px #161d2d29, 0 8px 25px #161d2d10;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    var(--font-be-vietnam),
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: #222326;
@@ -48,9 +53,18 @@
 .h3-theme *::after {
   box-sizing: border-box;
 }
+
+/* Resolve HeroUI's soft tokens inside the dashboard theme, rather than
+   inheriting colors calculated from the default theme on :root. */
+.h3-theme .chip {
+  --success-soft: color-mix(in oklab, var(--success) 15%, transparent);
+  --success-soft-foreground: color-mix(in oklab, var(--success) 80%, var(--foreground) 60%);
+  --danger-soft: color-mix(in oklab, var(--danger) 15%, transparent);
+  --danger-soft-foreground: color-mix(in oklab, var(--danger) 70%, var(--foreground) 40%);
+}
 .h3-shell {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
+  grid-template-columns: 202px minmax(0, 1fr);
   background: #f0f1f3;
   border: 1px solid #e3e4e8;
   border-radius: 24px;
@@ -58,12 +72,20 @@
   min-height: 885px;
 }
 .h3-sidebar {
-  background: #fcfcfd;
-  padding: 27px 15px 22px;
+  background: var(--surface);
+  position: sticky;
+  top: 12px;
+  align-self: start;
+  width: calc(100% - 12px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  margin: 12px 0 12px 12px;
+  padding: 20px 12px 16px;
   display: flex;
   flex-direction: column;
-  gap: 25px;
-  border-right: 1px solid #e8e9ec;
+  gap: 12px;
+  border-radius: 18px;
+  box-shadow: var(--surface-shadow);
 }
 .h3-brand {
   font-size: 26px;
@@ -97,12 +119,12 @@
 .h3-nav {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
 .h3-nav-button {
   width: 100%;
   justify-content: space-between;
-  min-height: 46px;
+  min-height: 42px;
   padding-inline: 15px;
   border-radius: 13px;
   font-size: 14px;
@@ -110,6 +132,15 @@
 }
 .h3-nav-button:not([aria-current="page"]) {
   color: #6e7079;
+}
+.h3-nav-more {
+  width: 100%;
+  min-height: 42px;
+  justify-content: space-between;
+  padding-inline: 15px;
+  border-radius: 13px;
+  font-size: 14px;
+  font-weight: 600;
 }
 .h3-nav-count {
   font-size: 12px;
@@ -123,8 +154,7 @@
   background: #ffffff25;
 }
 .h3-sidebar-bottom {
-  margin-top: auto;
-  padding: 60px 8px 0;
+  padding: 4px 8px 0;
   font-size: 12px;
   color: #767882;
 }
@@ -148,9 +178,9 @@
 .h3-owner {
   display: grid;
   gap: 3px;
-  margin-top: 23px;
+  margin-top: 12px;
   border-top: 1px solid #e5e6e9;
-  padding-top: 17px;
+  padding-top: 12px;
 }
 .h3-owner-label {
   color: #494b53;
@@ -166,12 +196,14 @@
   min-width: 0;
 }
 .h3-topbar {
-  height: 67px;
+  min-height: 67px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 12px;
   padding: 0 28px;
+  padding-block: 10px;
   color: #777982;
   font-size: 12px;
 }
@@ -186,22 +218,29 @@
 .h3-content {
   padding: 12px 28px 23px;
 }
+.h3-topbar-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
 .h3-page-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 17px;
-  margin-bottom: 26px;
+  margin-bottom: 0;
 }
 .h3-page-head h1 {
-  font-size: 32px;
-  font-weight: 750;
-  letter-spacing: -1.1px;
-  line-height: 1.2;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
   margin: 0;
 }
 .h3-page-head p {
-  font-size: 13px;
+  font-size: 14px;
   color: #6b6e77;
   margin-top: 8px;
 }
@@ -222,7 +261,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   gap: 18px;
-  margin-bottom: 23px;
+  margin-bottom: 0;
 }
 .h3-panel {
   background: #fff;
@@ -264,15 +303,15 @@
 .h3-balance-card {
   display: flex;
   flex-direction: column;
-  gap: 21px;
+  gap: 16px;
 }
 .h3-balance {
   display: flex;
   align-items: baseline;
-  font-size: 53px;
-  font-weight: 750;
+  font-size: 42px;
+  font-weight: 700;
   line-height: 1;
-  letter-spacing: -2.4px;
+  letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
   margin-top: 3px;
 }
@@ -287,10 +326,10 @@
   color: #747681;
 }
 .h3-card-note {
-  font-size: 12px;
+  font-size: 13px;
   color: #727580;
   line-height: 1.7;
-  margin-top: 12px;
+  margin-top: 0;
 }
 .h3-balance-footer {
   margin-top: auto;
@@ -311,7 +350,7 @@
   font-variant-numeric: tabular-nums;
 }
 .h3-token-summary > span {
-  font-size: 11px;
+  font-size: 12px;
   color: #777a85;
 }
 .h3-balance-footer > .button {
@@ -326,7 +365,7 @@
   gap: 15px;
 }
 .h3-agent-title {
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.6px;
   line-height: 1.3;
@@ -374,7 +413,7 @@
   padding: 24px 22px 17px;
 }
 .h3-activity-card > .card__header {
-  margin-bottom: 18px;
+  margin-bottom: 0;
 }
 .h3-activity-card .card__title {
   font-size: 18px;
@@ -721,7 +760,7 @@
 }
 @media (max-width: 900px) {
   .h3-shell {
-    grid-template-columns: 155px minmax(0, 1fr);
+    grid-template-columns: 172px minmax(0, 1fr);
   }
   .h3-sidebar {
     padding-inline: 11px;
@@ -771,10 +810,15 @@
     min-height: 0;
   }
   .h3-sidebar {
-    padding: 22px 17px 16px;
-    gap: 20px;
-    border-right: 0;
-    border-bottom: 1px solid #e4e6eb;
+    position: static;
+    width: auto;
+    max-height: none;
+    overflow: visible;
+    margin: 10px 10px 0;
+    padding: 16px 14px 12px;
+    gap: 12px;
+    border: 0;
+    border-radius: 18px;
   }
   .h3-workspace,
   .h3-sidebar-bottom {
@@ -782,13 +826,30 @@
   }
   .h3-nav {
     flex-direction: row;
-    flex-wrap: wrap;
-    gap: 5px;
+    overflow-x: auto;
+    gap: 2px;
+    margin-inline: -5px;
+    padding: 2px 5px 6px;
+    scrollbar-width: none;
+  }
+  .h3-nav::-webkit-scrollbar {
+    display: none;
   }
   .h3-nav-button {
+    flex: none;
     width: auto;
-    min-height: 39px;
-    font-size: 12px;
+    min-height: 42px;
+    white-space: nowrap;
+    font-size: 13px;
+    padding-inline: 12px;
+    border-radius: 10px;
+  }
+  .h3-nav-more {
+    flex: none;
+    width: auto;
+    gap: 8px;
+    white-space: nowrap;
+    font-size: 13px;
     padding-inline: 12px;
     border-radius: 10px;
   }
@@ -799,14 +860,14 @@
     padding: 8px 16px 20px;
   }
   .h3-topbar {
-    height: 55px;
+    min-height: 55px;
     padding-inline: 18px;
   }
   .h3-page-head h1 {
-    font-size: 29px;
+    font-size: 24px;
   }
   .h3-page-head p {
-    font-size: 12px;
+    font-size: 14px;
   }
   .h3-page-head > .button {
     min-height: 44px;
@@ -817,7 +878,7 @@
     border-radius: 20px;
   }
   .h3-balance {
-    font-size: 50px;
+    font-size: 38px;
   }
   .h3-balance-footer {
     gap: 18px;

@@ -8,7 +8,7 @@ import { formatUnits, parseUnits, type Address } from "viem";
 import { useAccount, useChainId, useSendTransaction, useSwitchChain } from "wagmi";
 import { avalancheFuji } from "wagmi/chains";
 import { AccountApiError } from "@/lib/account";
-import { deployment, knownName, tokenMeta } from "@/lib/config";
+import { deployment, knownName, tokenMeta, NETWORK } from "@/lib/config";
 import { formatTime, shortHex } from "@/lib/format";
 import { AddressLink, Card, Empty, ErrorBox, Loading, TxLink } from "@/components/ui";
 import { ConfirmInline, Field, FormError, INPUT, Pill, errorOf } from "@/components/form";
@@ -177,6 +177,7 @@ export function ChangeItem({
 
   const sign = useMutation({
     mutationFn: async () => {
+      if (NETWORK === "local") throw new Error("Không thể ký giao dịch ví trong chế độ fork.");
       if (!isConnected) throw new Error("Hãy kết nối ví chủ của vault trước.");
       if (chainId !== avalancheFuji.id) await switchChainAsync({ chainId: avalancheFuji.id });
       const hash = await sendTransactionAsync({
@@ -243,7 +244,9 @@ export function ChangeItem({
             <Button
               variant="primary"
               type="button"
-              isDisabled={sign.isPending || !isConnected || wrongWallet || cancel.isPending}
+              isDisabled={
+                NETWORK === "local" || sign.isPending || !isConnected || wrongWallet || cancel.isPending
+              }
               onPress={() => sign.mutate()}
             >
               {sign.isPending ? "Đang chờ ví / xác minh…" : "Ký trong ví và gửi"}

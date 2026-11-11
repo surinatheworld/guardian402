@@ -19,6 +19,9 @@ export default function Activity() {
       />
 
       <Card title="Lần kiểm tra gần đây">
+        <p className="text-sm text-muted">
+          Hiển thị kết quả của vault này trong 200 lần kiểm tra gần nhất trên Guardian.
+        </p>
         {checks.isPending ? <Loading /> : null}
         {checks.isError ? (
           <ErrorBox
@@ -28,10 +31,7 @@ export default function Activity() {
           />
         ) : null}
         {checks.data && !checks.data.checks.length ? (
-          <Empty>
-            Chưa có lần kiểm tra nào. Chạy một kịch bản ở trang Điều khiển, hoặc thử ở trang Kiểm tra giao
-            dịch.
-          </Empty>
+          <Empty>Không tìm thấy lần kiểm tra của vault này trong 200 lần gần nhất trên Guardian.</Empty>
         ) : null}
         {checks.data?.checks.length ? (
           <ul className="flex flex-col gap-3">

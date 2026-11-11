@@ -1,5 +1,6 @@
 // One Guardian check as a card. The explanation is rendered as plain text (React escapes it).
 import type { CheckListRow } from "@/lib/types";
+import { Chip } from "@heroui/react/chip";
 import { formatTime, shortHex } from "@/lib/format";
 import { ENDPOINT_LABEL } from "@/lib/labels";
 import { RiskBadge, RuleChips, TxLink } from "./ui";
@@ -13,7 +14,11 @@ export function CheckCard({ c }: { c: CheckListRow }) {
         <time className="text-xs text-muted" dateTime={new Date(c.createdAt).toISOString()}>
           {formatTime(c.createdAt)}
         </time>
-        {c.demo ? <span className="rounded bg-demo-bg px-1.5 text-xs text-demo">DEMO</span> : null}
+        {c.demo ? (
+          <Chip variant="secondary" size="sm">
+            DEMO
+          </Chip>
+        ) : null}
       </div>
       <RuleChips ids={c.ruleIds} />
       {c.explanation ? (

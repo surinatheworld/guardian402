@@ -27,10 +27,11 @@ import {
   TxLink,
 } from "@/components/ui";
 import { errorText, getJson, useAgentHealth } from "@/lib/api";
-import { AGENT_URL, deployment } from "@/lib/config";
+import { AGENT_URL, deployment, NETWORK } from "@/lib/config";
 import { formatAmount, shortHex, ZERO_ADDRESS } from "@/lib/format";
 import { revertLabel, SCENARIO_LABEL } from "@/lib/labels";
 import type { Attempt } from "@/lib/types";
+import { useSelectedVault } from "@/lib/vault-context";
 import { useVaultPolicy } from "@/lib/vault";
 
 type Pending = { title: string; changes: Change[]; call: string; note?: string; send: () => Promise<Hex> };
@@ -44,6 +45,11 @@ function parseUsdc(text: string): bigint | null {
 }
 
 export default function Controls() {
+  const { address: vault } = useSelectedVault();
+  return <VaultControls key={vault} vault={vault} />;
+}
+
+function VaultControls({ vault }: { vault: `0x${string}` }) {
   const policy = useVaultPolicy();
   const p = policy.data;
   const { address, isConnected } = useAccount();
@@ -55,7 +61,9 @@ export default function Controls() {
   const [sendError, setSendError] = useState<string | null>(null);
   const receipt = useWaitForTransactionReceipt({ hash: sent?.hash, query: { enabled: Boolean(sent) } });
 
-  const isOwner = Boolean(p && address && p.owner.toLowerCase() === address.toLowerCase());
+  const isOwner = Boolean(
+    NETWORK !== "local" && p && address && p.owner.toLowerCase() === address.toLowerCase(),
+  );
   const usdcPolicy = p?.tokens.find((t) => t.token.toLowerCase() === deployment.usdc.toLowerCase());
 
   const [cap, setCap] = useState("");
@@ -78,7 +86,7 @@ export default function Controls() {
 
   const write = (functionName: "pause" | "unpause") => () =>
     writeContractAsync({
-      address: deployment.vault,
+      address: vault,
       abi: agentVaultAbi,
       functionName,
       chainId: avalancheFuji.id,
@@ -112,7 +120,7 @@ export default function Controls() {
       note: "Khoá agent hiện tại không gửi được batch nào nữa. Muốn cấp lại phải gọi setAgent với địa chỉ mới.",
       send: () =>
         writeContractAsync({
-          address: deployment.vault,
+          address: vault,
           abi: agentVaultAbi,
           functionName: "setAgent",
           args: [ZERO_ADDRESS],
@@ -153,7 +161,7 @@ export default function Controls() {
       call: `AgentVault.setTokenPolicy(USDC, true, ${dailyCap}, ${ma}, ${vt})`,
       send: () =>
         writeContractAsync({
-          address: deployment.vault,
+          address: vault,
           abi: agentVaultAbi,
           functionName: "setTokenPolicy",
           args: [deployment.usdc, true, dailyCap, ma, vt],
@@ -186,6 +194,7 @@ export default function Controls() {
           <>
             <Facts
               rows={[
+                ["Vault", <AddressLink key="v" address={vault} />],
                 ["Owner", <AddressLink key="o" address={p.owner} />],
                 [
                   "Agent",
@@ -291,7 +300,7 @@ export default function Controls() {
         </div>
       </Card>
 
-      <Scenarios />
+      {vault.toLowerCase() === deployment.vault.toLowerCase() ? <Scenarios /> : null}
 
       <ConfirmDialog
         open={pending !== null}
@@ -336,13 +345,18 @@ function Scenarios() {
           {agent.data.network === "fuji" ? "Fuji" : "fork"}. Mỗi nút chạy một kịch bản thật: trả phí x402 và
           gửi giao dịch vào vault. S2–S5 là tấn công mô phỏng (DEMO).
         </p>
+        {agent.data.network === "fuji" ? (
+          <p className="text-sm text-muted">
+            S6 cần ví chủ hiện tại: dùng nút tạm dừng ở trên, rồi mở lại khi kiểm tra xong.
+          </p>
+        ) : null}
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {Object.entries(SCENARIO_LABEL).map(([id, label]) => (
             <Button
               variant="secondary"
               key={id}
               type="button"
-              isDisabled={run.isPending || agent.data.busy}
+              isDisabled={run.isPending || agent.data.busy || (id === "S6" && agent.data.network === "fuji")}
               onPress={() => run.mutate(id)}
               className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-left text-sm font-medium hover:border-accent disabled:opacity-50"
             >
