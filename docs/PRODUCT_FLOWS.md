@@ -143,8 +143,10 @@ Never collapse these into one green/red status:
 6. **Review:** unreviewed / reviewed / false_positive / escalated. Reviews annotate
    a check; they cannot rewrite its risk or override a vault decision.
 
-Guardian checks are conditional, not universal. A supported small allowlisted
-batch without approvals can execute within policy without a verdict. Guardian
+Guardian checks are conditional, not universal. A small direct payment to an
+allowlisted recipient can execute within policy without a verdict; any batch
+that approves, or that moves funds out while reaching an allowed contract
+(a call to it or a payment into it), needs one. Guardian
 cosign returns the actual assessed risk; acceptance depends on the vault's
 configured maximum risk, nonce, deadline, calls and static policy.
 
