@@ -5,6 +5,7 @@ import { Providers } from "@/components/providers";
 import { DemoBanner, Header, WorkspaceBar } from "@/components/shell";
 import "./globals.css";
 import "./concept.css";
+import "./motion.css";
 
 const sans = Be_Vietnam_Pro({
   subsets: ["latin", "vietnamese"],
