@@ -16,11 +16,21 @@ export function rpcUrls(primary: string): string[] {
 }
 
 /** A viem transport for `primary`, falling back to the other public Fuji endpoints when it is remote. */
+/**
+ * viem `fallback` over `urls`: one attempt per endpoint, in order. No retries: viem's http transport waits the
+ * server's `Retry-After` before retrying, and the public Fuji RPC sends `Retry-After: 2990` with its 429, so a
+ * retry (on one endpoint, or of the whole list) would stall the caller for about 50 minutes instead of failing
+ * over. An `http(url, { retryCount })` would also override the zero that `fallback` passes to each endpoint.
+ */
+export function fallbackTransport(urls: string[]): Transport {
+  return fallback(
+    urls.map((u) => http(u)),
+    { rank: false, retryCount: 0 },
+  );
+}
+
 export function rpcTransport(primary: string): Transport {
   const urls = rpcUrls(primary);
   if (urls.length === 1) return http(primary);
-  return fallback(
-    urls.map((u) => http(u, { retryCount: 1 })),
-    { rank: false, retryCount: 1 },
-  );
+  return fallbackTransport(urls);
 }
