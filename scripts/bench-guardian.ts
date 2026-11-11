@@ -2,7 +2,13 @@
 // with the S1 batch (approve 2 USDC + swap through pool 0) against the configured vault. Nothing is paid,
 // signed or sent on-chain. Needs a Guardian with DEMO_MODE=true on GUARDIAN_URL (default http://127.0.0.1:4402).
 import { encodeFunctionData, erc20Abi } from "viem";
-import { getAddresses, mockRouterAbi, parseNetwork } from "@guardian402/shared";
+import {
+  DEMO_ORACLE_PRICE,
+  getAddresses,
+  minOutUsdcToWavax,
+  mockRouterAbi,
+  parseNetwork,
+} from "@guardian402/shared";
 
 const runs = Number(process.argv[2] ?? 10);
 const url = (process.env.GUARDIAN_URL ?? "http://127.0.0.1:4402").replace(/\/$/, "");
@@ -19,7 +25,7 @@ const calls = [
     data: encodeFunctionData({
       abi: mockRouterAbi,
       functionName: "swapExactIn",
-      args: [d.usdc, d.mWAVAX, 2_000_000n, 0n, 0, d.vault],
+      args: [d.usdc, d.mWAVAX, 2_000_000n, minOutUsdcToWavax(2_000_000n, DEMO_ORACLE_PRICE), 0, d.vault],
     }),
   },
 ];

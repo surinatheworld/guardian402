@@ -17,6 +17,7 @@ const ruleConfigSchema = z
     abnormalSlippage: z
       .object({ mediumBps: z.number().int().positive(), highBps: z.number().int().positive() })
       .refine((s) => s.mediumBps < s.highBps, "mediumBps must be below highBps"),
+    unprotectedSwap: z.object({ maxGapBps: z.number().int().min(0).max(10_000) }),
     explorerLookup: z.object({
       enabled: z.boolean(),
       timeoutMs: z.number().int().positive(),

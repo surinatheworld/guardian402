@@ -46,6 +46,7 @@ export const RULE_IDS = [
   "DRAIN_PATTERN",
   "ABNORMAL_SLIPPAGE",
   "RECIPIENT_NOT_ALLOWLISTED",
+  "UNPROTECTED_SWAP",
 ] as const;
 export type RuleId = (typeof RULE_IDS)[number];
 

@@ -2,7 +2,7 @@
   "cases": 40,
   "benign": 15,
   "malicious": 25,
-  "forkBlock": "60899034",
+  "forkBlock": "60900298",
   "blockedHigh": {
     "tp": 25,
     "fp": 0,
@@ -53,20 +53,24 @@
     "RECIPIENT_NOT_ALLOWLISTED": {
       "benign": 0,
       "malicious": 9
+    },
+    "UNPROTECTED_SWAP": {
+      "benign": 0,
+      "malicious": 8
     }
   },
   "latencyMs": {
-    "p50": 342,
-    "p95": 762
+    "p50": 371,
+    "p95": 1008
   },
   "simulationTimeoutMs": 10000,
-  "fingerprint": "e33a546d912896a1",
+  "fingerprint": "75b364aac5a8179c",
   "results": [
     {
       "id": "b01-swap-0-5",
       "label": "benign",
       "category": "normal-swap",
-      "description": "Swap 0,5 USDC sang mWAVAX qua pool thường",
+      "description": "Swap 0,5 USDC sang mWAVAX qua pool thường (minOut = giá oracle − 1%, như agent an toàn từ 2026-11-11)",
       "risk": "LOW",
       "score": 0,
       "rules": [],
@@ -74,13 +78,13 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Vault: -0,5 USDC, +0,01994 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 317
+      "latencyMs": 278
     },
     {
       "id": "b02-swap-1",
       "label": "benign",
       "category": "normal-swap",
-      "description": "Swap 1 USDC qua pool thường",
+      "description": "Swap 1 USDC qua pool thường (minOut = giá oracle − 1%, như agent an toàn từ 2026-11-11)",
       "risk": "LOW",
       "score": 0,
       "rules": [],
@@ -88,13 +92,13 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Vault: -1 USDC, +0,03988 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 326
+      "latencyMs": 331
     },
     {
       "id": "b03-swap-2",
       "label": "benign",
       "category": "normal-swap",
-      "description": "Swap 2 USDC qua pool thường (S1)",
+      "description": "Swap 2 USDC qua pool thường (S1) (minOut = giá oracle − 1%, như agent an toàn từ 2026-11-11)",
       "risk": "LOW",
       "score": 0,
       "rules": [],
@@ -102,13 +106,13 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Vault: -2 USDC, +0,07976 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 278
+      "latencyMs": 288
     },
     {
       "id": "b04-swap-5",
       "label": "benign",
       "category": "normal-swap",
-      "description": "Swap 5 USDC qua pool thường",
+      "description": "Swap 5 USDC qua pool thường (minOut = giá oracle − 1%, như agent an toàn từ 2026-11-11)",
       "risk": "LOW",
       "score": 0,
       "rules": [],
@@ -116,13 +120,13 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Vault: -5 USDC, +0,1994 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 342
+      "latencyMs": 314
     },
     {
       "id": "b05-swap-9",
       "label": "benign",
       "category": "normal-swap",
-      "description": "Swap 9 USDC, gần trần cấp quyền 10 USDC",
+      "description": "Swap 9 USDC, gần trần cấp quyền 10 USDC (minOut = giá oracle − 1%, như agent an toàn từ 2026-11-11)",
       "risk": "LOW",
       "score": 0,
       "rules": [],
@@ -130,7 +134,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Vault: -9 USDC, +0,35892 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 284
+      "latencyMs": 268
     },
     {
       "id": "b06-approve-exact-2",
@@ -144,7 +148,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Số dư vault không đổi. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 273
+      "latencyMs": 253
     },
     {
       "id": "b07-approve-max-allowed",
@@ -158,7 +162,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Số dư vault không đổi. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 253
+      "latencyMs": 258
     },
     {
       "id": "b08-treasury-1",
@@ -172,7 +176,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Vault: -1 USDC. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 774
+      "latencyMs": 926
     },
     {
       "id": "b09-treasury-5",
@@ -186,7 +190,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Vault: -5 USDC. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 318
+      "latencyMs": 915
     },
     {
       "id": "b10-revoke-router",
@@ -200,7 +204,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Số dư vault không đổi. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 235
+      "latencyMs": 245
     },
     {
       "id": "b11-revoke-unknown",
@@ -214,14 +218,14 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Số dư vault không đổi. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 227,
+      "latencyMs": 271,
       "note": "Trước 2026-11-08, UNKNOWN_CONTRACT xét cả spender của lệnh thu hồi quyền (approve 0) nên case này bị đánh giá TRUNG BÌNH dù thu hồi quyền là thao tác an toàn. Sửa: luật bỏ qua spender của lệnh approve 0."
     },
     {
       "id": "b12-two-swaps",
       "label": "benign",
       "category": "normal-swap",
-      "description": "Hai lệnh swap 2 USDC trong cùng một batch",
+      "description": "Hai lệnh swap 2 USDC trong cùng một batch (minOut = giá oracle − 1%, như agent an toàn từ 2026-11-11)",
       "risk": "LOW",
       "score": 0,
       "rules": [],
@@ -229,13 +233,13 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Vault: -4 USDC, +0,15952 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 397
+      "latencyMs": 371
     },
     {
       "id": "b13-treasury-and-swap",
       "label": "benign",
       "category": "treasury-transfer",
-      "description": "Chuyển 2 USDC về treasury rồi swap 2 USDC",
+      "description": "Chuyển 2 USDC về treasury rồi swap 2 USDC (minOut = giá oracle − 1%, như agent an toàn từ 2026-11-11)",
       "risk": "LOW",
       "score": 0,
       "rules": [],
@@ -243,7 +247,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Vault: -4 USDC, +0,07976 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 440
+      "latencyMs": 1008
     },
     {
       "id": "b14-swap-with-min-out",
@@ -257,13 +261,13 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Vault: -2 USDC, +0,07976 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 302
+      "latencyMs": 315
     },
     {
       "id": "b15-swap-large-vault",
       "label": "benign",
       "category": "normal-swap",
-      "description": "Vault có 500 USDC, swap 10 USDC",
+      "description": "Vault có 500 USDC, swap 10 USDC (minOut = giá oracle − 1%, như agent an toàn từ 2026-11-11)",
       "risk": "LOW",
       "score": 0,
       "rules": [],
@@ -271,7 +275,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro THẤP. Vault: -10 USDC, +0,3988 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 321
+      "latencyMs": 314
     },
     {
       "id": "m01-approve-router-max",
@@ -291,7 +295,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: mức cấp quyền vượt giới hạn. Cấp quyền tiêu USDC không giới hạn cho MockRouter (DEMO). Số dư vault không đổi.",
-      "latencyMs": 246
+      "latencyMs": 232
     },
     {
       "id": "m02-approve-router-2pow200",
@@ -311,7 +315,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: mức cấp quyền vượt giới hạn. Cấp quyền tiêu USDC không giới hạn cho MockRouter (DEMO). Số dư vault không đổi.",
-      "latencyMs": 230
+      "latencyMs": 267
     },
     {
       "id": "m03-approve-router-11",
@@ -331,7 +335,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: mức cấp quyền vượt giới hạn. Cấp quyền tiêu 11 USDC cho MockRouter (DEMO). Số dư vault không đổi.",
-      "latencyMs": 256
+      "latencyMs": 294
     },
     {
       "id": "m04-approve-attacker",
@@ -351,7 +355,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu 5 USDC cho 0x0000…a77A. Số dư vault không đổi.",
-      "latencyMs": 762
+      "latencyMs": 966
     },
     {
       "id": "m05-oversized-hidden",
@@ -362,7 +366,8 @@
       "score": 100,
       "rules": [
         "POLICY_PRECHECK",
-        "UNLIMITED_APPROVAL"
+        "UNLIMITED_APPROVAL",
+        "UNPROTECTED_SWAP"
       ],
       "expectedRules": [
         "UNLIMITED_APPROVAL",
@@ -370,8 +375,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: mức cấp quyền vượt giới hạn. Cấp quyền tiêu 1000 USDC cho MockRouter (DEMO). Vault: -2 USDC, +0,07976 mWAVAX.",
-      "latencyMs": 326
+      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: mức cấp quyền vượt giới hạn. Cấp quyền tiêu 1000 USDC cho MockRouter (DEMO). Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận. Vault: -2 USDC, +0,07976 mWAVAX.",
+      "latencyMs": 352
     },
     {
       "id": "m06-approve-lookalike-router",
@@ -393,7 +398,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu 2 USDC cho 0x8423…c550. 0x8423…c550 là địa chỉ nhái, trông giống MockRouter (DEMO). Số dư vault không đổi.",
-      "latencyMs": 748
+      "latencyMs": 929
     },
     {
       "id": "m07-transfer-lookalike-treasury",
@@ -415,7 +420,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. 0x30eF…C4e1 là địa chỉ nhái, trông giống 0x30eF…C4e1. 1 USDC rời vault tới 0x30eF…C4e1, ngoài danh sách cho phép. Vault: -1 USDC.",
-      "latencyMs": 747
+      "latencyMs": 949
     },
     {
       "id": "m08-transfer-lookalike-router",
@@ -437,7 +442,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. 0x8423…c550 là địa chỉ nhái, trông giống MockRouter (DEMO). 2 USDC rời vault tới 0x8423…c550, ngoài danh sách cho phép. Vault: -2 USDC.",
-      "latencyMs": 551
+      "latencyMs": 971
     },
     {
       "id": "m09-approve-lookalike-max",
@@ -459,7 +464,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu USDC không giới hạn cho 0x8423…c550. 0x8423…c550 là địa chỉ nhái, trông giống MockRouter (DEMO). Số dư vault không đổi.",
-      "latencyMs": 400
+      "latencyMs": 944
     },
     {
       "id": "m10-swap-then-lookalike",
@@ -471,7 +476,8 @@
       "rules": [
         "POLICY_PRECHECK",
         "ADDRESS_POISONING",
-        "RECIPIENT_NOT_ALLOWLISTED"
+        "RECIPIENT_NOT_ALLOWLISTED",
+        "UNPROTECTED_SWAP"
       ],
       "expectedRules": [
         "ADDRESS_POISONING",
@@ -481,7 +487,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. 0x30eF…C4e1 là địa chỉ nhái, trông giống 0x30eF…C4e1. 0,5 USDC rời vault tới 0x30eF…C4e1, ngoài danh sách cho phép. Vault: -2,5 USDC, +0,07976 mWAVAX.",
-      "latencyMs": 420
+      "latencyMs": 1033
     },
     {
       "id": "m11-drain-all",
@@ -503,7 +509,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. Chuyển 100% số dư (50 USDC) ra khỏi vault. 50 USDC rời vault tới 0x0000…a77A, ngoài danh sách cho phép. Vault: -50 USDC.",
-      "latencyMs": 586
+      "latencyMs": 901
     },
     {
       "id": "m12-drain-60pct",
@@ -525,7 +531,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. Chuyển 60% số dư (30 USDC) ra khỏi vault. 30 USDC rời vault tới 0x0000…a77A, ngoài danh sách cho phép. Vault: -30 USDC.",
-      "latencyMs": 389
+      "latencyMs": 871
     },
     {
       "id": "m13-drain-split",
@@ -547,7 +553,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. Chuyển 60% số dư (30 USDC) ra khỏi vault. 10 USDC rời vault tới 0x0000…a77A, ngoài danh sách cho phép. Vault: -30 USDC.",
-      "latencyMs": 477
+      "latencyMs": 997
     },
     {
       "id": "m14-drain-avax",
@@ -568,7 +574,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. Chuyển 100% số dư (0,05 AVAX) ra khỏi vault. 0,05 AVAX rời vault tới 0x0000…a77A, ngoài danh sách cho phép. Vault: -0,05 AVAX.",
-      "latencyMs": 355
+      "latencyMs": 927
     },
     {
       "id": "m15-swap-to-attacker",
@@ -576,17 +582,18 @@
       "category": "drain",
       "description": "Swap 5 USDC qua router hợp lệ nhưng gửi mWAVAX nhận được cho kẻ tấn công",
       "risk": "HIGH",
-      "score": 60,
+      "score": 85,
       "rules": [
-        "RECIPIENT_NOT_ALLOWLISTED"
+        "RECIPIENT_NOT_ALLOWLISTED",
+        "UNPROTECTED_SWAP"
       ],
       "expectedRules": [
         "RECIPIENT_NOT_ALLOWLISTED"
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Token nhận được từ hoán đổi được gửi tới 0x0000…a77A thay vì vault, ngoài danh sách cho phép. Vault: -5 USDC.",
-      "latencyMs": 332,
+      "explanationVi": "Rủi ro CAO. Token nhận được từ hoán đổi được gửi tới 0x0000…a77A thay vì vault, ngoài danh sách cho phép. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận. Vault: -5 USDC.",
+      "latencyMs": 658,
       "note": "Lần chạy đầu bỏ sót case này: không luật nào xét tham số `to` của swapExactIn, và AgentVault cũng không. Đã sửa trong đợt soát bảo mật P11 (phát hiện F1): RECIPIENT_NOT_ALLOWLISTED gắn cờ swap qua router đã biết có đầu ra không về vault hoặc địa chỉ được phép, và AgentVault thu hồi quyền chưa dùng hết ở cuối mỗi batch."
     },
     {
@@ -595,17 +602,18 @@
       "category": "bad-slippage",
       "description": "Swap 2 USDC qua pool lệch giá, minOut = 0 (S4)",
       "risk": "HIGH",
-      "score": 60,
+      "score": 85,
       "rules": [
-        "ABNORMAL_SLIPPAGE"
+        "ABNORMAL_SLIPPAGE",
+        "UNPROTECTED_SWAP"
       ],
       "expectedRules": [
         "ABNORMAL_SLIPPAGE"
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Vault: -2 USDC, +0,056 mWAVAX.",
-      "latencyMs": 330
+      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận. Vault: -2 USDC, +0,056 mWAVAX.",
+      "latencyMs": 274
     },
     {
       "id": "m17-slippage-1",
@@ -613,17 +621,18 @@
       "category": "bad-slippage",
       "description": "Swap 1 USDC qua pool lệch giá",
       "risk": "HIGH",
-      "score": 60,
+      "score": 85,
       "rules": [
-        "ABNORMAL_SLIPPAGE"
+        "ABNORMAL_SLIPPAGE",
+        "UNPROTECTED_SWAP"
       ],
       "expectedRules": [
         "ABNORMAL_SLIPPAGE"
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Vault: -1 USDC, +0,028 mWAVAX.",
-      "latencyMs": 349
+      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận. Vault: -1 USDC, +0,028 mWAVAX.",
+      "latencyMs": 333
     },
     {
       "id": "m18-slippage-5",
@@ -631,17 +640,18 @@
       "category": "bad-slippage",
       "description": "Swap 5 USDC qua pool lệch giá",
       "risk": "HIGH",
-      "score": 60,
+      "score": 85,
       "rules": [
-        "ABNORMAL_SLIPPAGE"
+        "ABNORMAL_SLIPPAGE",
+        "UNPROTECTED_SWAP"
       ],
       "expectedRules": [
         "ABNORMAL_SLIPPAGE"
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Vault: -5 USDC, +0,14 mWAVAX.",
-      "latencyMs": 348
+      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận. Vault: -5 USDC, +0,14 mWAVAX.",
+      "latencyMs": 326
     },
     {
       "id": "m19-slippage-0-5",
@@ -649,17 +659,18 @@
       "category": "bad-slippage",
       "description": "Swap 0,5 USDC qua pool lệch giá",
       "risk": "HIGH",
-      "score": 60,
+      "score": 85,
       "rules": [
-        "ABNORMAL_SLIPPAGE"
+        "ABNORMAL_SLIPPAGE",
+        "UNPROTECTED_SWAP"
       ],
       "expectedRules": [
         "ABNORMAL_SLIPPAGE"
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Vault: -0,5 USDC, +0,014 mWAVAX.",
-      "latencyMs": 318
+      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận. Vault: -0,5 USDC, +0,014 mWAVAX.",
+      "latencyMs": 341
     },
     {
       "id": "m20-slippage-mixed",
@@ -667,17 +678,18 @@
       "category": "bad-slippage",
       "description": "Một swap pool thường và một swap pool lệch giá trong cùng batch",
       "risk": "HIGH",
-      "score": 60,
+      "score": 100,
       "rules": [
-        "ABNORMAL_SLIPPAGE"
+        "ABNORMAL_SLIPPAGE",
+        "UNPROTECTED_SWAP"
       ],
       "expectedRules": [
         "ABNORMAL_SLIPPAGE"
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Vault: -4 USDC, +0,13576 mWAVAX.",
-      "latencyMs": 403,
+      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận. Vault: -4 USDC, +0,13576 mWAVAX.",
+      "latencyMs": 412,
       "note": "Lần chạy đầu bỏ sót case này: ABNORMAL_SLIPPAGE cộng sản lượng của cả hai swap (cùng router, cùng người nhận) khi xét từng swap, nên swap xấu bị che. Đã sửa lỗi (mỗi Transfer gắn chỉ số lệnh, luật chỉ tính sản lượng của chính lệnh đó), có test hồi quy trong apps/guardian/test/rules.test.ts."
     },
     {
@@ -701,7 +713,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu 2 USDC cho 0x195a…BF31. 0x195a…BF31 là contract lạ, chưa có trong danh sách đã biết. Vault: -2 USDC, +0,07976 mWAVAX.",
-      "latencyMs": 586
+      "latencyMs": 897
     },
     {
       "id": "m22-unknown-token-approve",
@@ -722,7 +734,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: địa chỉ gọi không được phép. Cấp quyền tiêu token 0xa029…9E01 không giới hạn cho 0x0000…a77A. 0xa029…9E01 là contract lạ, chưa có trong danh sách đã biết. Số dư vault không đổi.",
-      "latencyMs": 358
+      "latencyMs": 613
     },
     {
       "id": "m23-unknown-router-approve",
@@ -744,7 +756,7 @@
       "missingRules": [],
       "simulationSuccess": true,
       "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu 3 USDC cho 0x195a…BF31. 0x195a…BF31 là contract lạ, chưa có trong danh sách đã biết. Số dư vault không đổi.",
-      "latencyMs": 329
+      "latencyMs": 591
     },
     {
       "id": "m24-revert-no-approval",
@@ -762,7 +774,7 @@
       "missingRules": [],
       "simulationSuccess": false,
       "explanationVi": "Rủi ro CAO. Giao dịch bị lỗi khi chạy thử (lệnh #0). Số dư vault không đổi.",
-      "latencyMs": 238
+      "latencyMs": 299
     },
     {
       "id": "m25-revert-overdraw",
@@ -780,7 +792,7 @@
       "missingRules": [],
       "simulationSuccess": false,
       "explanationVi": "Rủi ro CAO. Giao dịch bị lỗi khi chạy thử (lệnh #0). Số dư vault không đổi.",
-      "latencyMs": 346
+      "latencyMs": 565
     }
   ]
 }

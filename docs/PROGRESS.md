@@ -701,17 +701,47 @@ pnpm test                           9 s  → shared 50, agent 17, dashboard 47, 
 pnpm typecheck                           → sạch
 ```
 
-Ghi chú: `--recurse-submodules` báo `Filename too long` ở `contracts/lib/openzeppelin-contracts/lib/erc4626-tests` vì thư mục tạm có đường dẫn 125 ký tự (giới hạn 260 ký tự của Windows). Không ảnh hưởng build và test; README có thêm dòng hướng dẫn (đường dẫn ngắn hoặc `core.longpaths`). Ô "A teammate has done the fresh-clone test" của SPEC §14 vẫn để một thành viên tự làm.
+Ghi chú: `--recurse-submodules` báo `Filename too long` ở `contracts/lib/openzeppelin-contracts/lib/erc4626-tests` vì thư mục tạm có đường dẫn 125 ký tự (giới hạn 260 ký tự của Windows). Không ảnh hưởng build và test; README có thêm dòng hướng dẫn (đường dẫn ngắn hoặc `core.longpaths`). Nhóm chỉ có một người, nên lần chạy này là fresh-clone test của SPEC §14 (đã đánh dấu).
 
-### Việc còn lại (cập nhật 2026-11-11)
+### Luật UNPROTECTED_SWAP, RPC Tenderly, nạp vault (2026-11-11, 23:00–23:45, nhánh `feat/unprotected-swap-rule`)
 
-1. ~~Ví `0x54A2…2888` gọi `acceptOwnership` trên vault mới~~ — xong (tx ở trên).
-2. Nạp thêm 18 USDC cho owner từ faucet Circle rồi `pnpm seed:fuji` nếu muốn vault đủ 50 USDC (hiện 32).
-3. ~~S1, S2, S4 trên Fuji với vault mới~~, ~~`api.fork.test.ts`~~ và ~~`pnpm eval`~~ — xong (ở trên). Còn test reset nền của simulator (`start(): background maintenance…`), lần nào cũng chỉ hỏng vì RPC chính thức trả 429 giữa chừng: cần RPC riêng có key. RPC chính thức chặn IP này sau khoảng 10–15 phút tải nặng và mở lại theo `Retry-After` (khoảng 50 phút; thử lẻ vài lần không làm lùi mốc mở).
-4. Luật `minOut = 0` (swap không đặt mức nhận tối thiểu): cần team quyết, vì sẽ đổi S1, fixture luật và nhãn eval.
-5. ~~Chủ team thử thao tác chủ ví trên dashboard (pause, unpause, đổi hạn mức)~~ — xong (bảng ở trên).
-6. Một thành viên làm fresh-clone test (SPEC §14).
-6. Không làm (ngoài phạm vi hackathon): email xác minh/quên mật khẩu (chưa có dịch vụ mail), §13.3 biên nhận on-chain.
+Chủ team quyết: làm luật `minOut` (câu hỏi còn mở sau soát lần ba).
+
+- **Luật `UNPROTECTED_SWAP` (TRUNG BÌNH):** swap qua router đã biết có `minOut` thấp hơn kết quả mô phỏng quá 3% (`config/rules.json` → `unprotectedSwap.maxGapBps = 300`), kể cả `minOut = 0`. Lý do: Guardian mô phỏng trên fork, vault thực thi sau đó trên Fuji; không có `minOut` thì lúc thực thi vault nhận mọi giá. Vault chỉ nhận verdict THẤP nên swap như vậy bị từ chối.
+- Agent an toàn đặt `minOut` = giá oracle − 1% (`minOutUsdcToWavax` trong `packages/shared`); preset S1 của dashboard, `pay-check`, ví dụ MCP và `bench:guardian` cũng vậy. S4 giữ `minOut = 0`.
+- Câu giải thích vi/en, nhãn dashboard ("Swap không đặt mức nhận tối thiểu"), bằng chứng gửi LLM (phần trăm, không có số thô). Ba fixture swap S1 đặt `minOut` trong calldata (ghi trong mô tả fixture).
+- Test: 273 unit test qua (thêm: ma trận luật, chênh 3% không bắn / 5% bắn, `minOut = 0` → TRUNG BÌNH, router lạ bỏ qua, hàm `minOutUsdcToWavax`, planner).
+
+**RPC không cần key:** RPC chính thức chặn IP này (429). Tìm được gateway công khai của Tenderly `https://avalanche-fuji.gateway.tenderly.co` giữ state cũ (thử tới 20.000 block trước) mà không cần key; ZAN `https://api.zan.top/avax-fuji/ext/bc/C/rpc` cũng vậy. Mọi lần chạy dưới đây đi qua Tenderly (`FUJI_RPC_URL`), không bị 429:
+
+```
+simulator.fork.test.ts → 13 passed (13)   ← cả test reset nền vốn đỏ vì 429
+  [latency] simulate() 20 lần: p50 265 ms, p95 308 ms
+api.fork.test.ts       → 5 passed (5)     (S1 có minOut: THẤP, thực hiện; S4: ABNORMAL_SLIPPAGE + UNPROTECTED_SWAP, RiskTooHigh)
+  [latency] paid /v1/check: p50 1050 ms, p95 1232 ms · pipeline p50 311 ms
+pnpm eval (trước: luật mới, case cũ)  → CAO: TP 25 FP 0 TN 15 FN 0 · ≥ TRUNG BÌNH: TP 25 FP 8 TN 7 FN 0 (precision 75,8%) · vân tay 1710558e97b940e7
+pnpm eval (sau: 8 case bình thường đặt minOut) → cả hai ngưỡng TP 25 FP 0 TN 15 FN 0 · vân tay 75b364aac5a8179c (2 lần, trùng)
+```
+
+Trên Fuji (Guardian `NETWORK=fuji`, fork qua Tenderly), agent mới:
+
+| Kịch bản | Guardian | Phí x402 | Vault |
+| --- | --- | --- | --- |
+| S1 (minOut = 0,0792 mWAVAX) | THẤP 0/100 (lần hỏi đầu 503 vì fork vừa khởi động; agent tự chờ 5 s rồi hỏi lại) | [0xa3102a43…34e9](https://testnet.snowtrace.io/tx/0xa3102a434a30a1b1af3e411869bc6c5bb293fa9da1ac19679028450eadb434e9) | thực hiện [0x10ceeac6…1774](https://testnet.snowtrace.io/tx/0x10ceeac62fd394d29c0d81849fc966a9e6361eb12145e69ea016572f97661774) |
+| S4 (minOut = 0) | CAO 85/100 · ABNORMAL_SLIPPAGE, UNPROTECTED_SWAP | [0x65ec92e0…2490](https://testnet.snowtrace.io/tx/0x65ec92e079bbeb4c52d545883061669da677746417cd7a6b6a87f0996bcc2490) | revert `RiskTooHigh` [0xa13a641a…5df5](https://testnet.snowtrace.io/tx/0xa13a641a06954d9946e40dc4b93378cfebeb1379240bb16fa74ee80803975df5) |
+
+**Nạp vault:** faucet Circle gửi 20 USDC thẳng vào vault [0x34175a0f…2ac8](https://testnet.snowtrace.io/tx/0x34175a0fbe5e5770e9e3588aa3a045f3ab016314c14da455c888c0ed20f32ac8): vault 30 → 50 USDC; sau S1 còn 48 USDC.
+
+**Fresh-clone (SPEC §14):** nhóm chỉ có một người, nên ô này đánh dấu theo lần chạy từ bản clone sạch ở trên (ghi rõ trong SPEC §14).
+
+`.env.local` của máy này: `FUJI_RPC_URL` đổi sang Tenderly (giá trị cũ để lại thành dòng comment).
+
+### Việc còn lại (cập nhật 2026-11-11, 23:45)
+
+1. ~~`acceptOwnership`~~, ~~nạp vault đủ 50 USDC~~, ~~S1/S2/S4 trên Fuji~~, ~~test fork (13/13 và 5/5)~~, ~~eval~~, ~~luật `minOut`~~, ~~thao tác chủ ví~~, ~~fresh-clone~~ — xong.
+2. Tuỳ chọn: RPC riêng có key làm dự phòng nếu gateway Tenderly giới hạn lúc demo (hướng dẫn trong `.env.example`).
+3. Sau hackathon: tạo key Gemini mới (key cũ từng dán vào chat).
+4. Không làm (ngoài phạm vi hackathon): email xác minh/quên mật khẩu (chưa có dịch vụ mail), §13.3 biên nhận on-chain.
 
 ## Checklist trước demo
 

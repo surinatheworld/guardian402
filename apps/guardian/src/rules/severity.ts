@@ -10,4 +10,5 @@ export const RULE_SEVERITY: Record<RuleId, string> = {
   DRAIN_PATTERN: "HIGH",
   ABNORMAL_SLIPPAGE: "MEDIUM ≥ 2%, HIGH ≥ 10%",
   RECIPIENT_NOT_ALLOWLISTED: "HIGH",
+  UNPROTECTED_SWAP: "MEDIUM: minOut more than 3% below the simulated output",
 };

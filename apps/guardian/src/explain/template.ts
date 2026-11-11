@@ -87,6 +87,17 @@ const SENTENCES: Record<RuleId, Sentence> = {
       : lang === "vi"
         ? `${amount(i, f.evidence.token, f.evidence.amount, lang)} rời vault tới ${label(i, f.evidence.recipient)}, ngoài danh sách cho phép.`
         : `${amount(i, f.evidence.token, f.evidence.amount, lang)} leaves the vault to ${label(i, f.evidence.recipient)}, outside the allowlist.`,
+  UNPROTECTED_SWAP: (f, _i, lang) => {
+    if (f.evidence.minOut === "0") {
+      return lang === "vi"
+        ? "Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận."
+        : "The swap sets no minimum output (minOut = 0): if the price moves before it really runs, the vault still takes it.";
+    }
+    const pct = (Number(f.evidence.gapBps) / 100).toString();
+    return lang === "vi"
+      ? `Mức nhận tối thiểu thấp hơn kết quả chạy thử ${pct.replace(".", ",")}%: nếu giá xấu đi trước khi giao dịch chạy thật, vault vẫn phải nhận.`
+      : `The minimum output is ${pct}% below the simulated output: if the price gets worse before it really runs, the vault still takes it.`;
+  },
 };
 
 /** "Vault: -2 USDC, +0,079 mWAVAX." from the token and AVAX deltas. */

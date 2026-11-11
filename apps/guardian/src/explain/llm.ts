@@ -59,7 +59,7 @@ const NATIVE = "0x0000000000000000000000000000000000000000";
 /** Evidence fields that hold raw units of the finding's `token`. */
 const TOKEN_AMOUNT_KEYS = ["amount", "outflow", "remaining", "balanceBefore", "maxApproval"];
 /** Slippage evidence holds raw amounts of two tokens it does not name; the diff already has them in tokens. */
-const RAW_SLIPPAGE_KEYS = ["amountIn", "expectedOut", "realizedOut", "minOut"];
+const RAW_SLIPPAGE_KEYS = ["amountIn", "expectedOut", "realizedOut", "minOut", "simulatedOut"];
 /** "Unlimited" approvals (2^256 - 1 or close) would print as a 70-digit number. */
 const UNLIMITED = 2n ** 128n;
 
@@ -83,6 +83,8 @@ function readableEvidence(input: ExplainInput, evidence: Finding["evidence"]): F
   for (const [k, v] of Object.entries(evidence)) {
     if (RAW_SLIPPAGE_KEYS.includes(k)) continue;
     if (k === "slippageBps" && typeof v === "number") out.slippagePercent = v / 100;
+    else if (k === "gapBps" && typeof v === "number") out.minOutBelowSimulationPercent = v / 100;
+    else if (k === "maxGapBps" && typeof v === "number") out.allowedGapPercent = v / 100;
     else if (token && TOKEN_AMOUNT_KEYS.includes(k) && typeof v === "string")
       out[k] = readable(input, token, v);
     else out[k] = v;
