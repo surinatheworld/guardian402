@@ -634,6 +634,22 @@ RPC chính thức chặn lại IP này sau một loạt request. Muốn chạy h
 - Sửa `packages/shared/src/rpc.ts` (`fallbackTransport`): mỗi endpoint thử một lần, không retry ngoài. Test `packages/shared/test/rpc.test.ts` (hai RPC giả: một trả 429 + `Retry-After: 2990`, một trả đúng): với code cũ cả hai test treo quá 8 s; với code mới qua trong vài ms. Chạy thật với RPC chính thức đang 429: đọc `owner()` vault Fuji trong 387 ms.
 - **Pause / đổi hạn mức từ ví chưa làm được:** MetaMask gọi RPC Fuji chính thức (`MetaMask - RPC Error: RPC 0xa869 Custom eth_getBlockByNumber: Request is being rate limited`), nên giao dịch không gửi đi ("Request exceeds defined limit"). Không có gì thay đổi trên chain. Cách xử lý: trong MetaMask, sửa mạng Avalanche Fuji, thêm RPC `https://avalanche-fuji-c-chain-rpc.publicnode.com` và đặt làm mặc định (gửi giao dịch không cần state cũ). Claude không tự làm được: Claude in Chrome không mở được trang extension, computer-use chỉ được xem Chrome.
 
+### S1, S2, S4 trên Fuji với vault mới (2026-11-11, 20:4x)
+
+RPC chính thức mở lại sau khoảng 70 phút không gửi request nào. Guardian `NETWORK=fuji` (đọc chain qua PublicNode, mô phỏng trên fork lấy upstream là RPC chính thức), facilitator tự chạy settle qua PublicNode, agent đọc chain qua PublicNode:
+
+| Kịch bản | Guardian | Phí x402 | Vault |
+| --- | --- | --- | --- |
+| S1 | THẤP 0/100 | [0x1089c72b…5d31](https://testnet.snowtrace.io/tx/0x1089c72b2c5d76bef0e4f0bd908e7bf69cb9d4c4e27593a491b87f99c4225d31) | thực hiện [0xb85993b7…e7e3](https://testnet.snowtrace.io/tx/0xb85993b799634c8ae92c7a2a65cd29484f429e4056c0429293187d6adb76e7e3) |
+| S2 | CAO 100/100 · POLICY_PRECHECK, DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED | [0x7e4a1daf…bcd](https://testnet.snowtrace.io/tx/0x7e4a1daf1fc5b1749cd92248a7ed3a545bbf0a967025e89f6c0e1f95007bfbcd) | revert `RecipientNotAllowed` [0x433effdc…a82b](https://testnet.snowtrace.io/tx/0x433effdc86659a2bff05f00e26d4bf06eb07fd8a77a352785a5f60335d97a82b) |
+| S4 | CAO 60/100 · ABNORMAL_SLIPPAGE (30%) | [0xc9140b39…d1b3](https://testnet.snowtrace.io/tx/0xc9140b390323591e1ecfe08fa90f40de8802de6424e01f99be7d98eecb8bd1b3) | revert `RiskTooHigh` [0xb50d0f3a…cfe6](https://testnet.snowtrace.io/tx/0xb50d0f3a50ea65ed4be0d45fa501f1fcf9f1e0df91fe6405d6a32faae490cfe6) |
+
+Cả ba khớp bảng §10. Receipt đọc lại trên chain: ba phí status 1, vault S1 status 1, S2 và S4 status 0 (đúng ý). Sau đó: vault 30 USDC, allowance vault → router = 0, `verdictNonce` = 1.
+
+Lần chạy S1 đầu tiên và lần thứ hai không settle được (`invalid_exact_evm_transaction_failed`, lỗi gốc `Missing or invalid parameters.`, chưa có giao dịch nào lên chain, agent không mất tiền, Guardian trả 402 nên không lộ verdict). Lần thứ ba qua bình thường, không đổi gì về code hay cấu hình: lỗi tạm thời ở phía PublicNode. Facilitator nay ghi dòng đầu của lỗi gốc vào log (không ghi calldata, vì calldata chứa chữ ký EIP-3009 của người trả).
+
+Sau khoảng 15 phút chạy kịch bản và test, RPC chính thức lại chặn (429). `test:fork` lần đó cho kết quả không dùng được: Guardian còn chạy trên cùng fork (lệnh tắt bị lỗi cú pháp PowerShell), rồi lần chạy lại thì RPC đã chặn nên 18 test bị skip.
+
 ### Fresh-clone test (Claude chạy thử, 2026-11-11, `main` = `a938340`)
 
 Clone vào thư mục tạm, làm theo README (phần không cần Fuji):
@@ -652,7 +668,7 @@ Ghi chú: `--recurse-submodules` báo `Filename too long` ở `contracts/lib/ope
 
 1. ~~Ví `0x54A2…2888` gọi `acceptOwnership` trên vault mới~~ — xong (tx ở trên).
 2. Nạp thêm 18 USDC cho owner từ faucet Circle rồi `pnpm seed:fuji` nếu muốn vault đủ 50 USDC (hiện 32).
-3. Cần RPC riêng có key (hoặc RPC chính thức không chặn): chạy lại `api.fork.test.ts` và test reset nền, `pnpm eval`, và S1, S2, S4 trên Fuji với vault mới.
+3. ~~S1, S2, S4 trên Fuji với vault mới~~ — xong (bảng ở trên). Cần RPC riêng có key (hoặc RPC chính thức không chặn): chạy lại `api.fork.test.ts` và test reset nền, `pnpm eval`. RPC chính thức chặn IP này sau khoảng 10–15 phút tải nặng và mở lại sau khoảng 50–70 phút yên lặng.
 4. Luật `minOut = 0` (swap không đặt mức nhận tối thiểu): cần team quyết, vì sẽ đổi S1, fixture luật và nhãn eval.
 5. Chủ team: đổi RPC Fuji trong MetaMask sang PublicNode (mục trên), rồi trên trang Điều khiển: Tạm dừng → Mở lại vault, đổi hạn mức USDC 20 → 25 → 20.
 6. Một thành viên làm fresh-clone test (SPEC §14).
