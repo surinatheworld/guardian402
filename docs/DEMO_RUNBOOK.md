@@ -15,7 +15,8 @@ Addresses (from `packages/shared/src/addresses/fuji.json`):
 ## The night before
 
 - [ ] `git pull`, `pnpm install`, `cd contracts && forge build` on the demo laptop.
-- [ ] `.env.local` at the repo root has `AGENT_PK`, `OWNER_PK` (or the owner wallet in the browser), `GUARDIAN_SIGNER_PK`, `PAY_TO`, `FACILITATOR_PK`.
+- [ ] `.env.local` at the repo root has `AGENT_PK`, `OWNER_PK` (funds the vault through `pnpm seed:fuji`), `GUARDIAN_SIGNER_PK`, `PAY_TO`, `FACILITATOR_PK`.
+- [ ] The vault owner is the team lead's wallet (`0x54A2…2888`, since 2026-11-11): owner actions, including S6's pause, are signed from that wallet on the Điều khiển page. `pnpm agent scenario S6` needs `OWNER_PK` to be the owner, so it no longer runs against the Fuji vault.
 - [ ] Run the checks below once and top up anything that is low.
 
 ## Pre-demo checklist (15 minutes before)
@@ -92,11 +93,11 @@ S0 (`transfer` of 1.5 USDC to the treasury, LOW, executes) is the plain "agent p
 
 ## Fallback
 
-| Problem                                             | Do this                                                                                                                                                                                             |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Public facilitator fails (`502`, settlement errors) | The commands above already use the self-hosted facilitator. If even that fails, check `FACILITATOR_PK` has AVAX.                                                                                    |
-| Fuji RPC rate-limited (HTTP 429, Cloudflare 1015)   | Reads already fall back to the other public endpoint. If the fork itself is starved, set `FUJI_RPC_URL` to a provider URL with a key (archive or full state), restart `pnpm fork` and the Guardian. |
-| Guardian returns `SIMULATION_FAILED` on S1          | Fork was cold or lagging: wait 20 s and run S1 again; if it repeats, restart `pnpm fork` and the Guardian.                                                                                          |
-| A scenario says "KHÔNG KHỚP"                        | Read the line: usually low balances (checklist) or a paused vault. Unpause from Điều khiển.                                                                                                         |
-| Anything else, or the network is down               | Show the Snowtrace links in `docs/PROGRESS.md` (P8 and P9 sections).                                                                                                                                |
-| Docker is not running (Windows)                     | Start Docker Desktop, then `pnpm fork` again.                                                                                                                                                       |
+| Problem                                                 | Do this                                                                                                                                                                                             |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public facilitator fails (`502`, settlement errors)     | The commands above already use the self-hosted facilitator. If even that fails, check `FACILITATOR_PK` has AVAX.                                                                                    |
+| Fuji RPC rate-limited (HTTP 429, Cloudflare 1015)       | Reads already fall back to the other public endpoint. If the fork itself is starved, set `FUJI_RPC_URL` to a provider URL with a key (archive or full state), restart `pnpm fork` and the Guardian. |
+| Guardian answers `503` (busy or simulation unavailable) | Not charged. The agent already retries twice after `Retry-After`; if the scenario still shows HTTP 503, wait 20 s and run it again; if it repeats, restart `pnpm fork` and the Guardian.            |
+| A scenario says "KHÔNG KHỚP"                            | Read the line: usually low balances (checklist) or a paused vault. Unpause from Điều khiển.                                                                                                         |
+| Anything else, or the network is down                   | Show the Snowtrace links in `docs/PROGRESS.md` (P8 and P9 sections).                                                                                                                                |
+| Docker is not running (Windows)                         | Start Docker Desktop, then `pnpm fork` again.                                                                                                                                                       |

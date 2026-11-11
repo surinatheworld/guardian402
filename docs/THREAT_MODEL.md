@@ -128,7 +128,7 @@ Checked and found sound (tests `test_ReviewOk_*` and the existing suites): the v
 Operational notes, not contract findings:
 
 - The local fork has the same chain id (43113) and vault address as Fuji, so a verdict signed by a Guardian running with `NETWORK=local` is valid on Fuji if both use the same `GUARDIAN_SIGNER_PK` and the nonce matches. Use different signer keys for local and for Fuji (`scripts/init-local-env.mjs` creates fresh ones).
-- Until the team lead calls `acceptOwnership()`, the vault owner on Fuji is still the `OWNER_PK` hot key (read on 2026-11-11 on the new vault: `pendingOwner()` is the team lead's wallet).
+- The team lead accepted ownership of the new vault on 2026-11-11 ([0xaa92a946…6049](https://testnet.snowtrace.io/tx/0xaa92a94601eacd8dd3d42d9edab13fe4b52c134756bca8eb29852183e6456049)): `owner()` is the team lead's browser wallet, so the `OWNER_PK` hot key in `.env.local` no longer controls the vault (it can still fund it).
 
 ## Findings of the third review (2026-11-11): verdict binding and x402 charging
 
