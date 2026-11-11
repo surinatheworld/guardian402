@@ -83,7 +83,7 @@ An allowlisted router could take the vault's tokens (it is a recipient and a spe
 Two places:
 
 - **The agent's planner.** Content the agent reads can tell it to drain the vault (scenarios S2 and S3, scripted in DEMO mode). The vault and the Guardian do not trust the agent's intent: they check the calls.
-- **The Guardian's explainer.** The LLM sees only structured facts (token deltas, rule findings, trusted labels); revert strings and other untrusted text never reach it. It cannot change the risk: risk comes from the rule engine, and the explainer module cannot import the signer (architecture test in `apps/guardian/test/explain.test.ts`). An explanation that contradicts the risk is replaced by the template.
+- **The Guardian's explainer.** The LLM sees only structured facts (token deltas, rule findings, trusted labels); revert strings and other untrusted text never reach it. Token symbols reach it only for trusted tokens (V4). It cannot change the risk: risk comes from the rule engine, and the explainer module cannot import the signer (architecture test in `apps/guardian/test/explain.test.ts`). An explanation that contradicts the risk is replaced by the template.
 
 ### Replay and cross-vault use
 
@@ -129,6 +129,29 @@ Operational notes, not contract findings:
 
 - The local fork has the same chain id (43113) and vault address as Fuji, so a verdict signed by a Guardian running with `NETWORK=local` is valid on Fuji if both use the same `GUARDIAN_SIGNER_PK` and the nonce matches. Use different signer keys for local and for Fuji (`scripts/init-local-env.mjs` creates fresh ones).
 - Until the team lead calls `acceptOwnership()`, the vault owner on Fuji is still the `OWNER_PK` hot key (read on 2026-11-11: `pendingOwner()` is the team lead's wallet).
+
+## Findings of the third review (2026-11-11): verdict binding and x402 charging
+
+Review of the Guardian API: is a verdict usable only for the calls that were simulated, and is a caller charged only for a delivered check? No finding puts vault funds at risk: every verdict carried the true risk and only the vault's agent can use one. Each finding has a test in `apps/guardian/test/verdict-audit.test.ts` that failed before the fix.
+
+| Id  | Severity | Finding | Status |
+| --- | -------- | ------- | ------ |
+| V1  | High (revenue) | A check is stored before the x402 settlement, with the signed verdict, and `GET /v1/checks/:checkId` served it for free. A payment that never settled, or one payment sent with two bodies at once, still gave a valid verdict (and the whole check result). | Fixed: the signature is never stored or served; the free endpoints list a paid check only once its payment row exists. |
+| V2  | Medium | A simulation that could not run (fork or RPC error, timeout) was scored HIGH (`SIMULATION_FAILED`), signed and charged: the caller paid for the Guardian's outage. | Fixed: 503, nothing signed, stored or settled. |
+| V3  | Medium | The internal viem error went into `simulation.revertReason`: fork URL and request body, including `FUJI_RPC_URL` (with its API key, if it has one) inside `anvil_reset`. | Fixed: a fixed public text; the detail goes to the log. |
+| V4  | Medium | A token's own `symbol()` text went unchanged into the LLM prompt and the template explanation (prompt injection; a fake token calling itself "USDC"). The risk and the signature were never affected. | Fixed: `cleanSymbol` in the simulator; the explanation uses symbols of trusted tokens only. |
+| V5  | Low | Invalid input answered 502 instead of 400: a `value` like `"1e3"` (`BigInt` threw inside the schema) and an address with a wrong checksum. Never charged. | Fixed in `packages/shared/src/schemas.ts`. |
+| V6  | Low | An unknown field inside a call (e.g. `operation: 1`) was dropped silently. | Fixed: `callSchema` is strict. |
+| V7  | Low | The explainer received the pipeline's own findings array and could edit what is reported (not the risk or the score). | Fixed: copies. |
+| V8  | Low | A failed settlement left no log line (wrong x402 hook). | Fixed: `onSettleFailure`. |
+
+Checked and found sound: the EIP-712 digest and `hashCalls` match Solidity byte for byte (`pnpm test:crosscheck`); every signed field is checked by the vault; the hash and the simulation use the same call array; a non-canonical `value` is refused, never normalised; the explainer cannot reach the risk or the signer; 400 and 502 are not settled; a `/v1/check` payment is refused on `/v1/cosign`; a settled payment cannot be replayed; `/v1/demo/check` does not exist when `DEMO_MODE=false` and never signs; no key or signature is logged.
+
+Left as they are:
+
+- A swap with `minOut = 0` is LOW when its simulated output is good (see "Simulation divergence"). A rule on `minOut` would change scenario S1, the rule fixtures and the eval labels: a team decision.
+- If the Guardian stops between the settlement and the response, the caller has paid and has no verdict, and nothing serves it again (it used to be readable through V1). The caller pays for a new check.
+- An x402 payment is not bound to the request body (protocol design): the same unsettled payment can start several simulations at once; only one is paid and only that one is delivered. The busy gate bounds the load.
 
 ## Dependencies (P14)
 
