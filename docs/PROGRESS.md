@@ -634,6 +634,20 @@ RPC chính thức chặn lại IP này sau một loạt request. Muốn chạy h
 - Sửa `packages/shared/src/rpc.ts` (`fallbackTransport`): mỗi endpoint thử một lần, không retry ngoài. Test `packages/shared/test/rpc.test.ts` (hai RPC giả: một trả 429 + `Retry-After: 2990`, một trả đúng): với code cũ cả hai test treo quá 8 s; với code mới qua trong vài ms. Chạy thật với RPC chính thức đang 429: đọc `owner()` vault Fuji trong 387 ms.
 - **Pause / đổi hạn mức từ ví chưa làm được:** MetaMask gọi RPC Fuji chính thức (`MetaMask - RPC Error: RPC 0xa869 Custom eth_getBlockByNumber: Request is being rate limited`), nên giao dịch không gửi đi ("Request exceeds defined limit"). Không có gì thay đổi trên chain. Cách xử lý: trong MetaMask, sửa mạng Avalanche Fuji, thêm RPC `https://avalanche-fuji-c-chain-rpc.publicnode.com` và đặt làm mặc định (gửi giao dịch không cần state cũ). Claude không tự làm được: Claude in Chrome không mở được trang extension, computer-use chỉ được xem Chrome.
 
+### Fresh-clone test (Claude chạy thử, 2026-11-11, `main` = `a938340`)
+
+Clone vào thư mục tạm, làm theo README (phần không cần Fuji):
+
+```
+git clone --recurse-submodules …   17 s  (xem ghi chú bên dưới)
+pnpm install --frozen-lockfile     16 s
+cd contracts && forge test         12 s  → 9 suite, 166 passed, 0 failed
+pnpm test                           9 s  → shared 50, agent 17, dashboard 47, guardian 137, eval 5, guardian-mcp 6
+pnpm typecheck                           → sạch
+```
+
+Ghi chú: `--recurse-submodules` báo `Filename too long` ở `contracts/lib/openzeppelin-contracts/lib/erc4626-tests` vì thư mục tạm có đường dẫn 125 ký tự (giới hạn 260 ký tự của Windows). Không ảnh hưởng build và test; README có thêm dòng hướng dẫn (đường dẫn ngắn hoặc `core.longpaths`). Ô "A teammate has done the fresh-clone test" của SPEC §14 vẫn để một thành viên tự làm.
+
 ### Việc còn lại (cập nhật 2026-11-11)
 
 1. ~~Ví `0x54A2…2888` gọi `acceptOwnership` trên vault mới~~ — xong (tx ở trên).
