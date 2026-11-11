@@ -213,15 +213,22 @@ export function summarize(s: PolicySpec, n: Naming): string[] {
     out.push(
       `Được chi tối đa ${amountText(s.native.dailyCap, NATIVE_META)} mỗi ngày; vượt ${amountText(s.native.verdictThreshold, NATIVE_META)} một lần cần verdict.`,
     );
+  return [...out, ...summarizePermissions(s, n)];
+}
+
+/** Permission text reused by the review screen, which displays budgets separately. */
+export function summarizePermissions(s: PolicySpec, n: Naming): string[] {
+  const out: string[] = [];
+  const allowedRecipients = recipientsUnion(s);
   out.push(
-    s.recipients.length
-      ? `Chỉ được gửi tiền cho ${s.recipients.length === 1 ? "" : `${s.recipients.length} người nhận: `}${people(s.recipients, n)}.`
+    allowedRecipients.length
+      ? `Chỉ được gửi tiền cho ${allowedRecipients.length === 1 ? "" : `${allowedRecipients.length} người nhận: `}${people(allowedRecipients, n)}.`
       : "Không được gửi tiền cho ai.",
   );
   const approvable = s.tokens.filter((t) => BigInt(t.maxApproval) > 0n);
-  if (s.spenders.length && approvable.length)
+  if (allowedRecipients.length && approvable.length)
     out.push(
-      `Được cấp quyền chi tiêu cho ${people(s.spenders, n)}, tối đa ${approvable.map((t) => amountText(t.maxApproval, n.asset(t.token))).join(", ")}, luôn cần verdict và tự thu hồi sau mỗi giao dịch.`,
+      `Được cấp quyền chi tiêu cho ${people(allowedRecipients, n)}, tối đa ${approvable.map((t) => amountText(t.maxApproval, n.asset(t.token))).join(", ")}, luôn cần verdict và tự thu hồi sau mỗi giao dịch.`,
     );
   else out.push("Không được cấp quyền chi tiêu (approval) cho ai.");
   if (s.contracts.length)
@@ -276,7 +283,11 @@ export type Scenario =
   | { kind: "transfer"; asset: Address | "native"; to: Address; amount: bigint; spentToday: bigint }
   | { kind: "approve"; token: Address; spender: Address; amount: bigint }
   | { kind: "call"; contract: Address; selector: Hex };
-export type Outcome = { result: "allowed" | "needs_verdict" | "blocked"; reasons: string[] };
+type CheckStatus = "allowed" | "needs_verdict" | "blocked";
+export type Outcome = {
+  result: CheckStatus;
+  checks: { label: string; status: CheckStatus; detail: string }[];
+};
 
 /**
  * What the vault would decide, from the configuration alone (no simulation): the order of the checks in
@@ -286,117 +297,112 @@ export type Outcome = { result: "allowed" | "needs_verdict" | "blocked"; reasons
 export function evaluate(s: PolicySpec, sc: Scenario, n: Naming): Outcome {
   const allowedRecipients = recipientsUnion(s);
   const has = (xs: Address[], a: Address) => xs.some((x) => x.toLowerCase() === a.toLowerCase());
+  const checks: Outcome["checks"] = [];
+  const finish = (label: string, status: CheckStatus, detail: string): Outcome => ({
+    result: status,
+    checks: [...checks, { label, status, detail }],
+  });
   if (sc.kind === "call") {
     const c = s.contracts.find((x) => x.address.toLowerCase() === sc.contract.toLowerCase());
-    if (!c)
-      return {
-        result: "blocked",
-        reasons: [`${who(sc.contract, n)} không có trong danh sách contract được gọi.`],
-      };
+    if (!c) return finish("Contract", "blocked", `${who(sc.contract, n)} ngoài danh sách.`);
+    checks.push({ label: "Contract", status: "allowed", detail: who(c.address, n) });
+    const fn = n.fn?.(c.address, sc.selector) ?? sc.selector;
     if (!c.selectors.includes(sc.selector.toLowerCase() as Hex))
-      return {
-        result: "blocked",
-        reasons: [
-          `Thao tác ${n.fn?.(c.address, sc.selector) ?? sc.selector} chưa được phép trên ${who(c.address, n)}.`,
-        ],
-      };
-    return {
-      result: "allowed",
-      reasons: [
-        `${who(c.address, n)} và thao tác này được phép.`,
-        "Số dư thực giảm sau khi chạy vẫn tính vào hạn mức và ngưỡng verdict; cần mô phỏng để biết chính xác.",
-      ],
-    };
+      return finish("Thao tác", "blocked", `${fn} chưa được phép.`);
+    return finish("Thao tác", "allowed", fn);
   }
   if (sc.kind === "approve") {
     const t = s.tokens.find((x) => x.token.toLowerCase() === sc.token.toLowerCase());
     const m = n.asset(sc.token);
-    if (!t) return { result: "blocked", reasons: [`${m.symbol} chưa được khai báo trong policy.`] };
-    if (sc.amount === 0n)
-      return { result: "allowed", reasons: ["Thu hồi quyền (approve 0) luôn được phép."] };
+    if (!t) return finish("Tài sản", "blocked", `${m.symbol} chưa được bật.`);
+    if (sc.amount === 0n) return finish("Thu hồi quyền", "allowed", "Đưa approval về 0.");
     if (!has(allowedRecipients, sc.spender))
-      return { result: "blocked", reasons: [`${who(sc.spender, n)} không phải bên nhận quyền đã duyệt.`] };
-    if (sc.amount > BigInt(t.maxApproval))
-      return {
-        result: "blocked",
-        reasons: [`Cấp quyền ${amountText(sc.amount, m)} vượt mức tối đa ${amountText(t.maxApproval, m)}.`],
-      };
-    return {
-      result: "needs_verdict",
-      reasons: [
-        `Bên nhận quyền đã duyệt và trong mức ${amountText(t.maxApproval, m)}.`,
-        `Mọi approval đều cần verdict Guardian với rủi ro ≤ ${RISK_WORD[s.maxRisk]}; phần chưa dùng bị thu hồi ngay sau giao dịch.`,
-      ],
-    };
+      return finish("Bên nhận quyền", "blocked", `${who(sc.spender, n)} ngoài danh sách.`);
+    checks.push({ label: "Bên nhận quyền", status: "allowed", detail: who(sc.spender, n) });
+    const limit = `Tối đa ${amountText(t.maxApproval, m)}.`;
+    if (sc.amount > BigInt(t.maxApproval)) return finish("Mức cấp quyền", "blocked", limit);
+    checks.push({ label: "Mức cấp quyền", status: "allowed", detail: limit });
+    return finish(
+      "Chữ ký",
+      "needs_verdict",
+      `Approval khác 0 cần Guardian ký, rủi ro tối đa ${RISK_WORD[s.maxRisk]}.`,
+    );
   }
   const native = sc.asset === "native";
   const m = native ? NATIVE_META : n.asset(sc.asset as Address);
   const rule = native
     ? s.native
     : s.tokens.find((x) => x.token.toLowerCase() === String(sc.asset).toLowerCase());
-  if (!rule) return { result: "blocked", reasons: [`${m.symbol} chưa được khai báo trong policy.`] };
+  if (!rule) return finish("Tài sản", "blocked", `${m.symbol} chưa được bật.`);
   // A plain transfer (token transfer, or AVAX with no calldata) needs an allowlisted recipient.
   if (!has(allowedRecipients, sc.to))
-    return { result: "blocked", reasons: [`${who(sc.to, n)} không có trong danh sách người nhận.`] };
+    return finish("Người nhận", "blocked", `${who(sc.to, n)} ngoài danh sách.`);
+  checks.push({ label: "Người nhận", status: "allowed", detail: who(sc.to, n) });
   const cap = BigInt(rule.dailyCap);
   const total = sc.spentToday + sc.amount;
-  if (total > cap)
-    return {
-      result: "blocked",
-      reasons: [
-        `Vượt ngân sách ngày: đã chi ${amountText(sc.spentToday, m)} + ${amountText(sc.amount, m)} > ${amountText(cap, m)}.`,
-      ],
-    };
+  const used = `${amountText(total, m)} / ${amountText(cap, m)}`;
+  if (total > cap) return finish("Hạn mức ngày", "blocked", `${used}. Vượt ${amountText(total - cap, m)}.`);
+  checks.push({ label: "Hạn mức ngày", status: "allowed", detail: used });
+  const threshold = amountText(rule.verdictThreshold, m);
   if (sc.amount > BigInt(rule.verdictThreshold))
-    return {
-      result: "needs_verdict",
-      reasons: [
-        `Trong ngân sách (còn ${amountText(cap - total, m)} sau khoản này).`,
-        `Vượt ngưỡng ${amountText(rule.verdictThreshold, m)}: cần verdict Guardian hợp lệ với rủi ro ≤ ${RISK_WORD[s.maxRisk]}.`,
-      ],
-    };
-  return {
-    result: "allowed",
-    reasons: [
-      `${who(sc.to, n)} là người nhận đã duyệt.`,
-      `Trong ngân sách và dưới ngưỡng verdict (còn ${amountText(cap - total, m)} sau khoản này).`,
-    ],
-  };
+    return finish("Chữ ký", "needs_verdict", `Vượt ${threshold}. Rủi ro tối đa ${RISK_WORD[s.maxRisk]}.`);
+  return finish("Chữ ký", "allowed", `Khoản chuyển không vượt ${threshold}.`);
 }
 
 /** A few telling cases for the first spendable asset, like the table in the policy proposal. */
-export function exampleScenarios(s: PolicySpec, n: Naming): { label: string; scenario: Scenario }[] {
-  const rule = s.tokens.find((t) => BigInt(t.dailyCap) > 0n);
-  const to = s.recipients[0];
-  if (!rule || !to) return [];
-  const m = n.asset(rule.token);
-  const cap = BigInt(rule.dailyCap);
-  const threshold = BigInt(rule.verdictThreshold);
-  const small = (threshold < cap ? threshold : cap) / 2n || 1n;
-  const out: { label: string; scenario: Scenario }[] = [
-    {
-      label: `Chuyển ${amountText(small, m)} cho ${who(to, n)}, chưa chi gì hôm nay`,
-      scenario: { kind: "transfer", asset: rule.token, to, amount: small, spentToday: 0n },
-    },
-  ];
-  if (threshold < cap) {
-    const big = threshold * 2n <= cap ? threshold * 2n : cap;
+export function exampleScenarios(s: PolicySpec): { label: string; scenario: Scenario }[] {
+  const to = recipientsUnion(s)[0];
+  const contract = s.contracts.find((c) => c.selectors.length > 0);
+  const selector = contract?.selectors[0];
+  const approval = s.tokens.find((t) => BigInt(t.maxApproval) > 0n);
+  const out: ReturnType<typeof exampleScenarios> = [];
+  const token = s.tokens.find((t) => BigInt(t.dailyCap) > 0n);
+  const rule = token ?? (BigInt(s.native.dailyCap) > 0n ? s.native : undefined);
+  if (rule && to) {
+    const asset = token?.token ?? "native";
+    const cap = BigInt(rule.dailyCap);
+    const threshold = BigInt(rule.verdictThreshold);
+    const small = (threshold < cap ? threshold : cap) / 2n || 1n;
     out.push({
-      label: `Chuyển ${amountText(big, m)} cho ${who(to, n)}`,
-      scenario: { kind: "transfer", asset: rule.token, to, amount: big, spentToday: 0n },
+      label: "Khoản chuyển nhỏ",
+      scenario: { kind: "transfer", asset, to, amount: small, spentToday: 0n },
     });
+    if (threshold > 0n && threshold < cap) {
+      const big = threshold * 2n <= cap ? threshold * 2n : cap;
+      out.push({
+        label: "Khoản chuyển lớn",
+        scenario: { kind: "transfer", asset, to, amount: big, spentToday: 0n },
+      });
+    }
+    const stranger = "0x000000000000000000000000000000000000dEaD";
+    if (!recipientsUnion(s).some((a) => a.toLowerCase() === stranger.toLowerCase()))
+      out.push({
+        label: "Địa chỉ lạ",
+        scenario: { kind: "transfer", asset, to: stranger, amount: small, spentToday: 0n },
+      });
+    const spent = (cap * 8n) / 10n;
+    const over = cap - spent + 1n;
+    if (over <= MAX_UINT256)
+      out.push({
+        label: "Vượt hạn mức",
+        scenario: { kind: "transfer", asset, to, amount: over, spentToday: spent },
+      });
   }
-  const stranger = "0x000000000000000000000000000000000000dEaD" as Address;
-  out.push({
-    label: `Chuyển ${amountText(small, m)} cho địa chỉ ngoài danh sách`,
-    scenario: { kind: "transfer", asset: rule.token, to: stranger, amount: small, spentToday: 0n },
-  });
-  const spent = (cap * 8n) / 10n;
-  const over = (cap * 3n) / 10n || 1n;
-  out.push({
-    label: `Chuyển ${amountText(over, m)} khi hôm nay đã chi ${amountText(spent, m)}`,
-    scenario: { kind: "transfer", asset: rule.token, to, amount: over, spentToday: spent },
-  });
+  if (approval && to)
+    out.push({
+      label: "Cấp approval",
+      scenario: {
+        kind: "approve",
+        token: approval.token,
+        spender: s.spenders[0] ?? to,
+        amount: BigInt(approval.maxApproval),
+      },
+    });
+  if (contract && selector)
+    out.push({
+      label: "Gọi contract",
+      scenario: { kind: "call", contract: contract.address, selector },
+    });
   return out;
 }
 
