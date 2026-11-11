@@ -38,7 +38,7 @@ Written in P11 (2026-11-07), together with a security review of AgentVault.
 Each agent batch must pass every layer that applies:
 
 1. **AgentVault static policy (always, on-chain):** pause flag, agent address, at most 8 calls, allowlisted targets and selectors, allowlisted recipients and spenders, `maxApproval`, per-day cap per token and for AVAX.
-2. **AgentVault verdict rules (on-chain):** approvals and outflows above the verdict threshold need a Guardian verdict, bound to the exact calls (`callsHash`), the vault (EIP-712 domain), the current nonce and a 60 s deadline, with risk ≤ `maxAgentRisk` (THẤP by default).
+2. **AgentVault verdict rules (on-chain):** approvals, outflows above the verdict threshold, and any outflow of a batch that reaches an allowed target (a call to it, native value sent to it, or a token transfer to it) need a Guardian verdict, bound to the exact calls (`callsHash`), the vault (EIP-712 domain), the current nonce and a 60 s deadline, with risk ≤ `maxAgentRisk` (THẤP by default).
 3. **Guardian checks (off-chain):** simulation on a fork plus 8 deterministic rules. HIGH risk means the vault rejects the verdict.
 4. **Batch hygiene (on-chain, added in P11):** approvals granted on the agent path are revoked at the end of the batch.
 5. **Owner controls:** kill switch, revoke agent, change caps, withdraw at any time, also while paused.
@@ -49,7 +49,7 @@ Each agent batch must pass every layer that applies:
 
 An attacker who holds `AGENT_PK` can call `executeBatch` with any calls.
 
-- Without a verdict: only batches with no approval and no outflow above the verdict threshold (1 USDC, 0.01 AVAX in the demo), to allowlisted targets and recipients, within the daily cap. Every transfer goes to an allowlisted recipient (the team treasury in the demo).
+- Without a verdict: only direct payments at or below the verdict threshold (1 USDC, 0.01 AVAX in the demo) to allowlisted recipients that are not also allowed targets (the team treasury in the demo), within the daily cap. A batch that reaches an allowed target (the router) can still run, but it cannot move anything out of the vault (second review, R1–R3): the vault cannot check where a target sends what it receives.
 - Leftover allowance (fixed in P11, finding F1): before the fix, an allowance left from an earlier verdict-backed approval let the attacker run swaps at or below the threshold with no verdict, and send the swap output anywhere. Approvals now never outlive their batch.
 - With a verdict: the attacker would also need the Guardian to sign a LOW verdict for those exact calls. Drains, unknown spenders, lookalikes, unlimited approvals, bad slippage and redirected swap output come back HIGH (`eval/report.md`), and the vault rejects HIGH.
 - Worst case: daily cap per token per day (20 USDC in the demo), to allowlisted recipients only. The owner can pause or revoke the agent at any time.
@@ -72,11 +72,11 @@ If the x402 facilitator is down, `/v1/check` and `/v1/cosign` cannot settle and 
 
 ### Guardian downtime
 
-No verdicts: only small, allowlisted batches without approvals run (see "Agent key compromise, without a verdict"). The system fails closed for everything else. The owner keeps full control.
+No verdicts: only small direct payments to allowlisted recipients run (see "Agent key compromise, without a verdict"). The system fails closed for everything else. The owner keeps full control.
 
 ### Malicious or compromised allowlisted protocol
 
-An allowlisted router could take the vault's tokens (it is a recipient and a spender). Limits: approvals are capped by `maxApproval` and revoked at the end of the batch (P11); outflows are capped per day; the Guardian checks swap output and slippage against the oracle. Residual: within one batch, an allowlisted contract can take up to the approved amount. Keep the allowlist short and audited.
+An allowlisted router could take the vault's tokens (it is a recipient and a spender). Limits: approvals are capped by `maxApproval` and revoked at the end of the batch (P11); outflows are capped per day; nothing reaches an allowed target without a verdict (second review, R1–R3), also when the owner has granted it a standing allowance; the Guardian checks swap output and slippage against the oracle. Residual: within one verdict-backed batch, an allowlisted contract can take up to the approved amount. Keep the allowlist short and audited.
 
 ### LLM prompt injection
 
@@ -108,6 +108,27 @@ Review of `contracts/src/AgentVault.sol` acting as an outside auditor. Each find
 | F4  | Info     | The owner can allowlist an untracked token as a generic target; its transfers then have no cap.                                                                                                                                                                                                                                                                                                  | Accepted: owner configuration. Track every token the vault holds.                                                                                                                         | —                                                                                                                                      |
 
 AgentVault on Fuji was redeployed with the F1 fix on 2026-11-08 (`0x3f6a5852788ff6a46d924C407976bB89487f7651`); after scenario S1 on Fuji its allowance to the router is 0. The first vault (`0x32cb61054E31678E6Afa6731B0DC70D330a1Ab99`) was emptied and paused.
+
+## Findings of the second review (2026-11-11)
+
+Second review of `contracts/src/AgentVault.sol` before the code freeze. No Critical or High finding. Each finding has tests in `contracts/test/AgentVault.review.t.sol` that failed before the fix. The fixes change no ABI, no storage layout and no `Policy` field.
+
+| Id  | Severity | Finding | Status | Proof |
+| --- | -------- | ------- | ------ | ----- |
+| R1  | Medium   | Native value needs no approval, so F1 did not cover it. A batch that sent AVAX at or below the native threshold to an allowlisted payable target needed no verdict, and the vault cannot check the target's arguments: with a payable entry point that takes an output recipient, the agent key alone could move the native daily cap to any address. Not exploitable with the Fuji configuration (`swapExactIn` is not payable, the vault holds no AVAX). | Fixed: a batch that reaches an allowed target needs a verdict for any outflow. | `test_Review_R1_*`, `testFuzz_OutflowViaTargetNeedsVerdict`, invariant 7 |
+| R2  | Low      | F1 was closed only for approvals granted on the agent path. An allowance the owner grants with `ownerExecute` let the agent swap at or below the threshold with no verdict, output to any address. No product flow grants such an allowance; the Fuji vault's allowance to the router is 0. | Fixed by the R1 rule. | `test_Review_R2_OwnerGrantedAllowanceNeedsVerdict` |
+| R3  | Low      | One list answers "may be approved" and "may be paid": the router must be an allowed recipient to be approvable, so the agent could transfer tokens straight into it with no verdict, up to the daily cap (recoverable from the DEMO router by its owner; lost to the first caller on a router with a public sweep). | Fixed: a transfer, or a plain native payment, to an address that is also an allowed target makes the batch need a verdict for any outflow. | `test_Review_R3_*` |
+| R4  | Low      | The vault read only the success flag of each call. A tracked token that returns `false` instead of reverting made the batch "succeed": `Executed` was emitted and nothing had moved. Fuji USDC reverts on failure. | Fixed: on the agent path a tracked token must return nothing or `true` (`CallFailed` otherwise). | `test_Review_R4_*` |
+| R5  | Info     | Removing a target kept its selectors in storage; allowing the target again brought every old selector back with no transaction or event for them. | Fixed: removing a target removes its selectors and emits one event per selector. | `test_Review_R5_*` |
+
+**The fixes are in the code, not yet on Fuji.** The vault at `0x3f6a5852788ff6a46d924C407976bB89487f7651` runs the P11 code until the team redeploys it. Until then: do not allowlist a payable target, and do not grant standing allowances from the vault with `ownerExecute`.
+
+Checked and found sound (tests `test_ReviewOk_*` and the existing suites): the verdict is bound to the calls, the vault, the chain id, the nonce and the deadline; a failed batch does not use up a nonce; both entry points are `nonReentrant` and a target cannot reach owner functions; agent-path approvals are revoked at the end of the batch; an inflow in the same batch can only hide an outflow with someone else's money, and untracked tokens the vault holds (mWAVAX) cannot be moved by the agent with the current allowlist; fee-on-transfer tokens are counted on what really leaves the vault; the vault is not an ERC-1271 signer; the owner can withdraw everything while paused and while a handoff is pending.
+
+Operational notes, not contract findings:
+
+- The local fork has the same chain id (43113) and vault address as Fuji, so a verdict signed by a Guardian running with `NETWORK=local` is valid on Fuji if both use the same `GUARDIAN_SIGNER_PK` and the nonce matches. Use different signer keys for local and for Fuji (`scripts/init-local-env.mjs` creates fresh ones).
+- Until the team lead calls `acceptOwnership()`, the vault owner on Fuji is still the `OWNER_PK` hot key (read on 2026-11-11: `pendingOwner()` is the team lead's wallet).
 
 ## Dependencies (P14)
 

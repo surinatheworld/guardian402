@@ -134,6 +134,26 @@ contract AgentVaultFuzzTest is AgentVaultBase {
         assertEq(vault.verdictNonce(), 1);
     }
 
+    // ------------------------------------------- batches that reach a target
+
+    /// Any outflow of a batch that reaches an allowed target needs a verdict (review findings R1–R3): value
+    /// with a call, a plain native transfer to the target, a token transfer to the target, or a small payment
+    /// to a plain recipient next to a call.
+    function testFuzz_OutflowViaTargetNeedsVerdict(uint256 amount, uint256 kind) public {
+        kind = bound(kind, 0, 3);
+        AgentVault.Call[] memory calls;
+        if (kind == 0) calls = _one(_ping(bound(amount, 1, NATIVE_CAP)));
+        else if (kind == 1) calls = _one(_native(address(target), bound(amount, 1, NATIVE_CAP)));
+        else if (kind == 2) calls = _one(_transfer(address(target), bound(amount, 1, USDC_CAP)));
+        else calls = _two(_ping(0), _transfer(treasury, bound(amount, 1, USDC_CAP)));
+
+        vm.expectRevert(AgentVault.VerdictRequired.selector);
+        _exec(calls);
+
+        _execWithVerdict(calls, 0);
+        assertEq(vault.verdictNonce(), 1);
+    }
+
     // ------------------------------------------------------- verdict binding
 
     function testFuzz_TamperedVerdictRejected(uint256 field, bytes32 noise) public {

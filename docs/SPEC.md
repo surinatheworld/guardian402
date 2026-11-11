@@ -127,9 +127,9 @@ struct Verdict {
 | maxAgentRisk | `uint8` | default 0 (LOW only) |
 | token policy | `mapping(address => TokenPolicy)` + `address[] trackedTokens` (max 8) | `TokenPolicy { bool tracked; uint256 dailyCap; uint256 maxApproval; uint256 verdictThreshold; }`, all in token units |
 | native policy | `nativeDailyCap`, `nativeVerdictThreshold` | in wei; tracked under `address(0)` |
-| allowedTarget | `mapping(address => bool)` | routers and protocols the agent may call |
-| allowedSelector | `mapping(address => mapping(bytes4 => bool))` | per allowed target |
-| allowedRecipient | `mapping(address => bool)` | allowed recipients of token transfers and native value, and allowed approval spenders |
+| allowedTarget | `mapping(address => bool)` | routers and protocols the agent may call. A batch that reaches one needs a verdict for any outflow (§4.3 step 2) |
+| allowedSelector | `mapping(address => mapping(bytes4 => bool))` | per allowed target; removing the target removes its selectors |
+| allowedRecipient | `mapping(address => bool)` | allowed recipients of token transfers and native value, and allowed approval spenders. A recipient that is also an allowed target (a router that must be approvable) can only be paid with a verdict |
 | spent | `mapping(address => mapping(uint256 => uint256))` | token → day (`block.timestamp / 1 days`) → outflow |
 
 ### 4.3 `executeBatch(Call[] calldata calls, Verdict calldata verdict, bytes calldata signature)`
@@ -140,12 +140,14 @@ Only the agent may call it. `nonReentrant`. Run these steps in this order:
 2. Static checks on each call:
    - `target` must not be `address(this)` or `address(0)` → `TargetNotAllowed(target)`.
    - If `target` is a tracked token: the selector must be `transfer(address,uint256)` or `approve(address,uint256)`, else `SelectorNotAllowed(target, selector)`.
-     - `transfer`: recipient must be an allowed recipient → `RecipientNotAllowed(recipient)`.
+     - `transfer`: recipient must be an allowed recipient → `RecipientNotAllowed(recipient)`. If the recipient is also an allowed target, mark the batch **via-target**.
      - `approve` with amount 0: always allowed (revocation).
      - `approve` with amount > 0: spender must be an allowed recipient (`RecipientNotAllowed`) and amount ≤ `maxApproval` (`ApprovalTooLarge(token, amount)`). Mark the batch **sensitive**.
-   - Else, if `data.length > 0`: `allowedTarget[target]` and `allowedSelector[target][bytes4(data)]` are required (`data.length < 4` → `SelectorNotAllowed`).
-   - Else (plain native transfer): `target` must be an allowed recipient.
-   - `value > 0` requires the target to be an allowed target or an allowed recipient.
+   - Else, if `data.length > 0`: `allowedTarget[target]` and `allowedSelector[target][bytes4(data)]` are required (`data.length < 4` → `SelectorNotAllowed`). Mark the batch **via-target**.
+   - Else (plain native transfer): `target` must be an allowed recipient. If it is also an allowed target, mark the batch **via-target**.
+   - `value > 0` requires the target to be an allowed target or an allowed recipient; value sent to an allowed target marks the batch **via-target**.
+
+   A **via-target** batch reaches a contract whose arguments and code the vault cannot check (for example a swap that takes an output recipient), so the verdict threshold does not apply to it (step 6).
 3. If `signature.length > 0`, verify the verdict now:
    - `verdict.callsHash == keccak256(abi.encode(calls))`, else `InvalidVerdict()`;
    - `verdict.nonce == verdictNonce`, else `InvalidVerdict()`;
@@ -154,8 +156,8 @@ Only the agent may call it. `nonReentrant`. Run these steps in this order:
    - `verdict.risk <= maxAgentRisk`, else `RiskTooHigh(risk)`.
    Then increment `verdictNonce` **before** any external call.
 4. Record the balance of every tracked token and the native balance.
-5. Run the calls in order with `call{value: value}(data)`. On failure revert `CallFailed(index, returndata)`.
-6. For each tracked token and for native: `outflow = before > after ? before - after : 0`. Add it to `spent[token][today]` and revert `DailyCapExceeded(token, spent, cap)` if the total is above the cap. If `outflow > verdictThreshold`, the batch needs a verdict.
+5. Run the calls in order with `call{value: value}(data)`. On failure revert `CallFailed(index, returndata)`. A call to a tracked token also fails, with the same error, when it returns anything other than nothing or `true` (the SafeERC20 rule). Then reset to 0 every approval the batch granted on a tracked token.
+6. For each tracked token and for native: `outflow = before > after ? before - after : 0`. Add it to `spent[token][today]` and revert `DailyCapExceeded(token, spent, cap)` if the total is above the cap. If `outflow > verdictThreshold`, the batch needs a verdict. In a **via-target** batch the threshold is 0: any outflow, of any tracked token or of native value, needs a verdict.
 7. If (the batch needs a verdict or is sensitive) and no verdict was verified in step 3 → revert `VerdictRequired()`.
 8. Emit `Executed(callsHash, checkId, withVerdict, nonceUsed)`.
 
@@ -165,7 +167,7 @@ Only the agent may call it. `nonReentrant`. Run these steps in this order:
 - `withdraw(address token, address to, uint256 amount)`, `withdrawNative(address payable to, uint256 amount)` — onlyOwner, work while paused.
 - `pause()`, `unpause()`, `setAgent(address)`, `setGuardian(address)`, `setMaxAgentRisk(uint8)` (≤ 2).
 - `setTokenPolicy(address token, bool tracked, uint256 dailyCap, uint256 maxApproval, uint256 verdictThreshold)`, `setNativePolicy(uint256 dailyCap, uint256 verdictThreshold)`.
-- `setAllowedTarget(address, bool)`, `setAllowedSelector(address, bytes4, bool)`, `setAllowedRecipient(address, bool)`.
+- `setAllowedTarget(address, bool)`, `setAllowedSelector(address, bytes4, bool)`, `setAllowedRecipient(address, bool)`. `setAllowedTarget(target, false)` also removes every selector of that target and emits `AllowedSelectorSet(target, selector, false)` for each, so a target that is allowed again starts with no selector.
 - Every setter emits an event. `receive()` accepts AVAX.
 - Views: `getPolicy()` (one struct with everything the Guardian needs), `remainingToday(address token)`, `hashCalls(Call[] calldata)`, `verdictDigest(Verdict calldata)`.
 
@@ -179,6 +181,7 @@ Custom errors: `Paused`, `NotAgent`, `BadBatch`, `TargetNotAllowed`, `SelectorNo
 4. A verdict can be used at most once (`verdictNonce` strictly increases).
 5. The owner can always withdraw the full balance, paused or not.
 6. A verdict issued for calls A can never authorize calls B.
+7. Without a verdict, the agent path never pays an allowed target, in tokens or in native value.
 
 ### 4.6 Mocks (`contracts/src/mocks/`, DEMO)
 
@@ -193,7 +196,8 @@ Custom errors: `Paused`, `NotAgent`, `BadBatch`, `TargetNotAllowed`, `SelectorNo
 
 - Unit: every error path in §4.3–4.4; happy path with and without a verdict; threshold boundaries (exactly at and one unit above); approval rules incl. revocation; pause and unpause; revoke agent; owner override; nonce replay; expiry; wrong signer; tampered target, value, data, call order; risk above the maximum; daily cap across several batches and across a day boundary (`vm.warp`); native value paths; a reentrancy attempt through a malicious target.
 - Fuzz: amounts against caps and thresholds; random batches of allowed calls.
-- Invariant: the six invariants in §4.5, with a handler that randomly calls `executeBatch` (as agent), `ownerExecute`, `pause`, `unpause` and warps time.
+- Review findings: `AgentVault.audit.t.sol` (P11, F1–F2) and `AgentVault.review.t.sol` (second review, R1–R5). Each test failed before its fix.
+- Invariant: the seven invariants in §4.5, with a handler that randomly calls `executeBatch` (as agent), `ownerExecute`, `pause`, `unpause` and warps time.
 - Cross-language: §5.
 - Coverage target: ≥ 95% lines and branches on `AgentVault`.
 
@@ -630,3 +634,10 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
   - Reads of latest state (Guardian chain client, agent, facilitator, dashboard) fall back from the configured RPC to the other public Fuji endpoints (official, PublicNode). The fork's upstream stays on the official RPC: PublicNode prunes older state ("missing trie node" a few minutes after a reset, seen in `test:fork`).
   - `zod` 4.6.7 in our packages (advisory on `zod` < 4.6.6); `@x402/core` keeps its own `zod` 3. The wallet SDKs of `@wagmi/connectors` are removed by pnpm overrides; `ws` pinned to 8.21.3.
   - §13.2 MCP server: stdio transport (what MCP clients such as Claude Desktop and Claude Code start), one fork per Guardian process (`FORK_PORT=8546 pnpm fork`, `MCP_FORK_RPC_URL`), its own check history. Acceptance run on Fuji instead of the local fork: the example agent paid 0.005 USDC and got risk LOW, settlement 0x64a5e6bb….
+- 2026-11-11 — Second security review of AgentVault (THREAT_MODEL R1–R5), branch `fix/p-review-agentvault`. No ABI, storage layout or `Policy` struct change; `packages/shared` ABIs are unchanged. **The Fuji vault (`0x3f6a…7651`) does not have these fixes until the team redeploys it** (`pnpm redeploy-vault:fuji`, then `seed:fuji`, `handoff:fuji`, `known-contracts`).
+  - §4.3 steps 2 and 6 (R1, R2, R3): a batch is **via-target** when it calls an allowed target, sends native value to one, or transfers a tracked token to an address that is also an allowed target. Such a batch needs a verdict for any outflow; the verdict threshold now applies only to direct payments to plain recipients. Reason: the vault cannot check a target's arguments, so "at or below the threshold" did not mean "to an allowlisted recipient" (native value to a payable swap with an output recipient; an allowance granted by the owner; tokens parked in a router that must be an allowed recipient to be approvable). One rule was chosen instead of a separate spender list, which would have changed the ABI, the `Policy` struct, the seed and the dashboard.
+  - §4.3 step 5 (R4): on the agent path a tracked token must return nothing or `true`; `false` or malformed return data reverts with `CallFailed`. The owner path (`ownerExecute`) is unchanged.
+  - §4.4 (R5): `setAllowedTarget(target, false)` removes the target's selectors (OpenZeppelin 5.7.0 `EnumerableSet.clear`) and emits one `AllowedSelectorSet(.., false)` per selector.
+  - §4.5 invariant 7 added. Tests: `contracts/test/AgentVault.review.t.sol`, `testFuzz_OutflowViaTargetNeedsVerdict`, `invariant_TargetNeverPaidWithoutVerdict`; coverage of `AgentVault.sol` stays 100%.
+  - Guardian: `POLICY_PRECHECK` mirrors only the static checks and the remaining cap, which did not change. The demo agent always asks for a verdict before a swap, so S0–S6 give the §10 results with the new code (checked on the fork with the new bytecode placed at the vault address).
+  - Dashboard: "Thử policy" (`evaluate` in `apps/dashboard/src/lib/policy-spec.ts`), the policy summary, its warnings and the agent API budget note follow the new rule.

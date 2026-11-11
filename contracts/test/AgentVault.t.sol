@@ -208,8 +208,11 @@ contract AgentVaultTest is AgentVaultBase {
         assertEq(vault.spent(vault.NATIVE(), _today()), NATIVE_THRESHOLD);
     }
 
+    /// Value sent to an allowed target needs a verdict, whatever the amount (review finding R1).
     function test_Native_ValueToAllowedTarget() public {
+        vm.expectRevert(AgentVault.VerdictRequired.selector);
         _exec(_one(_ping(0.005 ether)));
+        _execWithVerdict(_one(_ping(0.005 ether)), 0);
         assertEq(target.lastValue(), 0.005 ether);
     }
 
@@ -788,7 +791,8 @@ contract AgentVaultTest is AgentVaultBase {
         assertFalse(vault.allowedTarget(address(target)));
         assertFalse(vault.allowedRecipient(treasury));
         assertFalse(vault.allowedSelector(address(target), MockTarget.fail.selector));
-        assertTrue(vault.allowedSelector(address(target), MockTarget.ping.selector));
+        // Removing the target removed all of its selectors (review finding R5).
+        assertFalse(vault.allowedSelector(address(target), MockTarget.ping.selector));
         vm.expectRevert(abi.encodeWithSelector(AgentVault.RecipientNotAllowed.selector, treasury));
         _exec(_one(_transfer(treasury, 1)));
     }
