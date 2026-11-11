@@ -63,7 +63,7 @@ An attacker who holds `GUARDIAN_SIGNER_PK` can sign any verdict, but cannot call
 The Guardian simulates on a fork that can trail Fuji by up to the reset interval (5 minutes, or 120 s of lag). State can also change between the check and the transaction (oracle price, pool inventory, balances).
 
 - The verdict binds the calls, not the outcome. A swap simulated at one price can execute at another.
-- Mitigations: 60 s deadline and single-use nonce; on-chain caps that do not depend on the simulation; daily cap counted on the real outflow; agents should set `minOut` (the Guardian flags `minOut = 0` swaps through a bad pool as HIGH).
+- Mitigations: 60 s deadline and single-use nonce; on-chain caps that do not depend on the simulation; daily cap counted on the real outflow; `UNPROTECTED_SWAP` (since 2026-11-11) rates a swap through a known router MEDIUM when its `minOut` is more than 3% below the simulated output, so a LOW-only vault refuses a swap that would accept whatever the pool gives at execution time. The demo agent sets `minOut` to the oracle quote minus 1%; a pool that moves after the check then makes the swap revert instead of costing the vault.
 - Residual: a contract that behaves differently on the fork than on Fuji (for example one that checks `block.number`) can pass the simulation. The allowlist limits which contracts can be called at all.
 
 ### Facilitator downtime
@@ -149,7 +149,7 @@ Checked and found sound: the EIP-712 digest and `hashCalls` match Solidity byte 
 
 Left as they are:
 
-- A swap with `minOut = 0` is LOW when its simulated output is good (see "Simulation divergence"). A rule on `minOut` would change scenario S1, the rule fixtures and the eval labels: a team decision.
+- ~~A swap with `minOut = 0` is LOW when its simulated output is good.~~ Decided by the team lead on 2026-11-11 and done: rule `UNPROTECTED_SWAP` (MEDIUM, `minOut` more than 3% below the simulated output); S1 sets `minOut`; S4 keeps `minOut = 0` on purpose and now shows both findings.
 - If the Guardian stops between the settlement and the response, the caller has paid and has no verdict, and nothing serves it again (it used to be readable through V1). The caller pays for a new check.
 - An x402 payment is not bound to the request body (protocol design): the same unsettled payment can start several simulations at once; only one is paid and only that one is delivered. The busy gate bounds the load.
 

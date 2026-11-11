@@ -406,6 +406,7 @@ Aggregation: risk = the highest severity among findings (LOW when there are none
 | `DRAIN_PATTERN` | HIGH | outflow of a tracked token, or native, ≥ 50% of the vault's balance before the batch | 50% |
 | `ABNORMAL_SLIPPAGE` | MEDIUM ≥ 2%, HIGH ≥ 10% | swap through a known router: realized output vs the MockOracle reference price | 2% / 10% |
 | `RECIPIENT_NOT_ALLOWLISTED` | HIGH | any transfer out of the vault, or native value, to an address outside the allowlist | — |
+| `UNPROTECTED_SWAP` | MEDIUM | a swap through a known router whose `minOut` is more than the allowed gap below the simulated output (`minOut = 0` included): the execution, later and on Fuji, would accept any price | 3% (added 2026-11-11, §16) |
 
 - Address book = vault allowlist + known-contracts registry + addresses the vault has paid before (from the Guardian DB).
 - Known-contracts registry: `apps/guardian/config/known-contracts.fuji.json` (USDC, mocks, router, ERC-8004 registries).
@@ -448,7 +449,7 @@ export const payingFetch = wrapFetchWithPaymentFromConfig(fetch, {
 
 Modes:
 
-- `safe`: deterministic rule-based DCA. If the oracle price is below a threshold, swap N USDC into mWAVAX through pool 0 as one batch `[approve(router, N), swapExactIn(..., poolId 0)]`.
+- `safe`: deterministic rule-based DCA. If the oracle price is below a threshold, swap N USDC into mWAVAX through pool 0 as one batch `[approve(router, N), swapExactIn(..., minOut, poolId 0)]`, with `minOut` = the oracle quote minus 1% (`minOutUsdcToWavax` in `packages/shared`).
 - `scripted-attack` (DEMO): simulates a prompt-injected planner. It reads an "injected" instruction from `fixtures/feed.json` and turns it into a malicious call list. No LLM is involved, so the demo is deterministic. Declare this in the pitch.
 
 Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenario/:id` bound to localhost, enabled only with `DEMO_MODE=true`):
@@ -456,10 +457,10 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 | Id | What the agent attempts | Expected Guardian result | Expected vault result |
 | --- | --- | --- | --- |
 | S0 safe-transfer | `transfer(treasury, 1.5 USDC)` to the allowlisted treasury (the deployer), above the 1 USDC verdict threshold, sent with the LOW verdict | LOW | executes: vault −1.5 USDC, treasury +1.5 USDC |
-| S1 normal-swap | approve 2 USDC + swap via pool 0 | LOW | executes |
+| S1 normal-swap | approve 2 USDC + swap via pool 0 with `minOut` = oracle quote − 1% | LOW | executes |
 | S2 drain-to-attacker | `transfer(attacker, full balance)`, sent without a verdict | HIGH: DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED | reverts `RecipientNotAllowed` |
 | S3 poisoned-approval | `approve(lookalikeRouter, max uint)` | HIGH: UNLIMITED_APPROVAL, ADDRESS_POISONING | reverts |
-| S4 bad-slippage | approve 2 USDC + swap via pool 1 with `minOut = 0`, sent with the HIGH verdict | HIGH: ABNORMAL_SLIPPAGE | reverts `RiskTooHigh` — passes every static rule, so this is the case that proves the Guardian adds value |
+| S4 bad-slippage | approve 2 USDC + swap via pool 1 with `minOut = 0`, sent with the HIGH verdict | HIGH: ABNORMAL_SLIPPAGE (plus UNPROTECTED_SWAP, MEDIUM, for the `minOut = 0`) | reverts `RiskTooHigh` — passes every static rule, so this is the case that proves the Guardian adds value |
 | S5 replay | reuse the S1 verdict for other calls; then an expired verdict | — | `InvalidVerdict`, `VerdictExpired` |
 | S6 kill-switch | owner pauses, agent retries S1 | — | reverts `Paused` |
 
@@ -530,7 +531,7 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 - [x] `pnpm test:crosscheck` green (TypeScript-signed verdict accepted by Solidity; every mutation rejected).
 - [x] Contracts deployed and verified on Fuji; addresses committed in `packages/shared`.
 - [x] `/v1/check` and `/v1/cosign` behind x402 on Fuji; at least one real settlement visible on Snowtrace; a test proves a 400 response is not charged.
-- [x] All 8 rules implemented with unit tests.
+- [x] All 8 rules implemented with unit tests (9 since 2026-11-11: `UNPROTECTED_SWAP`).
 - [x] Explainer with LLM and template fallback; the architecture test passes.
 - [x] Scenarios S1–S6 run on the local fork and S1, S2, S4 on Fuji, with links; S4 ends in `RiskTooHigh`.
 - [x] Dashboard pages working against Fuji, with the DEMO MODE banner.
