@@ -650,6 +650,33 @@ Lần chạy S1 đầu tiên và lần thứ hai không settle được (`invali
 
 Sau khoảng 15 phút chạy kịch bản và test, RPC chính thức lại chặn (429). `test:fork` lần đó cho kết quả không dùng được: Guardian còn chạy trên cùng fork (lệnh tắt bị lỗi cú pháp PowerShell), rồi lần chạy lại thì RPC đã chặn nên 18 test bị skip.
 
+### Test fork của Guardian API trên vault mới (2026-11-11, 21:53)
+
+Lần RPC chính thức mở thứ hai, chỉ chạy `api.fork.test.ts` (không có Guardian nào khác dùng fork):
+
+```
+vitest run --config vitest.fork.config.ts test/api.fork.test.ts → Tests 5 passed (5)
+  [latency] paid /v1/check end to end (402 + sign + verify + pipeline + settle) over 20 calls: p50 869 ms, p95 915 ms
+  [latency] pipeline (latencyMs) over the same 20: p50 311 ms, p95 341 ms
+vitest … test/simulator.fork.test.ts -t "fork health" → 2 passed, 1 failed
+  × start(): background maintenance resets a lagging fork — 429 từ RPC chính thức giữa chừng ("failed to fetch network chain ID")
+```
+
+Cộng với lần chạy trước: 12/13 test simulator qua; test reset nền lần nào cũng chỉ hỏng vì RPC chặn (giống ghi chú P4).
+
+### Thao tác chủ ví trên dashboard bằng ví thật (2026-11-11, 22:34–22:36)
+
+MetaMask của chủ team đổi RPC Fuji sang PublicNode. Trang Điều khiển (`dashboard-fuji`), mỗi bước có hộp xác nhận "hiện tại → sau giao dịch", chủ team duyệt trong MetaMask:
+
+| Thao tác | Giao dịch | Kết quả đọc lại trên chain |
+| --- | --- | --- |
+| Tạm dừng vault | [0xeb5cf7e7…59e5](https://testnet.snowtrace.io/tx/0xeb5cf7e7746968960de731505ad45536eee3299446d68cce626ec663ddc759e5) | `paused()` = true |
+| Mở lại vault | [0x34811ece…b75c](https://testnet.snowtrace.io/tx/0x34811eceba9bd564114e903d754a0bb3b2a4209845fca1c981044383c589b75c) | `paused()` = false |
+| Hạn mức USDC 20 → 25 | [0x96bf0a27…3880](https://testnet.snowtrace.io/tx/0x96bf0a27e5512d9c60236845372713f8c19f80e8e35e0e7e0ad539ecd26c3880) | `tokenPolicy(USDC)` = (true, 25, 10, 1) |
+| Hạn mức USDC 25 → 20 | [0xdca5ecc7…1699](https://testnet.snowtrace.io/tx/0xdca5ecc73706a88c2b8082ede2fb95d4e53801ce58cf64d8972e5a3932e41699) | `tokenPolicy(USDC)` = (true, 20, 10, 1) |
+
+Cả bốn: status 1, gửi từ `0x54A2…2888` tới vault `0x6A8C…Cf3c`. Vault quay về trạng thái ban đầu (hoạt động, hạn mức 20 USDC, agent `0x7bD6…8ff7`). Thu hồi agent không thử: trang Điều khiển không có nút cấp lại (phải gọi `setAgent`), nên để nguyên trước demo.
+
 ### Fresh-clone test (Claude chạy thử, 2026-11-11, `main` = `a938340`)
 
 Clone vào thư mục tạm, làm theo README (phần không cần Fuji):
@@ -668,9 +695,9 @@ Ghi chú: `--recurse-submodules` báo `Filename too long` ở `contracts/lib/ope
 
 1. ~~Ví `0x54A2…2888` gọi `acceptOwnership` trên vault mới~~ — xong (tx ở trên).
 2. Nạp thêm 18 USDC cho owner từ faucet Circle rồi `pnpm seed:fuji` nếu muốn vault đủ 50 USDC (hiện 32).
-3. ~~S1, S2, S4 trên Fuji với vault mới~~ — xong (bảng ở trên). Cần RPC riêng có key (hoặc RPC chính thức không chặn): chạy lại `api.fork.test.ts` và test reset nền, `pnpm eval`. RPC chính thức chặn IP này sau khoảng 10–15 phút tải nặng và mở lại sau khoảng 50–70 phút yên lặng.
+3. ~~S1, S2, S4 trên Fuji với vault mới~~ và ~~`api.fork.test.ts`~~ — xong (ở trên). Còn `pnpm eval` và test reset nền của simulator: cần RPC riêng có key (hoặc một lần RPC chính thức mở). RPC chính thức chặn IP này sau khoảng 10–15 phút tải nặng và mở lại sau khoảng 50–70 phút yên lặng.
 4. Luật `minOut = 0` (swap không đặt mức nhận tối thiểu): cần team quyết, vì sẽ đổi S1, fixture luật và nhãn eval.
-5. Chủ team: đổi RPC Fuji trong MetaMask sang PublicNode (mục trên), rồi trên trang Điều khiển: Tạm dừng → Mở lại vault, đổi hạn mức USDC 20 → 25 → 20.
+5. ~~Chủ team thử thao tác chủ ví trên dashboard (pause, unpause, đổi hạn mức)~~ — xong (bảng ở trên).
 6. Một thành viên làm fresh-clone test (SPEC §14).
 6. Không làm (ngoài phạm vi hackathon): email xác minh/quên mật khẩu (chưa có dịch vụ mail), §13.3 biên nhận on-chain.
 
