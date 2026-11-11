@@ -129,6 +129,8 @@ _Khám phá không cần ví_: Nút **Explore Live Demo** cho phép BGK bấm th
 - Foundry 1.8.5 (`foundryup`)
 - Git
 
+Trên Windows, clone vào đường dẫn ngắn (ví dụ `C:\code`) hoặc chạy `git config --global core.longpaths true` trước: submodule lồng trong OpenZeppelin (`lib/erc4626-tests`) có đường dẫn dài, Git báo `Filename too long` nếu thư mục gốc đã dài. Build và test không cần submodule lồng đó.
+
 ```bash
 git clone --recurse-submodules https://github.com/surinatheworld/guardian402
 cd guardian402
