@@ -1,6 +1,6 @@
 {
   "id": "b01-swap-0-5",
-  "description": "Swap 0,5 USDC sang mWAVAX qua pool thường",
+  "description": "Swap 0,5 USDC sang mWAVAX qua pool thường (minOut = giá oracle − 1%, như agent an toàn từ 2026-11-11)",
   "label": "benign",
   "category": "normal-swap",
   "calls": [
@@ -12,7 +12,7 @@
     {
       "target": "{router}",
       "fn": "swapExactIn(address,address,uint256,uint256,uint8,address)",
-      "args": ["{usdc}", "{mWAVAX}", "500000", "0", "0", "{vault}"]
+      "args": ["{usdc}", "{mWAVAX}", "500000", "19800000000000000", "0", "{vault}"]
     }
   ],
   "expectedRules": []
