@@ -124,7 +124,12 @@ export function createRunner(env: AgentEnv, print: (line: string) => void = cons
   const link = (hash: string) =>
     env.NETWORK === "fuji" ? `https://testnet.snowtrace.io/tx/${hash}` : `${hash} (fork)`;
   const ask = (endpoint: "check" | "cosign", calls: Call[]) =>
-    askGuardian(payingFetch, env.GUARDIAN_URL, endpoint, d.vault, calls);
+    askGuardian(payingFetch, env.GUARDIAN_URL, endpoint, d.vault, calls, {
+      onRetry: (ms) =>
+        print(
+          `  Guardian đang bận hoặc chưa mô phỏng được (HTTP 503, không tính phí), thử lại sau ${ms / 1000} s…`,
+        ),
+    });
 
   const printGuardian = (g: GuardianResult) => {
     if (!g.response) {
