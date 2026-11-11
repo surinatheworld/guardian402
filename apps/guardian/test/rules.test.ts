@@ -65,6 +65,10 @@ const MATRIX: Record<RuleId, [string[], string[]]> = {
     ["drain-to-attacker", "native-to-attacker"],
     ["normal-swap", "treasury-transfer"],
   ],
+  UNPROTECTED_SWAP: [
+    ["bad-slippage"],
+    ["normal-swap", "medium-slippage", "cap-nearly-spent", "reverting-swap", "exact-approval"],
+  ],
 };
 
 describe("every rule on captured fixtures", () => {
@@ -92,11 +96,17 @@ describe("rule details", () => {
     expect(aggregate([])).toEqual({ risk: "LOW", riskCode: 0, score: 0 });
   });
 
-  it("S4 bad slippage fires only ABNORMAL_SLIPPAGE (HIGH): it passes every static check", () => {
+  it("S4 bad slippage passes every static check: only the simulation-based rules fire", () => {
     const f = fx("bad-slippage");
     const out = runRules(f.sim, f.ctx);
-    expect(ids(out)).toEqual(["ABNORMAL_SLIPPAGE"]);
-    expect(out[0]).toMatchObject({ severity: "HIGH", evidence: { poolId: 1, slippageBps: 3000 } });
+    // ABNORMAL_SLIPPAGE (HIGH, 30% below the oracle) and UNPROTECTED_SWAP (MEDIUM, minOut 0); both need the
+    // simulated output, so a static checker (or the vault) sees nothing wrong.
+    expect(ids(out)).toEqual(["ABNORMAL_SLIPPAGE", "UNPROTECTED_SWAP"]);
+    expect(out.find((x) => x.ruleId === "ABNORMAL_SLIPPAGE")).toMatchObject({
+      severity: "HIGH",
+      evidence: { poolId: 1, slippageBps: 3000 },
+    });
+    expect(aggregate(out)).toEqual({ risk: "HIGH", riskCode: 2, score: 85 });
   });
 
   it("ABNORMAL_SLIPPAGE is MEDIUM between 2% and 10%", () => {
@@ -156,6 +166,51 @@ describe("rule details", () => {
     });
     // The normal swap (output to the vault) is still clean.
     expect(fire("RECIPIENT_NOT_ALLOWLISTED", f)).toEqual([]);
+  });
+
+  /** The S1 swap of a fixture with another minOut (the captured output does not depend on it while it is met). */
+  const withMinOut = (f: RuleFixture, minOut: bigint): RuleFixture => {
+    const swap = must(f.sim.calls[1]);
+    const decoded = decodeFunctionData({ abi: mockRouterAbi, data: swap.data });
+    if (decoded.functionName !== "swapExactIn") throw new Error("fixture call 1 is not a swap");
+    const [tokenIn, tokenOut, amountIn, , poolId, to] = decoded.args;
+    const data = encodeFunctionData({
+      abi: mockRouterAbi,
+      functionName: "swapExactIn",
+      args: [tokenIn, tokenOut, amountIn, minOut, poolId, to],
+    });
+    return { ...f, sim: { ...f.sim, calls: [must(f.sim.calls[0]), { ...swap, data }] } };
+  };
+  const swapOutput = (f: RuleFixture) => {
+    const router = must(f.sim.calls[1]).target.toLowerCase();
+    return f.sim.transfers.filter((t) => t.from.toLowerCase() === router).reduce((s, t) => s + t.amount, 0n);
+  };
+
+  it("UNPROTECTED_SWAP: the S1 swap with minOut 0 is MEDIUM, so a LOW-only vault refuses it", () => {
+    const f = withMinOut(fx("normal-swap"), 0n);
+    const out = runRules(f.sim, f.ctx);
+    expect(ids(out)).toEqual(["UNPROTECTED_SWAP"]);
+    expect(out[0]).toMatchObject({
+      severity: "MEDIUM",
+      evidence: { minOut: "0", gapBps: 10_000, maxGapBps: 300 },
+    });
+    expect(aggregate(out)).toEqual({ risk: "MEDIUM", riskCode: 1, score: 25 });
+  });
+
+  it("UNPROTECTED_SWAP: a minOut within 3% of the simulated output is quiet, 5% below is not", () => {
+    const base = fx("normal-swap");
+    const out = swapOutput(base);
+    expect(out).toBeGreaterThan(0n);
+    expect(fire("UNPROTECTED_SWAP", withMinOut(base, (out * 97n) / 100n))).toEqual([]); // exactly 3%
+    const [finding] = fire("UNPROTECTED_SWAP", withMinOut(base, (out * 95n) / 100n));
+    expect(finding).toMatchObject({ severity: "MEDIUM", evidence: { gapBps: 500, callIndex: 1 } });
+  });
+
+  it("UNPROTECTED_SWAP only judges swaps through a known router", () => {
+    const f = withMinOut(fx("normal-swap"), 0n);
+    const router = must(f.sim.calls[1]).target.toLowerCase();
+    const { [router]: _drop, ...knownContracts } = f.ctx.knownContracts;
+    expect(fire("UNPROTECTED_SWAP", f, { ...f.ctx, knownContracts })).toEqual([]);
   });
 
   it("ABNORMAL_SLIPPAGE needs the oracle reference", () => {

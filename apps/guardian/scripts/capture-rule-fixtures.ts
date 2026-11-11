@@ -4,7 +4,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { encodeFunctionData, erc20Abi, getAddress, maxUint256, parseEther, type Address } from "viem";
-import { mockRouterAbi, type Call } from "@guardian402/shared";
+import { DEMO_ORACLE_PRICE, minOutUsdcToWavax, mockRouterAbi, type Call } from "@guardian402/shared";
 import { buildContext, readOracle, readPolicy, withCode } from "../src/context.ts";
 import { loadKnownContracts } from "../src/rules/known-contracts.ts";
 import type { Context } from "../src/rules/types.ts";
@@ -61,12 +61,15 @@ const smokeCall: Call = {
   }),
 };
 
+/** minOut the safe agent sets for its 2 USDC swap (UNPROTECTED_SWAP). S4 keeps minOut 0 on purpose. */
+const S1_MIN_OUT = minOutUsdcToWavax(2_000_000n, DEMO_ORACLE_PRICE);
+
 type Case = { name: string; description: string; calls: Call[]; tweak?: (ctx: Context) => Context };
 const cases: Case[] = [
   {
     name: "normal-swap",
-    description: "S1: approve 2 USDC to the router, swap via pool 0",
-    calls: [erc20("approve", a.router, 2_000_000n), swap(2_000_000n, 0, 0n)],
+    description: "S1: approve 2 USDC to the router, swap via pool 0 with minOut = oracle quote - 1%",
+    calls: [erc20("approve", a.router, 2_000_000n), swap(2_000_000n, 0, S1_MIN_OUT)],
   },
   {
     name: "bad-slippage",
@@ -76,7 +79,7 @@ const cases: Case[] = [
   {
     name: "medium-slippage",
     description: "S1 swap, with the reference price in the context lowered 4.7% (≈5% slippage against it)",
-    calls: [erc20("approve", a.router, 2_000_000n), swap(2_000_000n, 0, 0n)],
+    calls: [erc20("approve", a.router, 2_000_000n), swap(2_000_000n, 0, S1_MIN_OUT)],
     tweak: (ctx) => ({ ...ctx, oracle: { ...oracle, price: (oracle.price * 953n) / 1000n } }),
   },
   {
@@ -132,7 +135,7 @@ const cases: Case[] = [
   {
     name: "cap-nearly-spent",
     description: "S1 swap when 19 of the 20 USDC daily cap is already spent (context override)",
-    calls: [erc20("approve", a.router, 2_000_000n), swap(2_000_000n, 0, 0n)],
+    calls: [erc20("approve", a.router, 2_000_000n), swap(2_000_000n, 0, S1_MIN_OUT)],
     tweak: (ctx) => ({
       ...ctx,
       policy: {

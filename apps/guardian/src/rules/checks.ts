@@ -1,4 +1,4 @@
-// The eight rules of docs/SPEC.md §8. Each is a pure function (sim, ctx, cfg) => Finding[]: no chain, no network.
+// The nine rules of docs/SPEC.md §8. Each is a pure function (sim, ctx, cfg) => Finding[]: no chain, no network.
 // Evidence holds only addresses, numbers and rule facts, never untrusted text (revert strings stay out).
 import { decodeFunctionData, getAddress, type Address } from "viem";
 import { mockRouterAbi, type RuleId } from "@guardian402/shared";
@@ -374,6 +374,51 @@ export const abnormalSlippage: Rule = (sim, ctx, cfg) => {
   return out;
 };
 
+// ------------------------------------------------------------------ UNPROTECTED_SWAP
+
+/**
+ * A swap through a known router whose `minOut` sits far below the simulated output. The simulation runs on a
+ * fork; the vault executes later on Fuji. With `minOut = 0` (or close to it), a pool that moves in between, or a
+ * sandwich around the agent's transaction, costs the vault whatever it moved, and the verdict no longer says
+ * anything about the real outcome. MEDIUM: nothing bad happened in the simulation, but the protection is
+ * missing; a vault that accepts only LOW verdicts refuses it.
+ */
+export const unprotectedSwap: Rule = (sim, ctx, cfg) => {
+  if (!sim.success) return []; // no simulated output to compare with; SIMULATION_FAILED covers a revert
+  const out: Finding[] = [];
+  for (const { call, index } of indexed(sim.calls)) {
+    if (ctx.knownContracts[lc(call.target)]?.kind !== "router") continue;
+    let args: readonly [Address, Address, bigint, bigint, number, Address];
+    try {
+      const decoded = decodeFunctionData({ abi: mockRouterAbi, data: call.data });
+      if (decoded.functionName !== "swapExactIn") continue;
+      args = decoded.args as typeof args;
+    } catch {
+      continue;
+    }
+    const [, tokenOut, , minOut, , to] = args;
+    const simulatedOut = sim.transfers
+      .filter((t) => t.callIndex === undefined || t.callIndex === index)
+      .filter((t) => lc(t.token) === lc(tokenOut) && lc(t.from) === lc(call.target) && lc(t.to) === lc(to))
+      .reduce((s, t) => s + t.amount, 0n);
+    if (simulatedOut === 0n) continue;
+    const gapBps = minOut >= simulatedOut ? 0n : ((simulatedOut - minOut) * 10_000n) / simulatedOut;
+    if (gapBps <= BigInt(cfg.unprotectedSwap.maxGapBps)) continue;
+    out.push(
+      finding("UNPROTECTED_SWAP", "MEDIUM", "Swap accepts far less than the simulated output", {
+        callIndex: index,
+        router: call.target,
+        token: tokenOut,
+        minOut: minOut.toString(),
+        simulatedOut: simulatedOut.toString(),
+        gapBps: Number(gapBps),
+        maxGapBps: cfg.unprotectedSwap.maxGapBps,
+      }),
+    );
+  }
+  return out;
+};
+
 // ------------------------------------------------------------------ RECIPIENT_NOT_ALLOWLISTED
 
 export const recipientNotAllowlisted: Rule = (sim, ctx) => {
@@ -448,4 +493,5 @@ export const RULES: Record<RuleId, Rule> = {
   DRAIN_PATTERN: drainPattern,
   ABNORMAL_SLIPPAGE: abnormalSlippage,
   RECIPIENT_NOT_ALLOWLISTED: recipientNotAllowlisted,
+  UNPROTECTED_SWAP: unprotectedSwap,
 };

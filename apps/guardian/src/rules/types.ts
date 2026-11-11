@@ -69,6 +69,7 @@ export type RuleConfig = {
   addressPoisoning: { prefix: number; suffix: number; demoPrefix: number; demoSuffix: number };
   drainPattern: { percent: number };
   abnormalSlippage: { mediumBps: number; highBps: number };
+  unprotectedSwap: { maxGapBps: number };
   explorerLookup: { enabled: boolean; timeoutMs: number; cacheTtlMs: number; newContractDays: number };
 };
 

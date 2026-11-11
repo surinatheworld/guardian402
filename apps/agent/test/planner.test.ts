@@ -16,6 +16,8 @@ describe("safe planner", () => {
     const s = decodeFunctionData({ abi: mockRouterAbi, data: calls[1]?.data ?? "0x" });
     expect(s.functionName).toBe("swapExactIn");
     expect(s.args?.[4]).toBe(0);
+    // minOut = oracle quote minus 1%: 2 USDC at 25 USDC per mWAVAX = 0.08 mWAVAX, so 0.0792 (UNPROTECTED_SWAP).
+    expect(s.args?.[3]).toBe(79_200_000_000_000_000n);
   });
 
   it("plans nothing above the threshold", () => {

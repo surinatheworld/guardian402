@@ -21,8 +21,10 @@ import { wrapFetchWithPaymentFromConfig } from "@x402/fetch";
 import {
   agentVaultAbi,
   checkResponseSchema,
+  DEMO_ORACLE_PRICE,
   FUJI_CAIP2,
   fujiChain,
+  minOutUsdcToWavax,
   mockRouterAbi,
   USDC_FUJI,
   type CheckResponse,
@@ -86,7 +88,13 @@ const swap = (amountIn: bigint, poolId: number, minOut: bigint) => ({
     args: [a.usdc, a.mWAVAX, amountIn, minOut, poolId, a.vault],
   }),
 });
-const S1 = () => ({ chainId: 43113, vault: a.vault, calls: [approve(2_000_000n), swap(2_000_000n, 0, 0n)] });
+// S1 sets minOut as the safe agent does (oracle quote - 1%); S4 keeps minOut 0 (UNPROTECTED_SWAP, docs/SPEC.md §8).
+const S1_MIN_OUT = minOutUsdcToWavax(2_000_000n, DEMO_ORACLE_PRICE);
+const S1 = () => ({
+  chainId: 43113,
+  vault: a.vault,
+  calls: [approve(2_000_000n), swap(2_000_000n, 0, S1_MIN_OUT)],
+});
 const S4 = () => ({ chainId: 43113, vault: a.vault, calls: [approve(2_000_000n), swap(2_000_000n, 1, 0n)] });
 
 async function paid(path: string, body: unknown) {
@@ -248,7 +256,8 @@ describe("Guardian API behind x402 on the fork", () => {
     const body = S4();
     const r = await cosign(body);
     expect(r.risk).toBe("HIGH");
-    expect(r.findings.map((f) => f.ruleId)).toEqual(["ABNORMAL_SLIPPAGE"]);
+    // minOut 0 on purpose: the 30% slippage (HIGH) plus the missing protection (MEDIUM).
+    expect(r.findings.map((f) => f.ruleId)).toEqual(["ABNORMAL_SLIPPAGE", "UNPROTECTED_SWAP"]);
     const out = await execute(body, r);
     expect(out).toMatchObject({ reverted: "RiskTooHigh" });
   }, 60_000);
