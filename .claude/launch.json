@@ -8,6 +8,12 @@
       "port": 3000
     },
     {
+      "name": "dashboard-fuji",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set NEXT_PUBLIC_NETWORK=fuji&& pnpm dev:dashboard"],
+      "port": 3000
+    },
+    {
       "name": "dashboard-prod",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@guardian402/dashboard", "start"],
