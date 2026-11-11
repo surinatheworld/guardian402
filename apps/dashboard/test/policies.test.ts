@@ -121,6 +121,9 @@ describe("policy spec", () => {
     expect(text).toContain("vượt 10 USDC cần Guardian kiểm tra và ký verdict");
     expect(text).toContain("Nhà cung cấp A");
     expect(text).toContain("Không được cấp quyền chi tiêu");
+    const swap = summarize(templateSpec("swap", []), n);
+    expect(swap).toContain("Chỉ được gửi tiền cho MockRouter.");
+    expect(swap.some((line) => line.startsWith("Được cấp quyền chi tiêu cho MockRouter"))).toBe(true);
   });
 
   it("answers the proposal's example transactions from the configuration", () => {
@@ -157,12 +160,29 @@ describe("policy spec", () => {
     expect(
       evaluate(swap, { kind: "approve", token: USDC, spender: ROUTER, amount: BigInt(usdc(11)) }, n).result,
     ).toBe("blocked");
-    expect(exampleScenarios(payments, n).map((e) => evaluate(payments, e.scenario, n).result)).toEqual([
+    expect(exampleScenarios(payments).map((e) => evaluate(payments, e.scenario, n).result)).toEqual([
       "allowed",
       "needs_verdict",
       "blocked",
       "blocked",
     ]);
+    const transfer = { kind: "transfer" as const, asset: USDC, to: supplierA, amount: BigInt(usdc(20)) };
+    const checks = (spentToday: number) =>
+      evaluate(payments, { ...transfer, spentToday: BigInt(usdc(spentToday)) }, n).checks.map(
+        ({ label, status }) => [label, status],
+      );
+    expect(checks(0)).toEqual([
+      ["Người nhận", "allowed"],
+      ["Hạn mức ngày", "allowed"],
+      ["Chữ ký", "needs_verdict"],
+    ]);
+    expect(checks(90)).toEqual([
+      ["Người nhận", "allowed"],
+      ["Hạn mức ngày", "blocked"],
+    ]);
+    expect(exampleScenarios(swap).map(({ scenario }) => scenario.kind)).toEqual(
+      expect.arrayContaining(["approve", "call"]),
+    );
   });
 
   it("plans owner transactions: removals first, the agent last, foreign tokens locked", () => {

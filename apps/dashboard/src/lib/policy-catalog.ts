@@ -51,17 +51,17 @@ export const TEMPLATES: { id: TemplateId; name: string; description: string }[] 
   {
     id: "payments",
     name: "Thanh toán",
-    description: "Chi USDC cho người nhận đã duyệt, có ngân sách ngày và ngưỡng cần Guardian ký.",
+    description: "Chi USDC cho người nhận bạn chọn.",
   },
   {
     id: "swap",
     name: "Swap có kiểm soát",
-    description: "Đổi USDC qua sàn demo với hạn mức cấp quyền nhỏ; mỗi lần swap cần verdict.",
+    description: "Swap qua MockRouter với approval giới hạn.",
   },
   {
     id: "custom",
     name: "Tự cấu hình",
-    description: "Bắt đầu trống: không được chi gì cho tới khi bạn cho phép.",
+    description: "Bắt đầu với mọi quyền chi tiêu tắt.",
   },
 ];
 

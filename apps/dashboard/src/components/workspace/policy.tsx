@@ -243,7 +243,7 @@ export function ChangeItem({
             <Button
               variant="primary"
               type="button"
-              isDisabled={sign.isPending || !isConnected}
+              isDisabled={sign.isPending || !isConnected || wrongWallet || cancel.isPending}
               onPress={() => sign.mutate()}
             >
               {sign.isPending ? "Đang chờ ví / xác minh…" : "Ký trong ví và gửi"}
