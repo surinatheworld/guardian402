@@ -406,6 +406,7 @@ Aggregation: risk = the highest severity among findings (LOW when there are none
 | `DRAIN_PATTERN` | HIGH | outflow of a tracked token, or native, ≥ 50% of the vault's balance before the batch | 50% |
 | `ABNORMAL_SLIPPAGE` | MEDIUM ≥ 2%, HIGH ≥ 10% | swap through a known router: realized output vs the MockOracle reference price | 2% / 10% |
 | `RECIPIENT_NOT_ALLOWLISTED` | HIGH | any transfer out of the vault, or native value, to an address outside the allowlist | — |
+| `UNPROTECTED_SWAP` | MEDIUM | a swap through a known router whose `minOut` is more than the allowed gap below the simulated output (`minOut = 0` included): the execution, later and on Fuji, would accept any price | 3% (added 2026-11-11, §16) |
 
 - Address book = vault allowlist + known-contracts registry + addresses the vault has paid before (from the Guardian DB).
 - Known-contracts registry: `apps/guardian/config/known-contracts.fuji.json` (USDC, mocks, router, ERC-8004 registries).
@@ -448,7 +449,7 @@ export const payingFetch = wrapFetchWithPaymentFromConfig(fetch, {
 
 Modes:
 
-- `safe`: deterministic rule-based DCA. If the oracle price is below a threshold, swap N USDC into mWAVAX through pool 0 as one batch `[approve(router, N), swapExactIn(..., poolId 0)]`.
+- `safe`: deterministic rule-based DCA. If the oracle price is below a threshold, swap N USDC into mWAVAX through pool 0 as one batch `[approve(router, N), swapExactIn(..., minOut, poolId 0)]`, with `minOut` = the oracle quote minus 1% (`minOutUsdcToWavax` in `packages/shared`).
 - `scripted-attack` (DEMO): simulates a prompt-injected planner. It reads an "injected" instruction from `fixtures/feed.json` and turns it into a malicious call list. No LLM is involved, so the demo is deterministic. Declare this in the pitch.
 
 Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenario/:id` bound to localhost, enabled only with `DEMO_MODE=true`):
@@ -456,10 +457,10 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 | Id | What the agent attempts | Expected Guardian result | Expected vault result |
 | --- | --- | --- | --- |
 | S0 safe-transfer | `transfer(treasury, 1.5 USDC)` to the allowlisted treasury (the deployer), above the 1 USDC verdict threshold, sent with the LOW verdict | LOW | executes: vault −1.5 USDC, treasury +1.5 USDC |
-| S1 normal-swap | approve 2 USDC + swap via pool 0 | LOW | executes |
+| S1 normal-swap | approve 2 USDC + swap via pool 0 with `minOut` = oracle quote − 1% | LOW | executes |
 | S2 drain-to-attacker | `transfer(attacker, full balance)`, sent without a verdict | HIGH: DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED | reverts `RecipientNotAllowed` |
 | S3 poisoned-approval | `approve(lookalikeRouter, max uint)` | HIGH: UNLIMITED_APPROVAL, ADDRESS_POISONING | reverts |
-| S4 bad-slippage | approve 2 USDC + swap via pool 1 with `minOut = 0`, sent with the HIGH verdict | HIGH: ABNORMAL_SLIPPAGE | reverts `RiskTooHigh` — passes every static rule, so this is the case that proves the Guardian adds value |
+| S4 bad-slippage | approve 2 USDC + swap via pool 1 with `minOut = 0`, sent with the HIGH verdict | HIGH: ABNORMAL_SLIPPAGE (plus UNPROTECTED_SWAP, MEDIUM, for the `minOut = 0`) | reverts `RiskTooHigh` — passes every static rule, so this is the case that proves the Guardian adds value |
 | S5 replay | reuse the S1 verdict for other calls; then an expired verdict | — | `InvalidVerdict`, `VerdictExpired` |
 | S6 kill-switch | owner pauses, agent retries S1 | — | reverts `Paused` |
 
@@ -530,13 +531,13 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 - [x] `pnpm test:crosscheck` green (TypeScript-signed verdict accepted by Solidity; every mutation rejected).
 - [x] Contracts deployed and verified on Fuji; addresses committed in `packages/shared`.
 - [x] `/v1/check` and `/v1/cosign` behind x402 on Fuji; at least one real settlement visible on Snowtrace; a test proves a 400 response is not charged.
-- [x] All 8 rules implemented with unit tests.
+- [x] All 8 rules implemented with unit tests (9 since 2026-11-11: `UNPROTECTED_SWAP`).
 - [x] Explainer with LLM and template fallback; the architecture test passes.
 - [x] Scenarios S1–S6 run on the local fork and S1, S2, S4 on Fuji, with links; S4 ends in `RiskTooHigh`.
 - [x] Dashboard pages working against Fuji, with the DEMO MODE banner.
 - [x] Eval: ≥ 40 cases, report generated and reproducible.
 - [x] README (fresh clone to running demo in ≤ 15 minutes), `docs/THREAT_MODEL.md`, `docs/DEMO_RUNBOOK.md`, complete `.env.example` files.
-- [ ] A teammate has done the fresh-clone test.
+- [x] A teammate has done the fresh-clone test. The team has one member, so on 2026-11-11 the fresh-clone run (clone, install, `forge test`, `pnpm test`, typecheck) was done from a clean clone of `main` by Claude, following the README; results in docs/PROGRESS.md.
 
 ## 15. Out of scope
 
@@ -656,3 +657,8 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
   - §11: the dashboard shows a Vietnamese message for `503` (Guardian busy or simulation unavailable, not charged) and `429`, instead of the Guardian's English error text.
   - §13.1: the official `erc-8004-contracts` README (checked 2026-11-11) lists only IdentityRegistry and ReputationRegistry for Avalanche Testnet and says the Validation Registry is "still under active update"; no ValidationRegistry address exists on Fuji, so the optional validation flow is not built. Revisit if an official Fuji deployment appears.
 - 2026-11-11 — AgentVault redeployed on Fuji with the R1–R5 fixes: `0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c` (Routescan verified), `pnpm redeploy-vault:fuji` → `seed:fuji` → `handoff:fuji` → `known-contracts`, rehearsed first on a local fork. The P11 vault `0x3f6a…7651` was emptied (32 USDC) and paused; the new vault holds those 32 USDC (the owner had no more to reach 50). The team lead accepted ownership the same day (`acceptOwnership` 0xaa92a946…6049), so `OWNER_PK` now only funds the vault and the CLI scenario S6 no longer runs on Fuji (pause from the owner wallet on the dashboard). The official Fuji RPC was rate-limiting this machine (HTTP 429), so these transactions went through PublicNode (`FUJI_RPC_URL` override; sending transactions and reading the latest state need no history).
+- 2026-11-11 — RPC fallback and a ninth rule:
+  - `rpcTransport` (packages/shared): one attempt per endpoint, no retries. viem's http transport waits the server's `Retry-After` before a retry, and the public Fuji RPC answers its rate limit with 429 + `Retry-After: 2990`; the per-endpoint `retryCount: 1` overrode the zero that `fallback` sets, so every reader stalled about 50 minutes instead of moving to PublicNode.
+  - Fork upstream: Tenderly's public gateway `https://avalanche-fuji.gateway.tenderly.co` keeps older state with no key; every fork test (simulator 13/13 including the background reset, API 5/5) and the eval ran through it after the official RPC rate-limited this machine.
+  - §8 `UNPROTECTED_SWAP` (MEDIUM, team lead's decision on the open `minOut` question of the third review): a swap through a known router whose `minOut` is more than 3% below the simulated output. §10: the safe planner sets `minOut` = oracle quote − 1% (S1 stays LOW); S4 keeps `minOut = 0` and reports ABNORMAL_SLIPPAGE + UNPROTECTED_SWAP (HIGH, 85). §12 before/after: new rule with the old cases → blocked = HIGH unchanged (TP 25 FP 0 TN 15 FN 0), blocked ≥ MEDIUM TP 25 FP 8 TN 7 FN 0 (the eight benign swaps with `minOut = 0`); benign swaps given `minOut` as the agent now sets it → TP 25 FP 0 TN 15 FN 0 at both thresholds, fingerprint `75b364aac5a8179c` (two runs). On Fuji: S1 LOW and executed, S4 HIGH 85 and `RiskTooHigh`.
+  - §14: the team has one member; the fresh-clone run was done from a clean clone of `main` (results in docs/PROGRESS.md).

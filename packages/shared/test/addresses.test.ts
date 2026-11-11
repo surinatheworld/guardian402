@@ -25,7 +25,7 @@ describe("constants", () => {
     expect(FUJI_CAIP2).toBe("eip155:43113");
     expect(USDC_FUJI).toMatchObject({ decimals: 6, eip712Name: "USD Coin", eip712Version: "2" });
     expect(PRICES).toEqual({ check: "5000", cosign: "10000" });
-    expect(RULE_IDS).toHaveLength(8);
+    expect(RULE_IDS).toHaveLength(9); // 8 rules of P5 + UNPROTECTED_SWAP (2026-11-11)
     expect(RISK_CODE).toEqual({ LOW: 0, MEDIUM: 1, HIGH: 2 });
     expect(riskFromCode(2)).toBe("HIGH");
     expect(txUrl("0xab")).toBe("https://testnet.snowtrace.io/tx/0xab");

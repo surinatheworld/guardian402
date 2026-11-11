@@ -1,7 +1,7 @@
 // Call lists for the "Kiểm tra giao dịch" page, built like apps/agent/src/planner.ts. DEMO: S2 and S3 are
 // scripted attacks; LOOKALIKE is the mined lookalike of the agent's fixture (`pnpm mine-lookalike` rewrites it).
 import { encodeFunctionData, erc20Abi, getAddress, maxUint256, type Address, type Hex } from "viem";
-import { mockRouterAbi, type Deployment } from "@guardian402/shared";
+import { DEMO_ORACLE_PRICE, minOutUsdcToWavax, mockRouterAbi, type Deployment } from "@guardian402/shared";
 import lookalikeFixture from "../../../agent/fixtures/lookalike.json";
 
 export const LOOKALIKE: Address = getAddress(lookalikeFixture.lookalike);
@@ -15,13 +15,13 @@ const approve = (d: Deployment, spender: Address, amount: bigint): CallJson => (
   data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [spender, amount] }),
 });
 
-const swap = (d: Deployment, amountIn: bigint, poolId: number): CallJson => ({
+const swap = (d: Deployment, amountIn: bigint, poolId: number, minOut = 0n): CallJson => ({
   target: d.router,
   value: "0",
   data: encodeFunctionData({
     abi: mockRouterAbi,
     functionName: "swapExactIn",
-    args: [d.usdc, d.mWAVAX, amountIn, 0n, poolId, d.vault],
+    args: [d.usdc, d.mWAVAX, amountIn, minOut, poolId, d.vault],
   }),
 });
 
@@ -46,7 +46,11 @@ export const PRESETS: Preset[] = [
   {
     id: "S1",
     label: "S1 · Swap 2 USDC sang mWAVAX qua pool thường",
-    calls: (d) => [approve(d, d.router, 2_000_000n), swap(d, 2_000_000n, 0)],
+    // minOut as the safe agent sets it (DEMO oracle price minus 1%), so S1 stays LOW under UNPROTECTED_SWAP.
+    calls: (d) => [
+      approve(d, d.router, 2_000_000n),
+      swap(d, 2_000_000n, 0, minOutUsdcToWavax(2_000_000n, DEMO_ORACLE_PRICE)),
+    ],
   },
   {
     id: "S2",

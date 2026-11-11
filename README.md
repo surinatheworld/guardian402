@@ -65,9 +65,9 @@ Lớp phòng thủ cốt lõi được bảo chứng trực tiếp bằng EVM ex
 
 ### Lớp 2 — Dynamic Transaction Risk Assessment (Guardian API)
 
-Đánh giá rủi ro trước thực thi thông qua mô phỏng trên Anvil Fork và 8 luật an ninh xác định:
+Đánh giá rủi ro trước thực thi thông qua mô phỏng trên Anvil Fork và 9 luật an ninh xác định:
 
-- **Swap Risk**: Độ trượt giá và chênh lệch giá so với Oracle tham chiếu (`ABNORMAL_SLIPPAGE`).
+- **Swap Risk**: Độ trượt giá và chênh lệch giá so với Oracle tham chiếu (`ABNORMAL_SLIPPAGE`); swap không đặt mức nhận tối thiểu (`minOut` thấp hơn kết quả mô phỏng quá 3%, `UNPROTECTED_SWAP`).
 - **Address Risk**: Phát hiện địa chỉ nhái (vanity lookalike address) lừa agent (`ADDRESS_POISONING`).
 - **Approval Risk**: Phát hiện cấp quyền chi tiêu vô hạn hoặc cho bên không xác thực (`UNLIMITED_APPROVAL`).
 - **Outflow Risk**: Phát hiện rút cạn số lượng lớn tài sản bất thường (`DRAIN_PATTERN`).
@@ -86,7 +86,7 @@ Lớp phòng thủ cốt lõi được bảo chứng trực tiếp bằng EVM ex
 | **Tổn thất do thị trường**                           | Giao dịch swap hợp lệ và trượt giá trong ngưỡng cho phép vẫn có thể biến động giá trị theo thị trường.                                                   |
 | **Lộ Private Key của Owner**                         | Kẻ tấn công có quyền Owner có thể cập nhật chính sách theo thiết kế phân quyền smart contract.                                                           |
 | **Mọi biến thể Prompt Injection**                    | Demo chứng minh việc chặn hành vi giao dịch độc hại sau khi bị inject; không bảo đảm giải quyết mọi cuộc tấn công ở tầng prompt LLM.                     |
-| **Lỗ hổng zero-day ngoài rule engine**               | Mô phỏng và 8 luật kiểm tra các mẫu tấn công đã biết; không bảo đảm phát hiện 100% logic bug của contract bên thứ ba.                                    |
+| **Lỗ hổng zero-day ngoài rule engine**               | Mô phỏng và 9 luật kiểm tra các mẫu tấn công đã biết; không bảo đảm phát hiện 100% logic bug của contract bên thứ ba.                                    |
 | **Giao dịch ngoài AgentVault**                       | Guardian402 chỉ bảo vệ tài sản nằm bên trong hợp đồng `AgentVault`, không bảo vệ các ví EOA độc lập khác của Owner.                                      |
 | **Chênh lệch TOC/TOU (Time-of-Check / Time-of-Use)** | Trạng thái mempool, block và giá có thể dao động giữa lúc simulation và lúc mined vào block. Cần kết hợp slippage cứng on-chain.                         |
 | **Lộ Agent Key cho giao dịch dưới ngưỡng**           | Chuyển khoản nhỏ (`<= 1.0 USDC`) thẳng tới người nhận đã duyệt (không qua contract), trong hạn mức ngày, có thể được thực thi mà không cần gọi Guardian. |
@@ -100,7 +100,7 @@ Giao diện Dashboard tại `http://localhost:3000` được thiết kế tập 
 1. **Vault Overview (`/`)**: Ai kiểm soát tiền?
    - Hiển thị Owner, Agent được ủy quyền, số dư USDC/mWAVAX, hạn mức ngày còn lại và trạng thái Pause khẩn cấp.
 2. **Transaction Inspector (`/kiem-tra`)**: Guardian làm gì?
-   - Xem chi tiết Intent, luồng thanh toán micropayment x402, kết quả mô phỏng Fork, vi phạm từ 8 luật và chữ ký EIP-712.
+   - Xem chi tiết Intent, luồng thanh toán micropayment x402, kết quả mô phỏng Fork, vi phạm từ 9 luật và chữ ký EIP-712.
 3. **Execution Evidence (`/hoat-dong`)**: Xác minh điều đã xảy ra.
    - Transaction hash, block receipt, on-chain event logs (`Executed`), biến động số dư thực tế và link tra cứu Snowtrace.
 
