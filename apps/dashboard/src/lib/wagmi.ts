@@ -3,11 +3,11 @@
 import { createConfig, injected } from "wagmi";
 import { rpcTransport } from "@guardian402/shared";
 import { avalancheFuji } from "wagmi/chains";
-import { RPC_URL } from "./config";
+import { NETWORK, RPC_URL } from "./config";
 
 export const wagmiConfig = createConfig({
   chains: [avalancheFuji],
-  connectors: [injected()],
+  connectors: NETWORK === "local" ? [] : [injected()],
   transports: {
     [avalancheFuji.id]: rpcTransport(RPC_URL),
   },
