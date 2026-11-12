@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { Providers } from "@/components/providers";
 import { DemoBanner, Sidebar, TopBar, VaultMain } from "@/components/shell";
 import "./globals.css";
-import "./motion.css";
 
 // Inter as a variable font with the optical-size axis (globals.css turns it on); only 400/500/600 are used.
 const sans = Inter({

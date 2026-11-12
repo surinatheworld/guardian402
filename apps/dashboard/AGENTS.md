@@ -5,8 +5,7 @@ The approved design direction is mandatory for all dashboard changes. Read
 Since P15 the dashboard uses the HeroUI v3 default theme exactly as DESIGN.md
 describes it (accent, radii, status colours, light and dark): do not override
 HeroUI tokens or restyle components with colour, border or radius classes; use
-their variants. Type is Inter (400/500/600, optical size on). The older
-`docs/design/guardian-heroui-v3.html` (near-black accent) is superseded.
+their variants. Type is Inter (400/500/600, optical size on).
 
 Information architecture: five destinations by owner intent (Tổng quan, Hoạt
 động, Chạy thử, Quy tắc, Agent), plus Tài khoản and Về Guardian. One action has
