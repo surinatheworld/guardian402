@@ -1,10 +1,90 @@
-# Guardian402 — Tường lửa giao dịch cho ví của AI Agent
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="Guardian402 — transaction firewall and co-signer for AI-agent wallets" width="100%" />
+</p>
 
-> Guardian402 giúp chủ sở hữu kiểm soát cách AI Agent tiêu tiền on-chain: tiền nằm trong một smart contract có luật chi tiêu, và mỗi giao dịch được mô phỏng, chấm rủi ro rồi mới được ký duyệt.
->
-> _Guardian402 is an on-chain transaction firewall for autonomous AI agents: enforceable spending policies, transaction simulation, and cryptographically signed risk verdicts._
+<h1 align="center">Guardian402</h1>
 
-Mạng: Avalanche Fuji testnet (chain id 43113). Dự thi Team1 Vietnam UniHack 2026.
+<p align="center">
+  <b>Tường lửa giao dịch cho ví của AI Agent trên Avalanche.</b><br />
+  Tiền nằm trong một smart contract có luật chi tiêu. Mỗi giao dịch được mô phỏng, chấm rủi ro và giải thích trước khi được ký duyệt.
+</p>
+
+<p align="center">
+  <a href="https://testnet.snowtrace.io/address/0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c"><img alt="Avalanche Fuji" src="https://img.shields.io/badge/Avalanche-Fuji%2043113-E84142?style=for-the-badge&logo=avalanche&logoColor=white" /></a>
+  <img alt="Solidity 0.8.28" src="https://img.shields.io/badge/Solidity-0.8.28-363636?style=for-the-badge&logo=solidity&logoColor=white" />
+  <img alt="x402 2.28.0" src="https://img.shields.io/badge/x402-2.28.0-2F7BFF?style=for-the-badge" />
+  <img alt="ERC-8004 agent 295" src="https://img.shields.io/badge/ERC--8004-agent%20%23295-8B5CF6?style=for-the-badge" />
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge" /></a>
+</p>
+
+<p align="center">
+  <img alt="166 contract tests" src="https://img.shields.io/badge/forge%20test-166%20passed-22C55E?style=flat-square&logo=ethereum&logoColor=white" />
+  <img alt="319 TypeScript tests" src="https://img.shields.io/badge/vitest-319%20passed-22C55E?style=flat-square&logo=vitest&logoColor=white" />
+  <img alt="eval: 40 cases, 100% recall, 0% false positives" src="https://img.shields.io/badge/eval-40%20cases%20%C2%B7%20100%25%20recall%20%C2%B7%200%25%20FP-22C55E?style=flat-square" />
+  <img alt="Next.js dashboard" src="https://img.shields.io/badge/dashboard-Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white" />
+  <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white" />
+</p>
+
+<p align="center">
+  <a href="#-demo">Demo</a> ·
+  <a href="#1-tác-dụng">Tác dụng</a> ·
+  <a href="#2-hướng-dẫn-sử-dụng-sản-phẩm">Hướng dẫn sử dụng</a> ·
+  <a href="#3-cơ-chế-hoạt-động">Cơ chế hoạt động</a> ·
+  <a href="#4-kịch-bản-demo-s0s6">Kịch bản</a> ·
+  <a href="docs/API.md">API</a> ·
+  <a href="docs/THREAT_MODEL.md">Bảo mật</a>
+</p>
+
+> _Guardian402 is an on-chain transaction firewall for autonomous AI agents: enforceable spending policies, transaction simulation, and cryptographically signed risk verdicts._ Dự thi Team1 Vietnam UniHack 2026 · Avalanche Fuji testnet.
+
+---
+
+## 🎬 Demo
+
+<p align="center">
+  <img src="docs/assets/demo.gif" alt="Trang Chạy thử: ba kịch bản lần lượt được Guardian mô phỏng và chấm rủi ro" width="100%" />
+</p>
+
+<p align="center"><sub>Trang <b>Chạy thử</b>, ghi từ sản phẩm đang chạy: agent bị chèn lệnh đòi rút sạch két (rủi ro cao, két sẽ từ chối), một lệnh swap bình thường (rủi ro thấp, két chấp nhận), rồi swap qua pool lệch giá 30% (rủi ro cao).</sub></p>
+
+<table>
+  <tr>
+    <td width="33%" valign="top"><h3 align="center">🤖 Agent đề xuất</h3><p align="center">Agent gửi giao dịch dự định và trả phí từng lần gọi bằng USDC qua x402.</p></td>
+    <td width="33%" valign="top"><h3 align="center">🔍 Guardian kiểm tra</h3><p align="center">Mô phỏng trên fork của Fuji, 9 luật xác định chấm rủi ro, LLM chỉ viết lời giải thích.</p></td>
+    <td width="33%" valign="top"><h3 align="center">🛡️ Két quyết định</h3><p align="center"><code>AgentVault</code> kiểm tra lại mọi luật trên chain. Sai luật thì revert, tiền ở lại két.</p></td>
+  </tr>
+</table>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/overview-dark.png" />
+    <img src="docs/assets/overview.png" alt="Trang Tổng quan: số dư trong két, hạn mức agent đã tiêu hôm nay, các giao dịch cần chú ý" width="100%" />
+  </picture>
+</p>
+
+|     Hoạt động: mỗi giao dịch là ba trạm      | Quy tắc chi tiêu: hạn mức, người nhận, ứng dụng  |
+| :------------------------------------------: | :----------------------------------------------: |
+| ![Trang Hoạt động](docs/assets/activity.png) | ![Trang Quy tắc chi tiêu](docs/assets/rules.png) |
+
+<details>
+<summary><b>Kết quả thật khi agent bị chiếm quyền cố rút sạch két (S2)</b></summary>
+
+```text
+[S2 drain-to-attacker] mạng local
+  Planner bị chèn lệnh (DEMO) đề xuất 1 lệnh từ bản tin.
+  Guardian: rủi ro CAO (100/100) · POLICY_PRECHECK, DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED
+  Giải thích: Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép.
+              Chuyển 100% số dư (46,5 USDC) ra khỏi vault.
+  Agent bị chiếm quyền phớt lờ Guardian và gửi thẳng, không có verdict:
+  Vault: bị từ chối (RecipientNotAllowed: 0x000000000000000000000000000000000000a77A)
+  Khớp kết quả mong đợi trong bảng §10.
+```
+
+Chạy lại trên máy bạn: `./run-local.sh scenario S2`.
+
+</details>
+
+---
 
 **Mục lục**
 
@@ -79,6 +159,10 @@ Mở trang **Chạy thử** (`/chay-thu`), chọn một kịch bản S0–S6 ho�
 - **Chạy thử**: Guardian mô phỏng và chấm rủi ro, miễn phí, không gửi giao dịch nào.
 - **Chạy thật**: agent demo trả phí x402 và gửi giao dịch vào két; bạn thấy két chấp nhận hay từ chối.
 
+<p align="center">
+  <img src="docs/assets/try.png" alt="Trang Chạy thử: chọn kịch bản bên trái, kết quả của Guardian và dự đoán của két bên phải" width="90%" />
+</p>
+
 Khi dashboard được mở qua URL công khai, "Chạy thật" giới hạn 6 lần mỗi người và 24 lần cho mọi khách trong 10 phút.
 
 ### 2.3 Dùng với vai trò chủ két
@@ -122,6 +206,27 @@ flowchart LR
     Vault -->|"4. kiểm tra luật"| Gate{"Hợp lệ?"}
     Gate -->|"có"| Exec["Thực thi"]
     Gate -->|"không"| Rej["Revert, tiền ở lại két"]
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as AI Agent
+    participant G as Guardian API
+    participant F as Fork của Fuji
+    participant V as AgentVault (Fuji)
+    A->>G: calls + phí x402 (USDC)
+    G->>F: mô phỏng lô lệnh từ két
+    F-->>G: số dư trước/sau, log, revert
+    G->>G: 9 luật → LOW / MEDIUM / HIGH
+    G-->>A: rủi ro + giải thích + verdict EIP-712
+    A->>V: executeBatch(calls, verdict, chữ ký)
+    V->>V: người nhận, ứng dụng, hạn mức, nonce, hạn dùng, mức rủi ro
+    alt qua mọi luật
+        V-->>A: thực thi
+    else sai một luật
+        V-->>A: revert, tiền ở lại két
+    end
 ```
 
 ### Một giao dịch đi qua những bước nào
