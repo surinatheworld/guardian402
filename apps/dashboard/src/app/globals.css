@@ -1,107 +1,43 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
-/* Approved Guardian402 HeroUI v3 light theme. See DESIGN.md. */
-:root {
-  --bg: #f0f1f3;
-  --surface: #ffffff;
-  --surface-2: #f0f1f3;
-  --fg: #222326;
-  --muted: #686a72;
-  --line: #e1e3e8;
-  --accent: #27282d;
-  --accent-fg: #ffffff;
-  --low: #357154;
-  --low-bg: #e7f2eb;
-  --medium: #835d24;
-  --medium-bg: #f8efdc;
-  --high: #a6433d;
-  --high-bg: #fae9e7;
-  --demo: #6a4b19;
-  --demo-bg: #f8efdc;
-  --focus: #59677d;
-  --background: var(--bg);
-  --foreground: var(--fg);
-  --surface-foreground: var(--fg);
-  --surface-secondary: var(--surface-2);
-  --surface-secondary-foreground: var(--fg);
-  --default: #eceef1;
-  --default-foreground: var(--fg);
-  --accent-foreground: #fff;
-  --separator: var(--line);
-  --radius: 0.9rem;
-  --surface-shadow: 0 2px 3px #20273506, 0 6px 18px #20273505, 0 0 1px #2027350d;
-  color-scheme: light;
-}
-
+/*
+ * Guardian402 uses the HeroUI default theme as it ships (DESIGN.md): colours, radii, shadows and the dark
+ * palette come from @heroui/styles. This file only sets the type family and a few typographic defaults.
+ */
 @theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
-  --color-fg: var(--fg);
-  --color-muted: var(--muted);
-  --color-line: var(--line);
-  --color-accent: var(--accent);
-  --color-accent-fg: var(--accent-fg);
-  --color-low: var(--low);
-  --color-low-bg: var(--low-bg);
-  --color-medium: var(--medium);
-  --color-medium-bg: var(--medium-bg);
-  --color-high: var(--high);
-  --color-high-bg: var(--high-bg);
-  --color-demo: var(--demo);
-  --color-demo-bg: var(--demo-bg);
-  --font-sans: var(--font-be-vietnam), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
 
-body {
-  background: var(--bg);
-  color: var(--fg);
-}
-
-h1,
-h2,
-h3 {
-  text-wrap: balance;
-}
-
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-dialog::backdrop {
-  background: rgb(0 0 0 / 0.5);
-}
-
 @layer base {
-  button,
-  select,
-  input,
-  textarea {
-    font: inherit;
+  html {
+    /* Inter's optical-size axis: tighter letterforms at display sizes, more open text at 12–14px. */
+    font-optical-sizing: auto;
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
   }
-  button,
-  select,
-  input {
-    min-height: 42px;
+  body {
+    /* cv11: single-storey a; ss03: rounded quotes. Both keep Vietnamese diacritics unchanged. */
+    font-feature-settings: "cv11", "ss03";
   }
-  button {
-    transition:
-      background-color 120ms ease,
-      transform 120ms ease;
+  /* Stacked Vietnamese diacritics (ổ, ấ, ự) need room: headings never go below 1.2 line height. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+    line-height: 1.25;
   }
-  button:not(:disabled):active {
-    transform: scale(0.98);
+  p,
+  li,
+  dd {
+    text-wrap: pretty;
   }
-  button:disabled {
-    cursor: not-allowed;
-  }
-  input,
-  select,
-  textarea {
-    border-radius: 12px;
+  code,
+  kbd,
+  pre {
+    font-feature-settings: normal;
   }
   @media (prefers-reduced-motion: reduce) {
     *,

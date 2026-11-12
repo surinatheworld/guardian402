@@ -124,13 +124,13 @@ export function vaultDecision(
     .map((f) => String(f.evidence.reason ?? ""))
     .map((reason) => PRECHECK_REASON_LABEL[reason] ?? reason)
     .filter((x, i, all) => x && all.indexOf(x) === i);
-  if (reasons.length) return { blocked: true, text: `Vault sẽ từ chối lô lệnh này: ${reasons.join("; ")}.` };
+  if (reasons.length) return { blocked: true, text: `Két sẽ từ chối giao dịch này: ${reasons.join("; ")}.` };
   if (maxAgentRisk !== undefined && r.riskCode > maxAgentRisk) {
     const max = RISK_LABEL[RISK_BY_CODE[maxAgentRisk] ?? "LOW"];
     return {
       blocked: true,
-      text: `Rủi ro vượt mức tối đa vault chấp nhận (${max}): lệnh cần verdict sẽ bị từ chối.`,
+      text: `Rủi ro vượt mức két chấp nhận (tối đa: rủi ro ${max}): két sẽ từ chối khi cần Guardian duyệt.`,
     };
   }
-  return { blocked: false, text: "Luật của vault không chặn lô lệnh này." };
+  return { blocked: false, text: "Quy tắc của két không chặn giao dịch này." };
 }

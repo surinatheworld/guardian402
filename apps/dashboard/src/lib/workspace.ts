@@ -144,32 +144,32 @@ export type ApiKey = {
 };
 export const AGENT_STATUS_LABEL: Record<Agent["status"], string> = {
   active: "Đang hoạt động",
-  paused: "Tạm nghỉ",
+  paused: "Tạm ngưng khoá API",
   retired: "Ngừng dùng",
 };
 export const CONTACT_KIND_LABEL: Record<Contact["kind"], string> = {
   recipient: "Người nhận",
-  router: "Sàn / router",
+  router: "Sàn swap",
   treasury: "Kho bạc",
   other: "Khác",
 };
 export const POLICY_KIND_LABEL: Record<PolicyKind, string> = {
-  pause: "Tạm dừng vault",
-  unpause: "Mở lại vault",
+  pause: "Khoá két",
+  unpause: "Mở khoá két",
   set_agent: "Đặt agent",
-  revoke_agent: "Thu hồi agent",
-  allow_recipient: "Danh sách người nhận",
-  allow_target: "Danh sách contract được gọi",
-  allow_selector: "Thao tác được phép trên contract",
+  revoke_agent: "Gỡ quyền agent",
+  allow_recipient: "Người nhận tin cậy",
+  allow_target: "Ứng dụng được dùng",
+  allow_selector: "Thao tác trên ứng dụng",
   token_policy: "Hạn mức token",
   native_policy: "Hạn mức AVAX",
-  max_agent_risk: "Mức rủi ro tối đa cho agent",
+  max_agent_risk: "Mức rủi ro tối đa",
 };
 export const POLICY_STATUS_LABEL: Record<PolicyChange["status"], string> = {
-  draft: "Bản nháp: chờ ký trong ví",
-  submitted: "Đã gửi: chờ xác nhận trên chain",
-  confirmed: "Đã xác nhận trên chain",
-  failed: "Giao dịch thất bại trên chain",
+  draft: "Chờ ký trong ví",
+  submitted: "Chờ xác nhận trên chain",
+  confirmed: "Đã áp dụng",
+  failed: "Thất bại trên chain",
   cancelled: "Đã huỷ",
 };
 export const REVIEW_LABEL: Record<ReviewStatus, string> = {
@@ -198,10 +198,11 @@ export const useAgents = (vault: string) =>
     queryKey: wsKey(vault, "agents"),
     queryFn: () => wsApi<{ onChainAgent: Address | null; agents: Agent[] }>(vault, "agents"),
   });
-export const useContacts = (vault: string) =>
+export const useContacts = (vault: string, enabled = true) =>
   useQuery({
     queryKey: wsKey(vault, "contacts"),
     queryFn: () => wsApi<{ contacts: Contact[] }>(vault, "contacts"),
+    enabled,
   });
 export const usePolicyChanges = (vault: string) =>
   useQuery({

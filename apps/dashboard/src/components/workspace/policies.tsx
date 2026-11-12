@@ -6,11 +6,10 @@ import { Tabs } from "@heroui/react/tabs";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { Address } from "viem";
-import { formatUnits } from "viem";
 import { accountApi } from "@/lib/account";
 import { naming, TEMPLATES } from "@/lib/policy-catalog";
 import { formatTime } from "@/lib/format";
-import { AddressLink, Card, Empty, ErrorBox, Loading } from "@/components/ui";
+import { AddressLink, Card, Empty, ErrorBox, Expand, Loading } from "@/components/ui";
 import { ConfirmInline, FormError, Pill, errorOf } from "@/components/form";
 import {
   AGENT_STATUS_LABEL,
@@ -41,7 +40,6 @@ export function PoliciesTab({
   onBuilderChange,
   initialAgent,
   onOpenAgents,
-  onOpenChecks,
 }: {
   vault: Address;
   vaultLabel: string;
@@ -49,7 +47,6 @@ export function PoliciesTab({
   onBuilderChange: (open: boolean) => void;
   initialAgent: number | undefined;
   onOpenAgents: () => void;
-  onOpenChecks: () => void;
 }) {
   const [mode, setMode] = useState<Mode>({ kind: "list" });
   const [pane, setPane] = useState<"library" | "deploy">(initialAgent === undefined ? "library" : "deploy");
@@ -107,99 +104,62 @@ export function PoliciesTab({
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 ref={hubHeading} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
-            Policy
+        <div className="flex min-w-0 flex-col gap-1">
+          <h2 ref={hubHeading} tabIndex={-1} className="text-lg font-semibold tracking-tight outline-none">
+            Bộ quy tắc cho agent
           </h2>
-          <p className="mt-1 text-sm text-muted">Tạo quy tắc, thử giao dịch rồi áp dụng lên vault.</p>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+            {assignments.isPending ? (
+              <span>Đang đọc két…</span>
+            ) : assignments.isError ? (
+              <span>Chưa đọc được két. {errorOf(assignments.error)}</span>
+            ) : effective?.assignment ? (
+              <>
+                <Pill tone="ok">Đang áp dụng</Pill>
+                <span className="wrap-anywhere">
+                  {effective.assignment.policy.name} · {effective.agent.name} · phiên bản{" "}
+                  {effective.assignment.version.version}
+                </span>
+              </>
+            ) : pending ? (
+              <>
+                <Pill tone="warn">Chờ ký</Pill>
+                <span>Một bộ quy tắc đang chờ ví chủ két ký để áp dụng.</span>
+              </>
+            ) : (
+              <span>Chưa có bộ quy tắc nào đang áp dụng.</span>
+            )}
+          </div>
         </div>
-        {pane === "library" ? (
-          <Button
-            variant="primary"
-            type="button"
-            onPress={() => {
-              setSaved(null);
-              setMode({ kind: "create" });
-              onBuilderChange(true);
-            }}
-          >
-            Tạo policy
-          </Button>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {pending ? (
+            <Button variant="secondary" onPress={() => openDeployment(undefined, pending.agent.id)}>
+              Tiếp tục áp dụng
+            </Button>
+          ) : null}
+          {pane === "library" ? (
+            <Button
+              variant="primary"
+              onPress={() => {
+                setSaved(null);
+                setMode({ kind: "create" });
+                onBuilderChange(true);
+              }}
+            >
+              Tạo bộ quy tắc
+            </Button>
+          ) : null}
+        </div>
       </header>
-      {pane === "library" ? (
-        <Card title="Trên vault hiện tại">
-          {assignments.isPending ? (
-            <Loading label="Đang đọc vault trên chain…" />
-          ) : assignments.isError ? (
-            <ErrorBox
-              title="Không đọc được vault"
-              detail={errorOf(assignments.error)}
-              onRetry={() => void assignments.refetch()}
-            />
-          ) : (
-            <div className="grid items-start gap-5 lg:grid-cols-2">
-              <div className="flex min-w-0 flex-col items-start gap-2">
-                {effective?.assignment ? (
-                  <>
-                    <p className="text-xl font-bold wrap-anywhere">{effective.assignment.policy.name}</p>
-                    <p className="text-sm text-muted wrap-anywhere">
-                      {effective.agent.name} · phiên bản {effective.assignment.version.version}
-                    </p>
-                    <Pill tone="ok">Đang hiệu lực</Pill>
-                  </>
-                ) : (
-                  <p className="font-semibold">
-                    {!assignments.data.chain
-                      ? "Chưa xác nhận được hiệu lực"
-                      : pending
-                        ? "Đang chờ áp dụng policy"
-                        : "Chưa có policy đang hiệu lực"}
-                  </p>
-                )}
-                {assignments.data.onChain?.paused ? <Pill tone="high">Vault đang tạm dừng</Pill> : null}
-                <div className="flex flex-wrap gap-2">
-                  {pending ? (
-                    <Button
-                      variant="secondary"
-                      type="button"
-                      onPress={() => openDeployment(undefined, pending.agent.id)}
-                    >
-                      Tiếp tục áp dụng
-                    </Button>
-                  ) : null}
-                  <Button variant="ghost" type="button" onPress={onOpenChecks}>
-                    Xem các lần kiểm tra
-                  </Button>
-                </div>
-              </div>
-              <div className="flex min-w-0 flex-col gap-3 border-t border-line pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-5">
-                <p className="text-sm font-semibold">Ngân sách hôm nay · UTC</p>
-                {assignments.data.onChain ? (
-                  assignments.data.onChain.budgets.some((b) => BigInt(b.dailyCap) > 0n) ? (
-                    assignments.data.onChain.budgets
-                      .filter((b) => BigInt(b.dailyCap) > 0n)
-                      .map((b) => <BudgetMeter key={b.token} b={b} />)
-                  ) : (
-                    <p className="text-sm text-muted">Vault chưa cho chi tài sản nào.</p>
-                  )
-                ) : (
-                  <p className="text-sm text-muted">Chưa đọc được ngân sách từ chain.</p>
-                )}
-              </div>
-            </div>
-          )}
-        </Card>
-      ) : null}
       <Tabs selectedKey={pane} onSelectionChange={(key) => setPane(key === "deploy" ? "deploy" : "library")}>
         <Tabs.ListContainer>
-          <Tabs.List aria-label="Quản lý policy">
+          <Tabs.List aria-label="Bộ quy tắc">
             <Tabs.Tab id="library">
               Thư viện
               <Tabs.Indicator />
             </Tabs.Tab>
             <Tabs.Tab id="deploy">
-              Gán lên vault
+              Gán cho agent
               <Tabs.Indicator />
             </Tabs.Tab>
           </Tabs.List>
@@ -268,7 +228,7 @@ function SavedPolicyTrial({
   return (
     <div ref={top} className="mx-auto flex w-full max-w-[54rem] min-w-0 scroll-mt-5 flex-col gap-5">
       <PolicyStageHeader
-        title="Thử policy đã lưu"
+        title="Thử bộ quy tắc đã lưu"
         caption={version}
         vault={vault}
         vaultLabel={vaultLabel}
@@ -293,38 +253,9 @@ function SavedPolicyTrial({
 
 // ------------------------------------------------------------------ in force on this vault
 
-function BudgetMeter({ b }: { b: Budget }) {
-  const cap = BigInt(b.dailyCap);
-  const spent = BigInt(b.spentToday);
-  const pct = cap > 0n ? Number((spent * 1000n) / cap) / 10 : 0;
-  const text = `${formatUnits(spent, b.decimals)} / ${formatUnits(cap, b.decimals)} ${b.symbol}`;
-  return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-        <span className="font-semibold">{b.symbol}</span>
-        <span className="tabular-nums text-muted wrap-anywhere">Đã chi {text}</span>
-      </div>
-      <div
-        className="h-2 overflow-hidden rounded-full bg-surface-2"
-        role="meter"
-        aria-label={`Ngân sách ${b.symbol} đã dùng hôm nay`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.min(100, pct)}
-        aria-valuetext={text}
-      >
-        <div
-          className={`h-full rounded-full ${pct >= 80 ? "bg-medium" : "bg-low"}`}
-          style={{ width: `${Math.min(100, pct)}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
 function EnforcementPill({ e }: { e: Enforcement }) {
-  if (e.state === "active") return <Pill tone="ok">Đang hiệu lực trên vault</Pill>;
-  if (e.state === "unknown") return <Pill>Chưa đọc được vault</Pill>;
+  if (e.state === "active") return <Pill tone="ok">Đang áp dụng trên két</Pill>;
+  if (e.state === "unknown") return <Pill>Chưa đọc được két</Pill>;
   if (e.plan.blockers.length) return <Pill tone="high">Chưa áp dụng được</Pill>;
   return (
     <Pill tone="warn">
@@ -364,19 +295,23 @@ function AssignmentsCard({
     agents[0];
   return (
     <Card>
-      <h3 ref={heading} tabIndex={-1} className="scroll-mt-4 text-lg font-bold tracking-tight outline-none">
-        Gán lên vault
+      <h3
+        ref={heading}
+        tabIndex={-1}
+        className="scroll-mt-4 text-lg font-semibold tracking-tight outline-none"
+      >
+        Gán cho agent
       </h3>
       {saved ? (
-        <p role="status" className="text-sm text-low wrap-anywhere">
+        <p role="status" className="text-sm text-success-soft-foreground wrap-anywhere">
           {saved}
         </p>
       ) : null}
       <p className="text-sm text-muted">
-        Chọn agent và policy. Ví chủ ký các thay đổi để policy có hiệu lực.
+        Chọn agent và bộ quy tắc. Ví chủ két ký các thay đổi để bộ quy tắc được áp dụng.
       </p>
       {q.isPending ? (
-        <Loading label="Đang đọc cấu hình vault trên chain…" />
+        <Loading label="Đang đọc két trên chain…" />
       ) : q.isError ? (
         <ErrorBox
           title="Không đọc được danh sách"
@@ -386,18 +321,18 @@ function AssignmentsCard({
       ) : (
         <>
           {!q.data.chain ? (
-            <p role="status" className="rounded-lg bg-medium-bg p-3 text-sm text-medium">
-              Không đọc được vault lúc này (RPC bận). Trạng thái hiệu lực sẽ hiện khi đọc lại được.
+            <p role="status" className="rounded-lg bg-warning-soft p-3 text-sm text-warning-soft-foreground">
+              Chưa đọc được két lúc này (mạng bận). Trạng thái áp dụng sẽ hiện khi đọc lại được.
             </p>
           ) : null}
           {q.data.onChain?.paused ? (
-            <p role="status" className="rounded-lg bg-high-bg p-3 text-sm text-high">
-              Vault đang tạm dừng: không agent nào chạy được giao dịch, kể cả khi policy đang hiệu lực.
+            <p role="status" className="rounded-lg bg-danger-soft p-3 text-sm text-danger">
+              Két đang khoá: agent không chạy được giao dịch nào, kể cả khi bộ quy tắc đang áp dụng.
             </p>
           ) : null}
           {!selected ? (
             <div className="flex flex-col items-start gap-2">
-              <p className="text-sm text-muted">Thêm agent vào vault để gán policy.</p>
+              <p className="text-sm text-muted">Thêm agent vào két để gán bộ quy tắc.</p>
               <Button variant="secondary" type="button" onPress={onOpenAgents}>
                 Đến tab Agent
               </Button>
@@ -407,7 +342,7 @@ function AssignmentsCard({
               {agents.length > 1 ? (
                 <div className="max-w-sm">
                   <PolicySelect
-                    label="Agent nhận policy"
+                    label="Agent nhận bộ quy tắc"
                     value={String(selected.agent.id)}
                     options={agents.map(({ agent }) => ({ id: String(agent.id), label: agent.name }))}
                     onChange={(id) => selectAgent(Number(id))}
@@ -417,17 +352,17 @@ function AssignmentsCard({
                   </p>
                 </div>
               ) : null}
-              {policies.isPending ? <Loading label="Đang tải thư viện policy…" /> : null}
+              {policies.isPending ? <Loading label="Đang tải bộ quy tắc…" /> : null}
               {policies.isError ? (
                 <ErrorBox
-                  title="Không tải được policy"
+                  title="Không tải được bộ quy tắc"
                   detail={errorOf(policies.error)}
                   onRetry={() => void policies.refetch()}
                 />
               ) : null}
               {policies.isSuccess && !policies.data.policies.some((p) => !p.archived) ? (
                 <Button variant="secondary" type="button" className="self-start" onPress={onCreatePolicy}>
-                  Tạo policy cho agent này
+                  Tạo bộ quy tắc cho agent này
                 </Button>
               ) : null}
               <AgentAssignment
@@ -506,12 +441,12 @@ function AgentAssignment({
   const planVisible = !!a && !!pending && showPlan && !assign.isPending;
   return (
     <section
-      aria-label={`Policy của ${row.agent.name}`}
-      className="flex min-w-0 flex-col gap-3 border-t border-line pt-4"
+      aria-label={`Bộ quy tắc của ${row.agent.name}`}
+      className="flex min-w-0 flex-col gap-3 border-t border-border pt-4"
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold wrap-anywhere">{row.agent.name}</span>
-        {row.isOnChainAgent ? <Pill tone="ok">Agent của vault trên chain</Pill> : null}
+        {row.isOnChainAgent ? <Pill tone="ok">Agent của két trên chain</Pill> : null}
         {row.agent.status !== "active" ? (
           <Pill tone="warn">{AGENT_STATUS_LABEL[row.agent.status]}</Pill>
         ) : null}
@@ -527,10 +462,7 @@ function AgentAssignment({
             {outdated ? <Pill>Có phiên bản {a.policy.latestVersion} mới hơn</Pill> : null}
           </div>
           {!planVisible ? (
-            <details>
-              <summary className="min-h-[42px] cursor-pointer py-2.5 text-sm font-semibold">
-                Xem quyền đã gán
-              </summary>
+            <Expand label="Xem quyền đã gán">
               <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-muted">
                 {a.version.summary.map((s) => (
                   <li key={s} className="wrap-anywhere">
@@ -538,14 +470,14 @@ function AgentAssignment({
                   </li>
                 ))}
               </ul>
-            </details>
+            </Expand>
           ) : null}
         </div>
       ) : (
         <p className="text-sm">
-          <Pill tone="warn">Chưa gán policy</Pill>{" "}
+          <Pill tone="warn">Chưa gán bộ quy tắc</Pill>{" "}
           <span className="text-muted">
-            Guardian không cấp verdict cho agent này cho tới khi có policy hiệu lực.
+            Guardian không duyệt giao dịch cho agent này cho tới khi có bộ quy tắc được áp dụng.
           </span>
         </p>
       )}
@@ -554,10 +486,10 @@ function AgentAssignment({
         <div id="policy-assign-form" tabIndex={-1} className="flex flex-wrap items-end gap-2 outline-none">
           <div className="w-full min-w-0 sm:max-w-xs">
             <PolicySelect
-              label={a ? "Chọn phiên bản mới nhất của policy" : "Chọn policy để gán"}
+              label={a ? "Chọn phiên bản mới nhất" : "Chọn bộ quy tắc để gán"}
               value={choice}
               disabled={!policies.length || row.agent.status === "retired" || assign.isPending}
-              placeholder={policies.length ? "Chọn policy…" : "Thư viện chưa có policy"}
+              placeholder={policies.length ? "Chọn bộ quy tắc…" : "Chưa có bộ quy tắc nào"}
               onChange={(value) => {
                 setChoice(value);
                 setShowPlan(false);
@@ -577,7 +509,7 @@ function AgentAssignment({
               ? "Đang gán…"
               : a && selectedPolicy?.id === a.policy.id && selectedPolicy.latest.version > a.version.version
                 ? `Gán phiên bản ${selectedPolicy.latest.version}`
-                : "Gán policy"}
+                : "Gán bộ quy tắc"}
           </Button>
           {a && pending ? (
             <Button
@@ -594,7 +526,7 @@ function AgentAssignment({
           {a ? (
             confirmUnassign ? (
               <ConfirmInline
-                text="Bỏ gán? Vault giữ nguyên cấu hình; muốn chặn agent thì thu hồi agent ở tab Agent."
+                text="Bỏ gán? Két giữ nguyên quy tắc; muốn chặn agent thì gỡ quyền agent ở trang Agent."
                 confirmLabel="Bỏ gán"
                 pending={unassign.isPending}
                 onConfirm={() => unassign.mutate()}
@@ -676,7 +608,7 @@ function ApplyPanel({
     plan.changes.length === mine.length && plan.changes.every((c) => draftKeys.includes(changeKey(c)));
   const next = submitted ?? (matchesPlan && !plan.blockers.length ? mine[0] : undefined);
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-surface-2 p-4">
+    <div className="flex flex-col gap-3 rounded-xl bg-surface-secondary p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 id="policy-plan-heading" tabIndex={-1} className="scroll-mt-4 font-semibold outline-none">
           {next ? "Giao dịch tiếp theo" : "Kế hoạch ký"}
@@ -693,7 +625,7 @@ function ApplyPanel({
         </ol>
       )}
       {plan.blockers.map((b) => (
-        <p key={b} role="alert" className="text-sm text-high">
+        <p key={b} role="alert" className="text-sm text-danger">
           {b}
         </p>
       ))}
@@ -728,8 +660,8 @@ function ApplyPanel({
       ) : (
         <>
           {mine.length && !matchesPlan ? (
-            <p role="status" className="text-sm text-medium">
-              Các bản nháp cũ khác kế hoạch hiện tại. Soạn lại từ trạng thái vault mới nhất.
+            <p role="status" className="text-sm text-warning-soft-foreground">
+              Các bản nháp cũ khác kế hoạch hiện tại. Soạn lại từ trạng thái mới nhất của két.
             </p>
           ) : null}
           <Button
@@ -746,10 +678,7 @@ function ApplyPanel({
         </>
       )}
       {next && plan.changes.length ? (
-        <details className="border-t border-line text-sm">
-          <summary className="min-h-[42px] cursor-pointer py-2.5 font-semibold">
-            Xem các thay đổi còn lại
-          </summary>
+        <Expand label="Xem các thay đổi còn lại">
           <ol className="list-decimal space-y-1 pl-5">
             {plan.changes.map((c) => (
               <li key={changeKey(c)} className="wrap-anywhere">
@@ -757,7 +686,7 @@ function ApplyPanel({
               </li>
             ))}
           </ol>
-        </details>
+        </Expand>
       ) : null}
       <FormError error={apply.error} />
     </div>
@@ -781,9 +710,9 @@ function Library({
   const active = (q.data?.policies ?? []).filter((p) => !p.archived);
   const archived = (q.data?.policies ?? []).filter((p) => p.archived);
   return (
-    <Card title="Thư viện policy">
+    <Card title="Thư viện bộ quy tắc">
       <p className="text-sm text-muted">
-        Dùng lại policy ở nhiều vault. Agent giữ phiên bản đã gán khi bạn sửa quy tắc.
+        Dùng lại một bộ quy tắc cho nhiều két. Agent giữ phiên bản đã gán khi bạn sửa.
       </p>
       {q.isPending ? (
         <Loading />
@@ -794,9 +723,9 @@ function Library({
           onRetry={() => void q.refetch()}
         />
       ) : active.length === 0 ? (
-        <Empty>Chưa có policy nào. Bấm “Tạo policy” và bắt đầu từ một mẫu.</Empty>
+        <Empty>Chưa có bộ quy tắc nào. Bấm “Tạo bộ quy tắc” và bắt đầu từ một mẫu.</Empty>
       ) : (
-        <ul className="divide-y divide-line">
+        <ul className="divide-y divide-separator">
           {active.map((p) => (
             <PolicyItem
               key={p.id}
@@ -810,8 +739,7 @@ function Library({
         </ul>
       )}
       {archived.length ? (
-        <details className="text-sm">
-          <summary className="cursor-pointer font-semibold">Đã lưu trữ ({archived.length})</summary>
+        <Expand label={<>Đã lưu trữ ({archived.length})</>}>
           <ul className="mt-2 flex flex-col gap-1 text-muted">
             {archived.map((p) => (
               <li key={p.id}>
@@ -819,7 +747,7 @@ function Library({
               </li>
             ))}
           </ul>
-        </details>
+        </Expand>
       ) : null}
     </Card>
   );
@@ -876,8 +804,7 @@ function PolicyItem({
           ? `Đang gán cho: ${policy.assignments.map((x) => `${x.agentName} (phiên bản ${x.version})`).join(", ")}`
           : "Chưa gán cho agent nào."}
       </p>
-      <details className="text-sm">
-        <summary className="min-h-[42px] cursor-pointer py-2.5 font-semibold">Xem quyền và lịch sử</summary>
+      <Expand label="Xem quyền và lịch sử">
         <ul className="mb-3 flex list-disc flex-col gap-1 pl-5 text-sm text-muted">
           {policy.latest.summary.map((s) => (
             <li key={s} className="wrap-anywhere">
@@ -896,7 +823,7 @@ function PolicyItem({
           </Button>
           {confirm ? (
             <ConfirmInline
-              text="Lưu trữ policy này?"
+              text="Lưu trữ bộ quy tắc này?"
               confirmLabel="Lưu trữ"
               pending={archive.isPending}
               onConfirm={() => archive.mutate()}
@@ -922,7 +849,7 @@ function PolicyItem({
           ) : (
             <ol className="mt-3 flex flex-col gap-2">
               {(versions.data.policy.versions ?? []).map((v) => (
-                <li key={v.id} className="border-t border-line py-3 text-sm wrap-anywhere">
+                <li key={v.id} className="border-t border-border py-3 text-sm wrap-anywhere">
                   <p className="font-semibold">
                     Phiên bản {v.version}{" "}
                     <span className="font-normal text-muted tabular-nums">· {formatTime(v.createdAt)}</span>
@@ -938,7 +865,7 @@ function PolicyItem({
             </ol>
           )
         ) : null}
-      </details>
+      </Expand>
     </li>
   );
 }

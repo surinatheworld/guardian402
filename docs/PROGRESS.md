@@ -743,6 +743,19 @@ Trên Fuji (Guardian `NETWORK=fuji`, fork qua Tenderly), agent mới:
 3. Sau hackathon: tạo key Gemini mới và key Alchemy mới (cả hai từng hiện trong chat).
 4. Không làm (ngoài phạm vi hackathon): email xác minh/quên mật khẩu (chưa có dịch vụ mail), §13.3 biên nhận on-chain.
 
+## P15 — Làm lại giao diện dashboard (2026-11-12, nhánh `feat/p15-dashboard-ux`)
+
+Phase 1 (audit) tìm thấy cả 5 loại AI slop: chữ phụ lặp lại (78 đoạn chữ xám), cùng một việc nằm ở 3 trang (chạy kịch bản, khoá két), 5 kiểu bộ lọc và 4 kiểu xác nhận, thuật ngữ hệ thống ở lớp đầu (`/v1/cosign`, `POLICY_PRECHECK`, "Nonce verdict"), không có toast. Team duyệt: theo DESIGN.md (theme mặc định HeroUI), Inter, gọi vault là "két", 5 điểm đến, thêm `@gravity-ui/icons`.
+
+- Theme: bỏ token tự đặt và `concept.css` (1.013 dòng), dùng nguyên theme mặc định HeroUI v3, có chế độ tối theo hệ thống. Inter (400/500/600, optical size), JetBrains Mono chỉ trong chi tiết kỹ thuật.
+- Cấu trúc: Tổng quan, Hoạt động, Chạy thử, Quy tắc chi tiêu, Agent (+ Tài khoản, Về Guardian). Sidebar là `Tabs` dọc; thanh trên có trạng thái két, **Khoá khẩn cấp**, chuông thông báo, ví, tài khoản. Đường dẫn cũ redirect (`/kiem-tra`, `/demo` → `/chay-thu`; `/da-chan` → `/hoat-dong?xem=rejected`; `/dieu-khien` → `/quy-tac`; `/doanh-thu` → `/ve-guardian`; `/quan-ly#tab` chuyển tiếp).
+- Hành trình giao dịch 3 trạm (Agent đề xuất → Guardian kiểm tra → Két quyết định) ở mọi danh sách, Drawer chi tiết và kết quả Chạy thử; phê duyệt của Guardian không bao giờ hiện là "đã thực hiện".
+- Thao tác chủ két (khoá/mở khoá, rút về ví chủ, hạn mức, mức rủi ro, người nhận tin cậy có kiểm tra địa chỉ nhái, ứng dụng, đặt/gỡ agent): một luồng xem lại trước → sau, ký trong ví, 3 bước, toast. Trên fork (không có ví) các nút bị khoá kèm một thông báo nói rõ lý do.
+- Từ điển thuật ngữ trong `apps/dashboard/src/lib/labels.ts`; nhãn cho mọi sự kiện bảo mật; câu chữ của bộ quy tắc (`policy-spec.ts`) đổi theo.
+- Hoạt động ghép kiểm tra của Guardian với lần chạy của agent theo `checkId` kể cả khi lần chạy ghi ở mạng khác (giữ kết quả két, bỏ link giao dịch).
+
+Kiểm tra: `pnpm test` (shared 52, agent 17, dashboard 57 gồm 8 test mới cho `lib/activity.ts`, guardian 146, eval 5, guardian-mcp 6), `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm --filter @guardian402/dashboard build` đều qua. QA trên trình duyệt với stack local (`./run-local.sh`): 7 trang ở 1440 px và 375 px, sáng và tối, không tràn ngang, không lỗi console; chạy thử S3 (mô phỏng) và S2 (chạy thật trên fork, két từ chối `RecipientNotAllowed`). Chưa thử ký giao dịch chủ két trên Fuji (cần ví của trưởng nhóm).
+
 ## Checklist trước demo
 
 - [x] **Owner accepts ownership from 0x54A2…2888 before the demo** — xong 2026-11-11, tx [0xaa92a946…6049](https://testnet.snowtrace.io/tx/0xaa92a94601eacd8dd3d42d9edab13fe4b52c134756bca8eb29852183e6456049). Ví `0x54A2276F134d3Cfaa7572BC326092fABa6352888` đã là `pendingOwner` của AgentVault mới `0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c` (có bản sửa R1–R5; tx [0xf0c8c7d4…38cb](https://testnet.snowtrace.io/tx/0xf0c8c7d46c594e69a2ccd9ea1f80c931a677d7f00b875cce622003a79ca738cb)). Các vault cũ `0x3f6a…7651` và `0x32cb…Ab99` đã rút hết tiền và tạm dừng, không cần accept nữa. Các bước:
@@ -752,4 +765,4 @@ Trên Fuji (Guardian `NETWORK=fuji`, fork qua Tenderly), agent mới:
   4. Mở hàm **acceptOwnership** (không có tham số) → **Write** → xác nhận giao dịch trong ví.
   5. Kiểm tra trong tab **Read Contract**: `owner()` = `0x54A2276F134d3Cfaa7572BC326092fABa6352888` và `pendingOwner()` = `0x0000000000000000000000000000000000000000`. Hoặc chạy:
      `cast call 0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c "owner()(address)" --rpc-url https://api.avax-test.network/ext/bc/C/rpc`
-  6. Sau bước này OWNER_PK không còn quyền owner: pause/unpause, đổi cap, revoke agent làm từ ví `0x54A2…2888` (dashboard, trang Điều khiển).
+  6. Sau bước này OWNER_PK không còn quyền owner: pause/unpause, đổi cap, revoke agent làm từ ví `0x54A2…2888` (dashboard: nút Khoá khẩn cấp ở thanh trên, trang Quy tắc, trang Agent).

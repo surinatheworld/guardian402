@@ -1,36 +1,64 @@
 "use client";
-// Tài khoản: sign in with email + password (web2) or by signing a message with the wallet (SIWE, web3), then
-// manage the profile, linked wallets and linked AgentVaults. The account database is off-chain and never holds
-// keys; balances, policy and ownership are always read from the chain.
+// Tài khoản: sign in with the wallet (Sign-In with Ethereum) or with email + password, then manage linked
+// vaults, wallets and the profile. The account database is off-chain and never holds keys; balances, rules and
+// ownership are always read from the chain.
+import { ArrowRight, Plus, TrashBin } from "@gravity-ui/icons";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { Tabs } from "@heroui/react/tabs";
+import { TextField } from "@heroui/react/textfield";
+import { toast } from "@heroui/react/toast";
 import { useMutation } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { isAddress } from "viem";
 import { useAccount, useSignMessage } from "wagmi";
-import { AddressLink, Card, Empty, ErrorBox, Facts, Loading, PageHeader } from "@/components/ui";
-import { WalletButton } from "@/components/shell";
-import { Field, INPUT, errorOf } from "@/components/form";
+import { EditModal } from "@/components/edit-modal";
+import { TextInput, useConfirm } from "@/components/fields";
+import { errorOf } from "@/components/form";
+import {
+  AddressLink,
+  Card,
+  Empty,
+  ErrorBox,
+  Expand,
+  Facts,
+  LoadingRows,
+  Notice,
+  PageHeader,
+} from "@/components/ui";
+import { ConnectWalletButton } from "@/components/wallet";
 import {
   accountApi,
-  EVENT_LABEL,
+  eventLabel,
   signInWithWallet,
   useMe,
   useRefreshMe,
   type MeResponse,
 } from "@/lib/account";
-import { deployment } from "@/lib/config";
-import { formatTime } from "@/lib/format";
+import { deployment, NETWORK } from "@/lib/config";
+import { formatTime, shortHex } from "@/lib/format";
+import { PAGE } from "@/lib/labels";
+import { useSelectedVault } from "@/lib/vault-context";
+
+/** After signing in, go back to the page that sent the owner here (`?quay-lai=/agent`). */
+function useReturn() {
+  const router = useRouter();
+  return () => {
+    const to = new URLSearchParams(window.location.search).get("quay-lai");
+    if (to && to.startsWith("/") && !to.startsWith("//")) router.push(to);
+  };
+}
 
 export default function AccountPage() {
   const me = useMe();
   return (
     <>
-      <PageHeader
-        title="Tài khoản"
-        lead="Đăng nhập bằng email hoặc bằng ví. Tài khoản chỉ lưu thông tin ngoài chuỗi: email, ví bạn đã ký xác nhận và vault bạn quản lý. Không bao giờ lưu khoá riêng hay cụm từ khôi phục."
-      />
+      <PageHeader title={me.data ? PAGE.account : "Đăng nhập"} />
       {me.isPending ? (
-        <Loading />
+        <LoadingRows rows={3} label="Đang tải tài khoản" />
       ) : me.isError ? (
         <ErrorBox
           title="Không đọc được tài khoản"
@@ -50,15 +78,36 @@ export default function AccountPage() {
 
 function SignedOut() {
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <PasswordForm />
-      <WalletSignIn />
+    <div className="max-w-xl">
+      <Card description="Tài khoản chỉ lưu email, ví bạn đã ký xác nhận và két bạn quản lý. Không bao giờ lưu khoá riêng.">
+        <Tabs variant="secondary" defaultSelectedKey={NETWORK === "local" ? "email" : "wallet"}>
+          <Tabs.ListContainer>
+            <Tabs.List aria-label="Cách đăng nhập">
+              <Tabs.Tab id="wallet">
+                Bằng ví
+                <Tabs.Indicator />
+              </Tabs.Tab>
+              <Tabs.Tab id="email">
+                Bằng email
+                <Tabs.Indicator />
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs.ListContainer>
+          <Tabs.Panel id="wallet" className="px-0 pt-4 pb-0">
+            <WalletSignIn />
+          </Tabs.Panel>
+          <Tabs.Panel id="email" className="px-0 pt-4 pb-0">
+            <PasswordForm />
+          </Tabs.Panel>
+        </Tabs>
+      </Card>
     </div>
   );
 }
 
 function PasswordForm() {
   const refresh = useRefreshMe();
+  const back = useReturn();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -68,80 +117,70 @@ function PasswordForm() {
       mode === "login"
         ? accountApi("/api/auth/login", "POST", { email, password })
         : accountApi("/api/auth/register", "POST", { email, password, displayName }),
-    onSuccess: () => {
+    onSuccess: async () => {
       setPassword("");
-      void refresh();
+      await refresh();
+      toast.success(mode === "login" ? "Đã đăng nhập" : "Đã tạo tài khoản");
+      back();
     },
   });
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    submit.mutate();
-  };
   return (
-    <Card title={mode === "login" ? "Đăng nhập bằng email" : "Tạo tài khoản bằng email"}>
-      <form onSubmit={onSubmit} className="flex flex-col gap-3">
-        <Field id="email" label="Email">
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={INPUT}
-          />
-        </Field>
-        {mode === "register" ? (
-          <Field id="display-name" label="Tên hiển thị (không bắt buộc)">
-            <input
-              id="display-name"
-              autoComplete="nickname"
-              maxLength={60}
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className={INPUT}
-            />
-          </Field>
-        ) : null}
-        <Field id="password" label={mode === "login" ? "Mật khẩu" : "Mật khẩu (ít nhất 10 ký tự)"}>
-          <input
-            id="password"
-            type="password"
-            autoComplete={mode === "login" ? "current-password" : "new-password"}
-            required
-            minLength={mode === "register" ? 10 : undefined}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={INPUT}
-          />
-        </Field>
-        {submit.isError ? (
-          <p role="alert" className="text-sm text-high">
-            {errorOf(submit.error)}
-          </p>
-        ) : null}
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="primary" type="submit" isDisabled={submit.isPending}>
-            {submit.isPending ? "Đang xử lý…" : mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
-          </Button>
-          <Button
-            variant="secondary"
-            type="button"
-            onPress={() => {
-              submit.reset();
-              setMode(mode === "login" ? "register" : "login");
-            }}
-          >
-            {mode === "login" ? "Chưa có tài khoản? Tạo mới" : "Đã có tài khoản? Đăng nhập"}
-          </Button>
-        </div>
-      </form>
-    </Card>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit.mutate();
+      }}
+      className="flex flex-col gap-4"
+    >
+      <TextField type="email" autoComplete="email" isRequired value={email} onChange={setEmail}>
+        <Label>Email</Label>
+        <Input />
+      </TextField>
+      {mode === "register" ? (
+        <TextInput
+          label="Tên hiển thị (không bắt buộc)"
+          value={displayName}
+          onChange={setDisplayName}
+          maxLength={60}
+        />
+      ) : null}
+      <TextField
+        type="password"
+        autoComplete={mode === "login" ? "current-password" : "new-password"}
+        isRequired
+        {...(mode === "register" ? { minLength: 10 } : {})}
+        value={password}
+        onChange={setPassword}
+      >
+        <Label>{mode === "login" ? "Mật khẩu" : "Mật khẩu (ít nhất 10 ký tự)"}</Label>
+        <Input />
+      </TextField>
+      {submit.isError ? (
+        <p role="alert" className="text-sm text-danger">
+          {errorOf(submit.error)}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" variant="primary" isPending={submit.isPending}>
+          {mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
+        </Button>
+        <Button
+          variant="ghost"
+          onPress={() => {
+            submit.reset();
+            setMode(mode === "login" ? "register" : "login");
+          }}
+        >
+          {mode === "login" ? "Tạo tài khoản mới" : "Đã có tài khoản"}
+        </Button>
+      </div>
+    </form>
   );
 }
 
 function WalletSignIn() {
   const refresh = useRefreshMe();
+  const back = useReturn();
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const run = useMutation({
@@ -149,91 +188,67 @@ function WalletSignIn() {
       if (!address) throw new Error("Hãy kết nối ví trước.");
       return signInWithWallet(address, signMessageAsync);
     },
-    onSuccess: () => void refresh(),
+    onSuccess: async () => {
+      await refresh();
+      toast.success("Đã đăng nhập bằng ví");
+      back();
+    },
   });
+  if (NETWORK === "local")
+    return (
+      <Notice title="Bản demo trên fork không kết nối ví">
+        Đăng nhập bằng email, hoặc mở dashboard ở mạng Fuji để đăng nhập bằng ví.
+      </Notice>
+    );
   return (
-    <Card title="Đăng nhập bằng ví">
+    <div className="flex flex-col gap-4">
       <p className="text-sm text-muted">
-        Ví ký một thông điệp đăng nhập (chuẩn Sign-In with Ethereum, EIP-4361). Việc ký không tốn phí, không
-        gửi giao dịch và không cho dashboard quyền chuyển tiền. Ví chưa có tài khoản sẽ được tạo tài khoản
-        mới.
+        Ví ký một thông điệp đăng nhập: không tốn phí, không gửi giao dịch, không cho dashboard quyền chuyển
+        tiền. Ví chưa có tài khoản sẽ được tạo tài khoản mới.
       </p>
-      <WalletButton />
+      {isConnected && address ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="font-mono text-sm">{shortHex(address)}</span>
+          <Button variant="primary" isPending={run.isPending} onPress={() => run.mutate()}>
+            {run.isPending ? "Đang chờ chữ ký…" : "Ký để đăng nhập"}
+          </Button>
+        </div>
+      ) : (
+        <ConnectWalletButton />
+      )}
       {run.isError ? (
-        <p role="alert" className="text-sm text-high">
+        <p role="alert" className="text-sm text-danger">
           {errorOf(run.error)}
         </p>
       ) : null}
-      <Button
-        variant="primary"
-        type="button"
-        isDisabled={!isConnected || run.isPending}
-        onPress={() => run.mutate()}
-        className="self-start"
-      >
-        {run.isPending ? "Đang chờ chữ ký trong ví…" : "Ký để đăng nhập"}
-      </Button>
-    </Card>
+    </div>
   );
 }
 
 // ------------------------------------------------------------------ signed in
 
 function SignedIn({ me }: { me: MeResponse }) {
-  const refresh = useRefreshMe();
-  const logout = useMutation({
-    mutationFn: () => accountApi("/api/auth/logout", "POST", {}),
-    onSuccess: () => void refresh(),
-  });
-  const u = me.user;
   return (
-    <div className="flex flex-col gap-6">
-      <Card
-        title="Hồ sơ"
-        actions={
-          <Button
-            variant="secondary"
-            type="button"
-            isDisabled={logout.isPending}
-            onPress={() => logout.mutate()}
-          >
-            Đăng xuất
-          </Button>
-        }
-      >
-        <Facts
-          rows={[
-            [
-              "Email",
-              u.email
-                ? `${u.email}${u.emailVerified ? "" : " (chưa xác minh)"}`
-                : "Chưa có (tài khoản chỉ dùng ví)",
-            ],
-            ["Tên hiển thị", u.displayName ?? "Chưa đặt"],
-            [
-              "Phiên này đăng nhập bằng",
-              me.session.method === "siwe" ? "Chữ ký ví (SIWE)" : "Email và mật khẩu",
-            ],
-            ["Tạo lúc", formatTime(u.createdAt)],
-            ["Đăng nhập gần nhất", u.lastLoginAt ? formatTime(u.lastLoginAt) : "—"],
-          ]}
-        />
-        <ProfileForm current={u.displayName ?? ""} />
-        {u.hasPassword ? null : <AddPassword />}
-      </Card>
-      <Wallets me={me} />
+    <div className="flex flex-col gap-4">
       <Vaults me={me} />
-      <Card title="Hoạt động bảo mật">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Wallets me={me} />
+        <Profile me={me} />
+      </div>
+      <Card title="Lịch sử bảo mật">
         {me.events.length === 0 ? (
           <Empty>Chưa có sự kiện nào.</Empty>
         ) : (
-          <ul className="flex flex-col gap-2 text-sm">
-            {me.events.map((e, i) => (
-              <li key={`${e.createdAt}-${i}`} className="flex flex-wrap justify-between gap-2">
+          <ul className="flex flex-col divide-y divide-separator text-sm">
+            {me.events.slice(0, 12).map((e, i) => (
+              <li
+                key={`${e.createdAt}-${i}`}
+                className="flex flex-wrap justify-between gap-2 py-2 first:pt-0 last:pb-0"
+              >
                 <span>
-                  {EVENT_LABEL[e.event] ?? e.event}
+                  {eventLabel(e.event)}
                   {typeof e.detail?.address === "string" ? (
-                    <span className="ml-2 font-mono text-xs text-muted">{e.detail.address}</span>
+                    <span className="ml-2 font-mono text-xs text-muted">{shortHex(e.detail.address)}</span>
                   ) : null}
                 </span>
                 <span className="text-muted tabular-nums">{formatTime(e.createdAt)}</span>
@@ -246,292 +261,327 @@ function SignedIn({ me }: { me: MeResponse }) {
   );
 }
 
-function ProfileForm({ current }: { current: string }) {
+function Vaults({ me }: { me: MeResponse }) {
   const refresh = useRefreshMe();
-  const [name, setName] = useState(current);
-  const save = useMutation({
-    mutationFn: () => accountApi("/api/account/profile", "PATCH", { displayName: name }),
-    onSuccess: () => void refresh(),
-  });
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        save.mutate();
-      }}
-      className="flex flex-wrap items-end gap-3 border-t border-line pt-4"
-    >
-      <Field id="profile-name" label="Đổi tên hiển thị">
-        <input
-          id="profile-name"
-          maxLength={60}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={INPUT}
-        />
-      </Field>
-      <Button variant="secondary" type="submit" isDisabled={save.isPending || name === current}>
-        Lưu
-      </Button>
-      {save.isError ? (
-        <p role="alert" className="w-full text-sm text-high">
-          {errorOf(save.error)}
-        </p>
-      ) : null}
-    </form>
-  );
-}
-
-function AddPassword() {
-  const refresh = useRefreshMe();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const add = useMutation({
-    mutationFn: () => accountApi("/api/account/password", "POST", { email, password }),
-    onSuccess: () => {
-      setPassword("");
-      void refresh();
+  const router = useRouter();
+  const confirm = useConfirm();
+  const { address: selected, setVault } = useSelectedVault();
+  const [open, setOpen] = useState(false);
+  const [vault, setVaultInput] = useState<string>(deployment.vault);
+  const [label, setLabel] = useState("");
+  const link = useMutation({
+    mutationFn: () => accountApi("/api/account/vaults", "POST", { address: vault.trim(), label }),
+    onSuccess: async () => {
+      setLabel("");
+      setOpen(false);
+      await refresh();
+      setVault(vault.trim());
+      toast.success("Đã liên kết két", { description: "Dashboard đang hiển thị két này." });
     },
   });
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        add.mutate();
-      }}
-      className="flex flex-col gap-3 border-t border-line pt-4"
+    <Card
+      title="Két của bạn"
+      description="Chỉ liên kết được két mà chủ trên chain là một ví của bạn"
+      actions={
+        <Button size="sm" variant="secondary" onPress={() => setOpen(true)}>
+          <Plus aria-hidden="true" />
+          Liên kết két
+        </Button>
+      }
     >
-      <h3 className="text-sm font-semibold">Thêm email và mật khẩu</h3>
-      <p className="text-sm text-muted">
-        Tài khoản này chỉ đăng nhập được bằng ví. Thêm email và mật khẩu để có cách đăng nhập dự phòng.
-      </p>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field id="add-email" label="Email">
-          <input
-            id="add-email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={INPUT}
-          />
-        </Field>
-        <Field id="add-password" label="Mật khẩu (ít nhất 10 ký tự)">
-          <input
-            id="add-password"
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={10}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={INPUT}
-          />
-        </Field>
-      </div>
-      {add.isError ? (
-        <p role="alert" className="text-sm text-high">
-          {errorOf(add.error)}
-        </p>
-      ) : null}
-      <Button variant="secondary" type="submit" isDisabled={add.isPending} className="self-start">
-        Thêm cách đăng nhập
-      </Button>
-    </form>
+      {me.vaults.length === 0 ? (
+        <Empty
+          action={
+            <Button size="sm" variant="primary" onPress={() => setOpen(true)}>
+              Liên kết két
+            </Button>
+          }
+        >
+          Chưa liên kết két nào. {me.wallets.length === 0 ? "Hãy liên kết ví chủ két trước." : ""}
+        </Empty>
+      ) : (
+        <ul className="flex flex-col divide-y divide-separator">
+          {me.vaults.map((v) => {
+            const current = v.address.toLowerCase() === selected.toLowerCase();
+            return (
+              <li
+                key={v.address}
+                className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+              >
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="flex flex-wrap items-center gap-2 font-medium">
+                    {v.label ?? "Két"}
+                    {current ? (
+                      <Chip size="sm" variant="soft" color="accent">
+                        Đang xem
+                      </Chip>
+                    ) : null}
+                  </span>
+                  <span className="text-xs text-muted">
+                    <AddressLink address={v.address} /> · chủ {shortHex(v.ownerWallet)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {!current ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onPress={() => {
+                        setVault(v.address);
+                        router.push("/");
+                      }}
+                    >
+                      Xem
+                      <ArrowRight aria-hidden="true" />
+                    </Button>
+                  ) : null}
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="ghost"
+                    aria-label={`Gỡ ${v.label ?? v.address} khỏi tài khoản`}
+                    onPress={() =>
+                      confirm.ask({
+                        title: "Gỡ két khỏi tài khoản?",
+                        body: "Agent, bộ quy tắc và cảnh báo của két này trong dashboard bị gỡ theo. Két trên chain không đổi gì.",
+                        confirmLabel: "Gỡ két",
+                        onConfirm: async () => {
+                          await accountApi(`/api/account/vaults/${v.address}`, "DELETE");
+                          await refresh();
+                          toast("Đã gỡ két khỏi tài khoản");
+                        },
+                      })
+                    }
+                  >
+                    <TrashBin aria-hidden="true" />
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <EditModal
+        isOpen={open}
+        onOpenChange={(o) => {
+          link.reset();
+          setOpen(o);
+        }}
+        title="Liên kết két"
+        submitLabel={link.isPending ? "Đang đọc chủ két trên chain…" : "Liên kết"}
+        isSubmitDisabled={link.isPending || !isAddress(vault.trim())}
+        onSubmit={() => link.mutate()}
+      >
+        <TextInput
+          label="Địa chỉ két (AgentVault)"
+          value={vault}
+          onChange={setVaultInput}
+          mono
+          isRequired
+          error={
+            vault.trim() && !isAddress(vault.trim())
+              ? "Địa chỉ phải có dạng 0x và 40 ký tự hex."
+              : link.error
+                ? errorOf(link.error)
+                : null
+          }
+        />
+        <TextInput label="Tên gợi nhớ (không bắt buộc)" value={label} onChange={setLabel} maxLength={40} />
+      </EditModal>
+      {confirm.dialog}
+    </Card>
   );
 }
 
 function Wallets({ me }: { me: MeResponse }) {
   const refresh = useRefreshMe();
+  const confirm = useConfirm();
   const { address, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
-  const [confirm, setConfirm] = useState<string | null>(null);
   const link = useMutation({
     mutationFn: () => {
       if (!address) throw new Error("Hãy kết nối ví trước.");
       return signInWithWallet(address, signMessageAsync);
     },
-    onSuccess: () => void refresh(),
-  });
-  const unlink = useMutation({
-    mutationFn: (a: string) => accountApi(`/api/account/wallets/${a}`, "DELETE"),
-    onSuccess: () => {
-      setConfirm(null);
-      void refresh();
+    onSuccess: async () => {
+      await refresh();
+      toast.success("Đã liên kết ví");
     },
+    onError: (e) => toast.danger("Chưa liên kết được ví", { description: errorOf(e) }),
   });
   const connectedLinked = me.wallets.some((w) => w.address.toLowerCase() === address?.toLowerCase());
   return (
-    <Card title="Ví đã liên kết">
-      <p className="text-sm text-muted">
-        Mỗi ví được thêm bằng một chữ ký chứng minh bạn giữ ví đó. Một ví chỉ thuộc một tài khoản.
-      </p>
+    <Card title="Ví đã liên kết" description="Mỗi ví được thêm bằng một chữ ký chứng minh bạn giữ ví đó">
       {me.wallets.length === 0 ? (
         <Empty>Chưa có ví nào.</Empty>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col divide-y divide-separator">
           {me.wallets.map((w) => (
-            <li key={w.address} className="flex flex-col gap-2 rounded-[18px] bg-surface-2 p-4">
-              <div className="flex flex-wrap items-center gap-2">
+            <li
+              key={w.address}
+              className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+            >
+              <span className="flex flex-wrap items-center gap-2">
                 <AddressLink address={w.address} />
                 {w.isPrimary ? (
-                  <Chip variant="secondary" size="sm">
+                  <Chip size="sm" variant="secondary">
                     Ví chính
                   </Chip>
                 ) : null}
-                <span className="text-xs text-muted">xác minh {formatTime(w.verifiedAt)}</span>
-              </div>
-              {confirm === w.address ? (
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span>
-                    Gỡ ví này? Các vault liên kết qua ví này cũng bị gỡ khỏi tài khoản (không đổi gì trên
-                    chain).
-                  </span>
-                  <Button variant="danger-soft" type="button" onPress={() => unlink.mutate(w.address)}>
-                    Gỡ ví
-                  </Button>
-                  <Button variant="secondary" type="button" onPress={() => setConfirm(null)}>
-                    Huỷ
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="secondary"
-                  type="button"
-                  onPress={() => {
-                    unlink.reset();
-                    setConfirm(w.address);
-                  }}
-                  className="self-start"
-                >
-                  Gỡ
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      {unlink.isError ? (
-        <p role="alert" className="text-sm text-high">
-          {errorOf(unlink.error)}
-        </p>
-      ) : null}
-      <div className="flex flex-col gap-2 border-t border-line pt-4">
-        <WalletButton />
-        {link.isError ? (
-          <p role="alert" className="text-sm text-high">
-            {errorOf(link.error)}
-          </p>
-        ) : null}
-        <Button
-          variant="primary"
-          type="button"
-          isDisabled={!isConnected || connectedLinked || link.isPending}
-          onPress={() => link.mutate()}
-          className="self-start"
-        >
-          {connectedLinked
-            ? "Ví đang kết nối đã liên kết"
-            : link.isPending
-              ? "Đang chờ chữ ký trong ví…"
-              : "Ký để liên kết ví đang kết nối"}
-        </Button>
-      </div>
-    </Card>
-  );
-}
-
-function Vaults({ me }: { me: MeResponse }) {
-  const refresh = useRefreshMe();
-  const [vault, setVault] = useState<string>(deployment.vault);
-  const [label, setLabel] = useState("");
-  const link = useMutation({
-    mutationFn: () => accountApi("/api/account/vaults", "POST", { address: vault.trim(), label }),
-    onSuccess: () => {
-      setLabel("");
-      void refresh();
-    },
-  });
-  const unlink = useMutation({
-    mutationFn: (a: string) => accountApi(`/api/account/vaults/${a}`, "DELETE"),
-    onSuccess: () => void refresh(),
-  });
-  return (
-    <Card title="Vault đã liên kết">
-      <p className="text-sm text-muted">
-        Chỉ liên kết được vault mà hàm owner() trên chain trả về một ví của bạn. Số dư, hạn mức và agent vẫn
-        luôn được đọc trực tiếp từ chain.
-      </p>
-      {me.vaults.length === 0 ? (
-        <Empty>Chưa liên kết vault nào.</Empty>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {me.vaults.map((v) => (
-            <li key={v.address} className="flex flex-col gap-2 rounded-[18px] bg-surface-2 p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold">{v.label ?? "AgentVault"}</span>
-                <AddressLink address={v.address} />
-              </div>
-              <p className="text-xs text-muted">
-                Chủ trên chain: <span className="font-mono">{v.ownerWallet}</span> · xác minh{" "}
-                {formatTime(v.verifiedAt)}
-              </p>
+              </span>
               <Button
-                variant="secondary"
-                type="button"
-                isDisabled={unlink.isPending}
-                onPress={() => unlink.mutate(v.address)}
-                className="self-start"
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                aria-label={`Gỡ ví ${w.address}`}
+                onPress={() =>
+                  confirm.ask({
+                    title: "Gỡ ví này?",
+                    body: "Các két liên kết qua ví này cũng bị gỡ khỏi tài khoản. Không đổi gì trên chain.",
+                    confirmLabel: "Gỡ ví",
+                    onConfirm: async () => {
+                      await accountApi(`/api/account/wallets/${w.address}`, "DELETE");
+                      await refresh();
+                      toast("Đã gỡ ví");
+                    },
+                  })
+                }
               >
-                Gỡ khỏi tài khoản
+                <TrashBin aria-hidden="true" />
               </Button>
             </li>
           ))}
         </ul>
       )}
+      {NETWORK === "local" ? (
+        <p className="text-xs text-muted">Bản demo trên fork không kết nối ví.</p>
+      ) : !isConnected ? (
+        <ConnectWalletButton size="sm" variant="secondary" />
+      ) : connectedLinked ? (
+        <p className="text-xs text-muted">Ví đang kết nối đã liên kết.</p>
+      ) : (
+        <Button
+          size="sm"
+          variant="secondary"
+          className="self-start"
+          isPending={link.isPending}
+          onPress={() => link.mutate()}
+        >
+          Ký để liên kết ví {address ? shortHex(address) : ""}
+        </Button>
+      )}
+      {confirm.dialog}
+    </Card>
+  );
+}
+
+function Profile({ me }: { me: MeResponse }) {
+  const refresh = useRefreshMe();
+  const router = useRouter();
+  const u = me.user;
+  const [name, setName] = useState(u.displayName ?? "");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const save = useMutation({
+    mutationFn: () => accountApi("/api/account/profile", "PATCH", { displayName: name }),
+    onSuccess: async () => {
+      await refresh();
+      toast.success("Đã lưu tên hiển thị");
+    },
+    onError: (e) => toast.danger("Chưa lưu được", { description: errorOf(e) }),
+  });
+  const addPassword = useMutation({
+    mutationFn: () => accountApi("/api/account/password", "POST", { email, password }),
+    onSuccess: async () => {
+      setPassword("");
+      await refresh();
+      toast.success("Đã thêm email và mật khẩu");
+    },
+  });
+  const logout = useMutation({
+    mutationFn: () => accountApi("/api/auth/logout", "POST", {}),
+    onSuccess: async () => {
+      await refresh();
+      toast("Đã đăng xuất");
+      router.push("/");
+    },
+  });
+  return (
+    <Card
+      title="Hồ sơ"
+      actions={
+        <Button size="sm" variant="tertiary" isPending={logout.isPending} onPress={() => logout.mutate()}>
+          Đăng xuất
+        </Button>
+      }
+    >
+      <Facts
+        rows={[
+          ["Email", u.email ? `${u.email}${u.emailVerified ? "" : " (chưa xác minh)"}` : "Chưa có"],
+          ["Phiên này", me.session.method === "siwe" ? "Đăng nhập bằng ví" : "Đăng nhập bằng email"],
+          ["Tạo lúc", formatTime(u.createdAt)],
+        ]}
+      />
       <form
+        className="flex flex-wrap items-end gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          link.mutate();
+          save.mutate();
         }}
-        className="flex flex-col gap-3 border-t border-line pt-4"
       >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr]">
-          <Field id="vault-address" label="Địa chỉ AgentVault">
-            <input
-              id="vault-address"
-              required
-              spellCheck={false}
-              value={vault}
-              onChange={(e) => setVault(e.target.value)}
-              className={`${INPUT} font-mono`}
-            />
-          </Field>
-          <Field id="vault-label" label="Tên gợi nhớ (không bắt buộc)">
-            <input
-              id="vault-label"
-              maxLength={40}
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              className={INPUT}
-            />
-          </Field>
+        <div className="min-w-48 flex-1">
+          <TextInput label="Tên hiển thị" value={name} onChange={setName} maxLength={60} />
         </div>
-        {link.isError ? (
-          <p role="alert" className="text-sm text-high">
-            {errorOf(link.error)}
-          </p>
-        ) : null}
-        {unlink.isError ? (
-          <p role="alert" className="text-sm text-high">
-            {errorOf(unlink.error)}
-          </p>
-        ) : null}
-        <Button variant="primary" type="submit" isDisabled={link.isPending} className="self-start">
-          {link.isPending ? "Đang đọc owner() trên chain…" : "Liên kết vault"}
+        <Button
+          type="submit"
+          variant="secondary"
+          isPending={save.isPending}
+          isDisabled={name === (u.displayName ?? "")}
+        >
+          Lưu
         </Button>
       </form>
+      {u.hasPassword ? null : (
+        <Expand label="Thêm cách đăng nhập bằng email">
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              addPassword.mutate();
+            }}
+          >
+            <TextField type="email" autoComplete="email" isRequired value={email} onChange={setEmail}>
+              <Label>Email</Label>
+              <Input />
+            </TextField>
+            <TextField
+              type="password"
+              autoComplete="new-password"
+              isRequired
+              minLength={10}
+              value={password}
+              onChange={setPassword}
+            >
+              <Label>Mật khẩu (ít nhất 10 ký tự)</Label>
+              <Input />
+            </TextField>
+            {addPassword.isError ? (
+              <p role="alert" className="text-sm text-danger">
+                {errorOf(addPassword.error)}
+              </p>
+            ) : null}
+            <Button
+              type="submit"
+              variant="secondary"
+              className="self-start"
+              isPending={addPassword.isPending}
+            >
+              Thêm email và mật khẩu
+            </Button>
+          </form>
+        </Expand>
+      )}
     </Card>
   );
 }

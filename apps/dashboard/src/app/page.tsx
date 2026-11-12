@@ -1,467 +1,311 @@
 "use client";
-// Tổng quan: vault balances, remaining daily caps, policy summary, agent and guardian addresses (SPEC §11).
-import { useState, type ReactNode } from "react";
-import Link from "next/link";
-import { Button } from "@heroui/react/button";
-import { Chip } from "@heroui/react/chip";
+// Tổng quan: is my money fine, and is there anything to deal with? Balance (and withdrawing it), today's
+// spending against the daily limit, what needs attention, and the latest activity.
+import { ArrowDownToLine, ArrowRight, CircleCheckFill, CircleDashed } from "@gravity-ui/icons";
+import { Button, buttonVariants } from "@heroui/react/button";
+import { Description } from "@heroui/react/description";
+import { Label } from "@heroui/react/label";
+import { Meter } from "@heroui/react/meter";
+import { NumberField } from "@heroui/react/number-field";
+import NextLink from "next/link";
+import { useState } from "react";
 import { erc20Abi } from "viem";
-import { useReadContract } from "wagmi";
-import { fromDataUri, getErc8004Record } from "@guardian402/shared";
-import { AddressLink, Card, ErrorBox, Facts, Loading, PageHeader, RiskBadge, TxLink } from "@/components/ui";
-import { errorText, useChecks, useGuardianHealth } from "@/lib/api";
-import { NETWORK, deployment, tokenMeta } from "@/lib/config";
-import { formatAmount, formatTime, ZERO_ADDRESS } from "@/lib/format";
-import { ENDPOINT_LABEL, RISK_LABEL, ruleLabel } from "@/lib/labels";
-import { useSelectedVault } from "@/lib/vault-context";
+import { useReadContract, useWriteContract } from "wagmi";
+import { avalancheFuji } from "wagmi/chains";
+import { agentVaultAbi } from "@guardian402/shared";
+import { ActivityDrawer, ActivityList, ActivityState } from "@/components/activity-view";
+import { EditModal } from "@/components/edit-modal";
+import { useOwnerAction } from "@/components/owner-action";
+import { AddressLink, Card, ErrorBox, PageHeader, Term } from "@/components/ui";
+import { useOwnerGate } from "@/components/wallet";
+import { needsAttention, type ActivityItem } from "@/lib/activity";
+import { useActivity } from "@/lib/activity-hooks";
+import { deployment, tokenMeta } from "@/lib/config";
+import { formatAmount, fromUnits, toUnits, ZERO_ADDRESS } from "@/lib/format";
+import { DEMO_NAME, PAGE } from "@/lib/labels";
 import { useVaultPolicy } from "@/lib/vault";
+import { useSelectedVault } from "@/lib/vault-context";
 
-const RISK_BY_CODE = ["LOW", "MEDIUM", "HIGH"] as const;
-// ERC-8004 identity of the Guardian on Fuji (bonus B1), written by `pnpm erc8004:fuji`.
-const IDENTITY = NETWORK === "fuji" ? getErc8004Record() : undefined;
-const IDENTITY_FILE = IDENTITY ? fromDataUri(IDENTITY.agentURI) : undefined;
+type Policy = NonNullable<ReturnType<typeof useVaultPolicy>["data"]>;
 
 export default function Overview() {
   const { address: vault } = useSelectedVault();
   const policy = useVaultPolicy();
-  const health = useGuardianHealth();
-  const checks = useChecks(50);
-  const [riskFilter, setRiskFilter] = useState<"all" | "high" | "other">("all");
-  const visibleChecks = (checks.data?.checks ?? [])
-    .filter((c) => riskFilter === "all" || (riskFilter === "high" ? c.risk === "HIGH" : c.risk !== "HIGH"))
-    .slice(0, 4);
   const p = policy.data;
+  const activity = useActivity(50);
+  const [open, setOpen] = useState<ActivityItem | null>(null);
+  const attention = activity.items.filter(needsAttention).slice(0, 3);
+  const recent = activity.items.slice(0, 5);
+
+  return (
+    <>
+      <PageHeader title={PAGE.home} />
+
+      {policy.isError ? (
+        <ErrorBox
+          title="Không đọc được két trên chain"
+          detail={policy.error.message.split("\n")[0]}
+          onRetry={() => void policy.refetch()}
+        />
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.25fr_1fr]">
+        <Balance vault={vault} p={p} />
+        <Today p={p} />
+      </div>
+
+      {p ? <GettingStarted p={p} /> : null}
+
+      <Card
+        title="Cần chú ý"
+        description={attention.length ? "Giao dịch rủi ro cao hoặc bị két từ chối" : undefined}
+        actions={
+          attention.length ? (
+            <NextLink href="/hoat-dong?xem=high" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+              Xem tất cả
+              <ArrowRight aria-hidden="true" />
+            </NextLink>
+          ) : null
+        }
+      >
+        <ActivityState
+          isPending={activity.isPending}
+          error={activity.checksError}
+          onRetry={activity.refetch}
+          empty={false}
+          emptyText=""
+        />
+        {!activity.isPending && attention.length === 0 ? (
+          <p className="flex items-center gap-2 text-sm text-muted">
+            <CircleCheckFill aria-hidden="true" className="size-4 text-success" />
+            Không có gì cần xử lý.
+          </p>
+        ) : null}
+        {attention.length ? <ActivityList items={attention} label="Cần chú ý" onOpen={setOpen} /> : null}
+      </Card>
+
+      <Card
+        title="Gần đây"
+        actions={
+          <NextLink href="/hoat-dong" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+            Tất cả hoạt động
+            <ArrowRight aria-hidden="true" />
+          </NextLink>
+        }
+      >
+        <ActivityState
+          isPending={activity.isPending}
+          error={activity.checksError ?? activity.eventsError}
+          onRetry={activity.refetch}
+          empty={recent.length === 0}
+          emptyText="Chưa có giao dịch nào. Thử một kịch bản ở trang Chạy thử."
+        />
+        {recent.length ? <ActivityList items={recent} label="Hoạt động gần đây" onOpen={setOpen} /> : null}
+      </Card>
+
+      <ActivityDrawer item={open} onClose={() => setOpen(null)} />
+    </>
+  );
+}
+
+function Balance({ vault, p }: { vault: `0x${string}`; p: Policy | undefined }) {
   const usdc = p?.tokens.find((t) => t.token.toLowerCase() === deployment.usdc.toLowerCase());
-  const spentPercent =
-    usdc && usdc.dailyCap > 0n
-      ? Number(((usdc.spentToday > usdc.dailyCap ? usdc.dailyCap : usdc.spentToday) * 100n) / usdc.dailyCap)
-      : 0;
-  // mWAVAX is what the vault receives from swaps; it is not a tracked token, so getPolicy() omits it.
-  const mwavax = useReadContract({
+  const wavax = useReadContract({
     address: deployment.mWAVAX,
     abi: erc20Abi,
     functionName: "balanceOf",
     args: [vault],
     query: { refetchInterval: 10_000 },
   });
+  const gate = useOwnerGate(p?.owner);
+  const owner = useOwnerAction();
+  const { writeContractAsync } = useWriteContract();
+  const [editing, setEditing] = useState(false);
+  const [amount, setAmount] = useState(0);
+  const balance = usdc?.balance ?? 0n;
+  const tooMuch = toUnits(amount, 6) > balance;
 
   return (
-    <>
-      <div className="h3-page-head">
-        <PageHeader
-          title="Tổng quan"
-          lead="Tài sản, giới hạn và hoạt động của agent. Tiền luôn nằm trong vault của chủ ví; Guardian chỉ ký verdict, không chuyển được tiền."
-        />
-        <Link
-          href="/kiem-tra"
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-accent px-5 text-sm font-semibold text-accent-fg hover:opacity-90"
-        >
-          <span className="h3-plus">+</span> Kiểm tra giao dịch
-        </Link>
+    <Card title="Số dư trong két">
+      <div className="flex flex-col gap-1">
+        <span className="text-4xl font-semibold tracking-tight tabular-nums sm:text-5xl">
+          {usdc ? formatAmount(usdc.balance, 6, 2) : "—"}
+          <span className="ml-2 text-lg font-medium text-muted">USDC</span>
+        </span>
+        <span className="text-sm text-muted tabular-nums">
+          {wavax.data !== undefined ? `${formatAmount(wavax.data, 18)} mWAVAX` : "—"}
+          <span className="sr-only"> ({DEMO_NAME.wavax})</span> ·{" "}
+          {p ? `${formatAmount(p.nativeBalance, 18)} AVAX` : "—"}
+        </span>
       </div>
-
-      {policy.isPending ? <Loading label="Đang đọc vault trên chain…" /> : null}
-      {policy.isError ? (
-        <ErrorBox
-          title="Không đọc được AgentVault"
-          detail={policy.error.message.split("\n")[0]}
-          onRetry={() => void policy.refetch()}
-        />
-      ) : null}
-
-      {!p ? (
-        <div className="h3-hero-grid">
-          <Card title="Số dư trong vault" className="h3-balance-card">
-            <div className="h3-balance">
-              —<small>USDC</small>
-            </div>
-            <p className="h3-card-note">
-              {policy.isPending ? "Đang đọc dữ liệu vault…" : "Chưa đọc được số dư vault."}
-            </p>
-          </Card>
-          <Card title="AgentVault" className="h3-agent-card">
-            <p className="h3-agent-title">Chưa có dữ liệu</p>
-            <p className="h3-card-note">Trạng thái và hạn mức sẽ hiện khi kết nối được vault.</p>
-            <Link
-              href="/dieu-khien"
-              className="mt-auto flex min-h-10 items-center justify-center rounded-xl bg-surface-2 px-4 text-sm font-semibold"
-            >
-              Chỉnh giới hạn
-            </Link>
-          </Card>
-        </div>
-      ) : null}
-      {p ? (
-        <>
-          <div className="h3-hero-grid">
-            <Card
-              title="Số dư trong vault"
-              className="h3-balance-card"
-              actions={
-                <Chip variant="secondary" size="sm">
-                  {NETWORK === "fuji" ? "Fuji testnet" : "Fork Fuji"}
-                </Chip>
-              }
-            >
-              <div className="h3-balance">
-                <span className="!text-inherit">
-                  {usdc ? formatAmount(usdc.balance, tokenMeta(usdc.token).decimals) : "—"}
-                </span>
-                <small>USDC</small>
-              </div>
-              <p className="h3-card-note">Chủ ví sở hữu tài sản. Guardian chỉ ký verdict.</p>
-              <div className="h3-balance-footer">
-                <div className="h3-token-summary">
-                  <strong className="text-base tabular-nums">
-                    {mwavax.data !== undefined ? formatAmount(mwavax.data, 18) : "—"}
-                  </strong>
-                  <span className="text-xs text-muted">mWAVAX · mock</span>
-                </div>
-                <div className="h3-token-summary">
-                  <strong className="text-base tabular-nums">{formatAmount(p.nativeBalance, 18)}</strong>
-                  <span className="text-xs text-muted">AVAX · testnet</span>
-                </div>
-                <Link
-                  href="#chi-tiet-vault"
-                  className="ml-auto rounded-xl bg-surface-2 px-4 py-2.5 text-sm font-semibold"
-                >
-                  Xem vault ↗
-                </Link>
-              </div>
-            </Card>
-            <Card title="AgentVault" className="h3-agent-card">
-              <div>
-                <p className="h3-agent-title">{p.paused ? "Đã tạm dừng" : "Đang hoạt động"}</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted">
-                  {p.paused
-                    ? "Giao dịch mới của agent bị từ chối."
-                    : "Agent có thể gửi giao dịch trong giới hạn."}
-                </p>
-              </div>
-              <div>
-                <div className="mb-2 flex flex-wrap justify-between gap-2 text-xs text-muted">
-                  <span>Đã chi hôm nay</span>
-                  <strong className="text-fg tabular-nums">
-                    {usdc ? formatAmount(usdc.spentToday, tokenMeta(usdc.token).decimals) : "—"} /{" "}
-                    {usdc ? formatAmount(usdc.dailyCap, tokenMeta(usdc.token).decimals) : "—"} USDC
-                  </strong>
-                </div>
-                <div
-                  className="h-2 overflow-hidden rounded-full bg-surface-2"
-                  role="progressbar"
-                  aria-label="Hạn mức USDC đã chi hôm nay"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={spentPercent}
-                >
-                  <div className="h-full rounded-full bg-accent" style={{ width: `${spentPercent}%` }} />
-                </div>
-              </div>
-              <Link
-                href="/dieu-khien"
-                className="mt-auto flex min-h-10 items-center justify-center rounded-xl bg-surface-2 px-4 text-sm font-semibold hover:bg-line"
-              >
-                Chỉnh giới hạn
-              </Link>
-            </Card>
-          </div>
-        </>
-      ) : null}
-
-      <Card
-        className="h3-activity-card"
-        title="Hoạt động gần đây"
-        actions={
-          <Link href="/hoat-dong" className="text-sm font-semibold text-muted hover:text-fg">
-            Xem tất cả →
-          </Link>
-        }
-      >
-        <p className="text-xs text-muted">
-          Các lần kiểm tra của vault này trong 200 lần gần nhất trên Guardian; xem kết quả thực thi trong Hoạt
-          động.
-        </p>
-        <div
-          className="inline-flex w-fit flex-wrap gap-1 rounded-xl bg-surface-2 p-1"
-          aria-label="Lọc lần kiểm tra"
+      <p className="text-sm text-muted">Tiền nằm trong két của bạn. Guardian chỉ duyệt, không rút được.</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          isDisabled={!gate.ok || balance === 0n}
+          onPress={() => {
+            setAmount(fromUnits(balance, 6));
+            setEditing(true);
+          }}
         >
-          {(
-            [
-              ["all", "Tất cả"],
-              ["high", "Rủi ro cao"],
-              ["other", "Thấp và trung bình"],
-            ] as const
-          ).map(([value, label]) => (
-            <Button
-              variant="secondary"
-              key={value}
-              type="button"
-              aria-pressed={riskFilter === value}
-              onPress={() => setRiskFilter(value)}
-              className={`min-h-9 rounded-lg px-3 text-xs font-semibold ${riskFilter === value ? "bg-surface text-fg shadow-sm" : "text-muted"}`}
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
-        {checks.isPending ? <Loading /> : null}
-        {checks.isError ? (
-          <ErrorBox
-            title="Không tải được danh sách kiểm tra"
-            detail={errorText(checks.error)}
-            onRetry={() => void checks.refetch()}
-          />
+          <ArrowDownToLine aria-hidden="true" />
+          Rút về ví chủ
+        </Button>
+        {!gate.ok && gate.reason !== "loading" ? (
+          <span className="text-xs text-muted">{gate.message}</span>
         ) : null}
-        {checks.data && visibleChecks.length === 0 ? (
-          <p className="py-4 text-sm text-muted">Không có lần kiểm tra phù hợp.</p>
-        ) : null}
-        {checks.data && visibleChecks.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[32rem] text-left text-sm">
-              <caption className="sr-only">Các lần Guardian kiểm tra gần đây</caption>
-              <thead className="rounded-xl bg-surface-2 text-xs text-muted">
-                <tr>
-                  <th className="rounded-l-xl p-3 font-semibold" scope="col">
-                    Kiểm tra
-                  </th>
-                  <th className="p-3 font-semibold" scope="col">
-                    Rủi ro
-                  </th>
-                  <th className="p-3 font-semibold" scope="col">
-                    Luật phát hiện
-                  </th>
-                  <th className="rounded-r-xl p-3 text-right font-semibold" scope="col">
-                    Thời gian
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleChecks.map((c) => (
-                  <tr key={c.checkId} className="border-b border-line last:border-0">
-                    <td className="py-4 pr-3 font-semibold">{ENDPOINT_LABEL[c.endpoint] ?? c.endpoint}</td>
-                    <td className="py-4 pr-3">
-                      <RiskBadge risk={c.risk} />
-                    </td>
-                    <td className="py-4 pr-3 text-xs text-muted">
-                      {c.ruleIds.length ? c.ruleIds.map(ruleLabel).join(", ") : "Không có"}
-                    </td>
-                    <td className="py-4 text-right text-xs text-muted">{formatTime(c.createdAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-      </Card>
+      </div>
+      <EditModal
+        isOpen={editing}
+        onOpenChange={setEditing}
+        title="Rút USDC về ví chủ"
+        isSubmitDisabled={amount <= 0 || tooMuch}
+        onSubmit={() => {
+          setEditing(false);
+          if (!p) return;
+          const raw = toUnits(amount, 6);
+          owner.request({
+            title: "Rút USDC về ví chủ",
+            summary: (
+              <>
+                Chuyển {formatAmount(raw, 6, 6)} USDC từ két về ví chủ <AddressLink address={p.owner} />.
+              </>
+            ),
+            changes: [
+              {
+                label: "Số dư két",
+                before: `${formatAmount(balance, 6, 6)} USDC`,
+                after: `${formatAmount(balance - raw, 6, 6)} USDC`,
+              },
+            ],
+            call: `AgentVault.withdraw(USDC, ${p.owner}, ${raw})`,
+            confirmLabel: "Ký và rút",
+            successTitle: "Đã rút về ví chủ",
+            send: () =>
+              writeContractAsync({
+                address: vault,
+                abi: agentVaultAbi,
+                functionName: "withdraw",
+                args: [deployment.usdc, p.owner, raw],
+                chainId: avalancheFuji.id,
+              }),
+          });
+        }}
+      >
+        <NumberField
+          value={amount}
+          onChange={setAmount}
+          minValue={0}
+          maxValue={fromUnits(balance, 6)}
+          step={0.5}
+          formatOptions={{ maximumFractionDigits: 6 }}
+          isInvalid={tooMuch}
+          autoFocus
+        >
+          <Label>Số tiền (USDC)</Label>
+          <NumberField.Group>
+            <NumberField.DecrementButton />
+            <NumberField.Input className="tabular-nums" />
+            <NumberField.IncrementButton />
+          </NumberField.Group>
+          <Description>Có trong két: {formatAmount(balance, 6, 6)} USDC</Description>
+        </NumberField>
+      </EditModal>
+      {owner.dialog}
+    </Card>
+  );
+}
 
-      {p ? (
+function Today({ p }: { p: Policy | undefined }) {
+  const usdc = p?.tokens.find((t) => t.token.toLowerCase() === deployment.usdc.toLowerCase());
+  const m = tokenMeta(deployment.usdc);
+  const percent =
+    usdc && usdc.dailyCap > 0n
+      ? Number(
+          ((usdc.spentToday > usdc.dailyCap ? usdc.dailyCap : usdc.spentToday) * 1000n) / usdc.dailyCap,
+        ) / 10
+      : 0;
+  const left = usdc ? (usdc.dailyCap > usdc.spentToday ? usdc.dailyCap - usdc.spentToday : 0n) : 0n;
+  return (
+    <Card
+      title="Agent đã tiêu hôm nay"
+      actions={
+        <NextLink href="/quy-tac" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+          Sửa quy tắc
+        </NextLink>
+      }
+    >
+      {usdc ? (
         <>
-          <Card title="Hạn mức hôm nay">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[34rem] text-left text-sm">
-                <caption className="sr-only">Hạn mức chi tiêu trong ngày theo token</caption>
-                <thead className="text-xs text-muted">
-                  <tr>
-                    <th scope="col" className="py-2 pr-3 font-medium">
-                      Token
-                    </th>
-                    <th scope="col" className="py-2 pr-3 font-medium">
-                      Hạn mức/ngày
-                    </th>
-                    <th scope="col" className="py-2 pr-3 font-medium">
-                      Đã chi
-                    </th>
-                    <th scope="col" className="py-2 pr-3 font-medium">
-                      Còn lại
-                    </th>
-                    <th scope="col" className="py-2 font-medium">
-                      Cần verdict từ
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="tabular-nums">
-                  {p.tokens.map((t) => {
-                    const m = tokenMeta(t.token);
-                    const left = t.dailyCap > t.spentToday ? t.dailyCap - t.spentToday : 0n;
-                    return (
-                      <tr key={t.token} className="border-t border-line">
-                        <th scope="row" className="py-2 pr-3 font-medium">
-                          {m.symbol}
-                        </th>
-                        <td className="py-2 pr-3">{formatAmount(t.dailyCap, m.decimals)}</td>
-                        <td className="py-2 pr-3">{formatAmount(t.spentToday, m.decimals)}</td>
-                        <td className="py-2 pr-3 font-semibold">{formatAmount(left, m.decimals)}</td>
-                        <td className="py-2">{formatAmount(t.verdictThreshold, m.decimals)}</td>
-                      </tr>
-                    );
-                  })}
-                  <tr className="border-t border-line">
-                    <th scope="row" className="py-2 pr-3 font-medium">
-                      AVAX
-                    </th>
-                    <td className="py-2 pr-3">{formatAmount(p.nativeDailyCap, 18)}</td>
-                    <td className="py-2 pr-3">{formatAmount(p.nativeSpentToday, 18)}</td>
-                    <td className="py-2 pr-3 font-semibold">
-                      {formatAmount(
-                        p.nativeDailyCap > p.nativeSpentToday ? p.nativeDailyCap - p.nativeSpentToday : 0n,
-                        18,
-                      )}
-                    </td>
-                    <td className="py-2">{formatAmount(p.nativeVerdictThreshold, 18)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <p className="text-xs text-muted">
-              Số đã chi tính ròng theo từng batch và đặt lại mỗi ngày (UTC). Batch vượt ngưỡng ở cột cuối phải
-              kèm verdict của Guardian.
-            </p>
-          </Card>
-
-          <div id="chi-tiet-vault" className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-            <Card title="Chính sách">
-              <Facts
-                rows={[
-                  [
-                    "Rủi ro tối đa",
-                    `Agent chỉ được chạy batch có verdict rủi ro ${RISK_LABEL[RISK_BY_CODE[p.maxAgentRisk] ?? "HIGH"]}`,
-                  ],
-                  [
-                    "Hợp đồng được gọi",
-                    <ul key="t" className="flex flex-col gap-1">
-                      {p.targets.map((t) => (
-                        <li key={t.target}>
-                          <AddressLink address={t.target} />{" "}
-                          <span className="text-xs text-muted">· {t.selectors.length} hàm</span>
-                        </li>
-                      ))}
-                    </ul>,
-                  ],
-                  [
-                    "Người nhận được phép",
-                    p.recipients.length ? (
-                      <ul key="r" className="flex flex-col gap-1">
-                        {p.recipients.map((r) => (
-                          <li key={r}>
-                            <AddressLink address={r} />
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      "Không có"
-                    ),
-                  ],
-                  ["Nonce verdict", p.verdictNonce.toString()],
-                ]}
-              />
-            </Card>
-
-            <Card title="Vai trò">
-              <Facts
-                rows={[
-                  ["AgentVault", <AddressLink key="v" address={vault} />],
-                  ["Chủ ví (owner)", <AddressLink key="o" address={p.owner} />],
-                  ...(p.pendingOwner !== ZERO_ADDRESS
-                    ? ([["Owner chờ nhận", <AddressLink key="po" address={p.pendingOwner} />]] as [
-                        string,
-                        ReactNode,
-                      ][])
-                    : []),
-                  [
-                    "Agent",
-                    p.agent === ZERO_ADDRESS ? "Đã thu hồi" : <AddressLink key="a" address={p.agent} />,
-                  ],
-                  ["Guardian (ký verdict)", <AddressLink key="g" address={p.guardian} />],
-                ]}
-              />
-            </Card>
-          </div>
+          <Meter
+            value={percent}
+            color={percent >= 90 ? "danger" : percent >= 70 ? "warning" : "accent"}
+            valueLabel={`${formatAmount(usdc.spentToday, m.decimals)} / ${formatAmount(usdc.dailyCap, m.decimals)} USDC`}
+            className="w-full"
+          >
+            <Label>Hạn mức mỗi ngày</Label>
+            <Meter.Output className="tabular-nums" />
+            <Meter.Track>
+              <Meter.Fill />
+            </Meter.Track>
+          </Meter>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+            <dt className="text-muted">Còn được tiêu</dt>
+            <dd className="text-right font-medium tabular-nums">{formatAmount(left, m.decimals)} USDC</dd>
+            <dt className="text-muted">
+              <Term tip="Giao dịch từ mức này trở lên phải kèm phê duyệt của Guardian, nếu không két từ chối.">
+                Cần Guardian duyệt từ
+              </Term>
+            </dt>
+            <dd className="text-right font-medium tabular-nums">
+              {formatAmount(usdc.verdictThreshold, m.decimals)} USDC
+            </dd>
+            <dt className="text-muted">Agent</dt>
+            <dd className="flex justify-end">
+              {p?.agent === ZERO_ADDRESS ? "Chưa có" : p ? <AddressLink address={p.agent} /> : "—"}
+            </dd>
+          </dl>
+          <p className="text-xs text-muted">Hạn mức đặt lại lúc 07:00 mỗi ngày (00:00 UTC).</p>
         </>
-      ) : null}
+      ) : (
+        <p className="text-sm text-muted">{p ? "Két chưa đặt hạn mức USDC." : "Đang đọc két…"}</p>
+      )}
+    </Card>
+  );
+}
 
-      <Card title="Guardian API">
-        {health.isPending ? <Loading /> : null}
-        {health.isError ? (
-          <ErrorBox
-            title="Guardian không phản hồi"
-            detail={errorText(health.error)}
-            onRetry={() => void health.refetch()}
-          />
-        ) : null}
-        {health.data ? (
-          <Facts
-            rows={[
-              [
-                "Trạng thái",
-                health.data.ok
-                  ? "Đang chạy, fork mô phỏng sẵn sàng"
-                  : "Đang chạy, fork mô phỏng chưa sẵn sàng",
-              ],
-              ["Mạng", health.data.network],
-              [
-                "Khoá ký verdict",
-                <span key="s" className="flex flex-wrap items-baseline gap-2">
-                  <AddressLink address={health.data.signer} />
-                  {p ? (
-                    p.guardian.toLowerCase() === health.data.signer.toLowerCase() ? (
-                      <span className="text-xs text-low">✓ khớp guardian của vault</span>
-                    ) : (
-                      <span className="text-xs text-high">
-                        ✗ khác guardian của vault: verdict sẽ bị từ chối
-                      </span>
-                    )
-                  ) : null}
-                </span>,
-              ],
-              ["Nhận phí x402", <AddressLink key="p" address={health.data.payTo} />],
-              ["Block của fork", health.data.forkBlock ?? "chưa có"],
-            ]}
-          />
-        ) : null}
-      </Card>
-
-      {IDENTITY && IDENTITY_FILE ? (
-        <Card title="Danh tính ERC-8004">
-          <Facts
-            rows={[
-              [
-                "Agent",
-                <span key="id" className="flex flex-wrap items-baseline gap-2">
-                  <Chip variant="secondary" size="sm">
-                    {IDENTITY_FILE.name} #{IDENTITY.agentId}
-                  </Chip>
-                  <Chip color="success" variant="soft" size="sm">
-                    Đã đăng ký trên Fuji
-                  </Chip>
-                </span>,
-              ],
-              ["IdentityRegistry", <AddressLink key="r" address={IDENTITY.identityRegistry} />],
-              ["Chủ sở hữu danh tính", <AddressLink key="o" address={IDENTITY.owner} />],
-              ["Nhận thanh toán x402", IDENTITY_FILE.x402Support ? "Có" : "Không"],
-              [
-                "Dịch vụ công bố",
-                <ul key="s" className="flex flex-col gap-1">
-                  {IDENTITY_FILE.services.map((s) => (
-                    <li key={s.name} className="break-all text-xs">
-                      {s.name}: {s.endpoint}
-                    </li>
-                  ))}
-                </ul>,
-              ],
-              [
-                "Giao dịch",
-                <span key="tx" className="flex flex-wrap gap-3">
-                  <TxLink hash={IDENTITY.registerTx} label="đăng ký" />
-                  <TxLink hash={IDENTITY.uriTx} label="file mô tả" />
-                </span>,
-              ],
-            ]}
-          />
-          <p className="text-xs text-muted">
-            Sổ danh tính agent theo chuẩn ERC-8004: agent khác tra agentId này để tìm Guardian và đọc file mô
-            tả lưu ngay trên chain.
-          </p>
-        </Card>
-      ) : null}
-    </>
+/** The first three things a new owner does. Shown only until all three are done. */
+function GettingStarted({ p }: { p: Policy }) {
+  const usdc = p.tokens.find((t) => t.token.toLowerCase() === deployment.usdc.toLowerCase());
+  const steps = [
+    { done: (usdc?.balance ?? 0n) > 0n, label: "Nạp USDC vào két", href: null },
+    { done: (usdc?.dailyCap ?? 0n) > 0n, label: "Đặt quy tắc chi tiêu", href: "/quy-tac" },
+    { done: p.agent !== ZERO_ADDRESS, label: "Kết nối agent", href: "/agent" },
+  ];
+  if (steps.every((s) => s.done)) return null;
+  return (
+    <Card title="Bắt đầu" description="Ba việc để agent chi tiêu an toàn từ két này">
+      <ol className="flex flex-col gap-2">
+        {steps.map((s) => (
+          <li key={s.label} className="flex items-center gap-3 text-sm">
+            {s.done ? (
+              <CircleCheckFill aria-hidden="true" className="size-4 text-success" />
+            ) : (
+              <CircleDashed aria-hidden="true" className="size-4 text-muted" />
+            )}
+            <span className={s.done ? "text-muted line-through" : "font-medium"}>{s.label}</span>
+            {!s.done && s.href ? (
+              <NextLink href={s.href} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                Làm ngay
+              </NextLink>
+            ) : null}
+            {!s.done && !s.href ? (
+              <span className="text-xs text-muted">Gửi USDC tới địa chỉ két ở thanh bên</span>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </Card>
   );
 }

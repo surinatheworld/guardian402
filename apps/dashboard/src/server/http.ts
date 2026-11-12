@@ -67,10 +67,10 @@ export function workspace(): Workspace {
     chainId: FUJI_CHAIN_ID,
     capToken: deployment.usdc,
     known: [
-      { name: "MockRouter", address: deployment.router },
+      { name: "Sàn swap thử nghiệm", address: deployment.router },
       { name: "USDC", address: deployment.usdc },
-      { name: "mWAVAX", address: deployment.mWAVAX },
-      { name: "MockOracle", address: deployment.oracle },
+      { name: "WAVAX thử nghiệm", address: deployment.mWAVAX },
+      { name: "Bảng giá thử nghiệm", address: deployment.oracle },
     ],
   });
   return gw.__g402Workspace;

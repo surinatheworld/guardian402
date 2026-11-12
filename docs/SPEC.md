@@ -473,14 +473,15 @@ Scenarios (CLI `pnpm agent scenario <id>`, and a local control API `POST /scenar
 
 | Page | Content | Data |
 | --- | --- | --- |
-| Tổng quan | vault balances, remaining daily caps, policy summary, agent and guardian addresses, DEMO MODE banner | Fuji RPC, `/v1/health` |
-| Hoạt động | recent checks with risk badge, findings, explanation; vault `Executed` events | `/v1/checks`, `getLogs` |
-| Đã chặn | HIGH checks and reverted attempts with reasons | `/v1/checks`, agent `/attempts` |
-| Doanh thu | x402 payments count and sum, settlement links | `/v1/stats` |
-| Kiểm tra giao dịch | paste a calls JSON or pick a scenario, see the result | `/v1/demo/check` (DEMO only) |
-| Điều khiển | owner actions with wagmi: pause/unpause, revoke agent, change caps; scenario buttons (DEMO only) | AgentVault, agent control API |
-| Quản lý vault | per linked vault, six tabs: Agent (connected agents, live `agent()`, policy state, Guardian API keys and the REST integration guide; wallet revocation kept separate), Policy (library and builder with summary and "Thử policy", assignment to agents, apply = owner transactions in a safe order), Danh bạ (address book, live allowlist, lookalike guard), Thay đổi on-chain (draft → sign in the wallet → verified on chain), Cảnh báo (rules and notifications), Kiểm tra (reviews of Guardian checks); `#agent`, `#policy`, `#danh-ba`, `#chinh-sach`, `#canh-bao`, `#kiem-tra` open a tab | dashboard `/api/vaults/:vault/*`, `/api/policies`, `/api/agent/v1/*` |
-| Tài khoản | sign in with email + password or with the wallet (SIWE, EIP-4361); profile, linked wallets, linked AgentVaults, security events | dashboard `/api/auth/*`, `/api/account/*`, AgentVault `owner()` |
+| Tổng quan | vault balance and withdraw to the owner, today's spending against the daily cap, what needs attention (high risk or rejected), recent activity, first-run checklist | Fuji RPC, `/v1/checks`, `getLogs`, agent `/attempts` |
+| Hoạt động | one feed of Guardian checks, vault `Executed` events and demo agent attempts, each as a three-stop journey (Agent đề xuất → Guardian kiểm tra → Két quyết định); filters Tất cả / Rủi ro cao / Két đã từ chối / Đã thực hiện; a detail drawer (money effect, reasons, explanation, owner review, technical details); alert settings of a linked vault | `/v1/checks`, `/v1/checks/:checkId`, `getLogs`, agent `/attempts`, dashboard `/api/vaults/:vault/{checks,alert-rules}` |
+| Chạy thử | pick a scenario, write a USDC transfer or paste calls; "Chỉ mô phỏng" (free, nothing sent) or "Chạy thật" (the demo agent pays x402 and sends the transaction) | `/v1/demo/check` (DEMO only), agent control API |
+| Quy tắc chi tiêu | daily caps per asset, maximum risk, trusted recipients (lookalike guard), allowed apps, each changed with a reviewed owner transaction; rule sets per agent (library, builder, "Thử", assignment, apply) and changes waiting for the wallet | AgentVault, dashboard `/api/policies`, `/api/vaults/:vault/*` |
+| Agent | the vault's current agent (remove it), registered agents with their rule set, Guardian API keys, pause at the Guardian, the REST integration guide | AgentVault, dashboard `/api/vaults/:vault/agents*`, `/api/agent/v1/*` |
+| Tài khoản | sign in with the wallet (SIWE, EIP-4361) or email + password, return to the page that asked; linked vaults, wallets, profile, security events | dashboard `/api/auth/*`, `/api/account/*`, AgentVault `owner()` |
+| Về Guardian | how the Guardian protects a vault, service status and signer check, x402 fees and latency (the former Doanh thu) | `/v1/health`, `/v1/stats` |
+
+The top bar carries the protection status and the emergency lock (pause/unpause) on every page; owner transactions show before → after, then wallet, sent and confirmed steps and a toast.
 
 - Wallets: injected connector (Core, MetaMask) on Fuji.
 - Every owner action opens a confirmation dialog that shows exactly what changes.
@@ -615,7 +616,7 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
     - Public settings are `NEXT_PUBLIC_NETWORK`, `NEXT_PUBLIC_RPC_URL`, `NEXT_PUBLIC_GUARDIAN_URL`, `NEXT_PUBLIC_AGENT_URL`. The dashboard has no `DEMO_MODE` of its own: the banner shows when the Guardian's `/v1/health` reports `demoMode` or the agent control API answers.
     - The public Fuji RPC limits `eth_getLogs` to 100 blocks, so on Fuji the `Executed` events come from Routescan's Etherscan-compatible API (`api.routescan.io/v2/network/testnet/evm/43113/etherscan/api`, the backend of testnet.snowtrace.io; no key, open CORS). On the local fork the dashboard reads the last 100 blocks from the fork.
     - `GET /v1/checks` rows also carry `ruleIds`, `explanation` and `paymentTx`, so the activity page needs one request.
-    - Đã chặn shows only agent attempts from the dashboard's own network (fork hashes are not on Snowtrace).
+    - Agent attempts from another network still give their check its vault outcome, but get no transaction link (fork hashes are not on Snowtrace); attempts on their own are listed only from the dashboard's network.
     - The vault's mWAVAX balance is read with `balanceOf`, because mWAVAX is not a tracked token and `getPolicy()` omits it.
   - §12 Eval (P10):
     - Case calls are written as a function signature plus arguments with placeholders (`{usdc}`, `{router}`, `{attacker}`, `{lookalikeRouter}`, `{vaultUsdc}`, …); the runner encodes them. `setup` supports `vaultUsdc`, `vaultAvax` and existing `approvals`. Each case may carry a Vietnamese `note` shown in the report when it is a miss.

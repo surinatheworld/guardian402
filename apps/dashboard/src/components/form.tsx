@@ -1,10 +1,11 @@
-// Form pieces shared by the account and workspace pages: labelled fields at the 42px control height of
-// DESIGN.md, an inline error, and an inline confirmation for destructive actions.
+"use client";
+// Form helpers kept for the rule-set builder: a labelled field, an inline error, the destructive confirmation
+// (an AlertDialog while it is rendered) and a status chip that always carries a word.
+import { AlertDialog } from "@heroui/react/alert-dialog";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
+import { Label } from "@heroui/react/label";
 import type { ReactNode } from "react";
-
-export const INPUT = "min-h-[42px] w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm";
 
 export function Field({
   id,
@@ -18,10 +19,8 @@ export function Field({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
       {children}
       {hint ? <span className="text-xs text-muted">{hint}</span> : null}
     </div>
@@ -33,13 +32,13 @@ export const errorOf = (e: unknown) => (e instanceof Error ? e.message : String(
 export function FormError({ error }: { error: unknown }) {
   if (!error) return null;
   return (
-    <p role="alert" className="text-sm text-high">
+    <p role="alert" className="text-sm text-danger">
       {errorOf(error)}
     </p>
   );
 }
 
-/** "Are you sure?" in place, instead of a browser dialog. */
+/** "Are you sure?" for a destructive action: rendered only while confirming, as an AlertDialog. */
 export function ConfirmInline({
   text,
   confirmLabel,
@@ -54,19 +53,28 @@ export function ConfirmInline({
   onCancel: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label="Xác nhận">
-      <span>{text}</span>
-      <Button variant="danger-soft" type="button" isDisabled={pending === true} onPress={onConfirm}>
-        {confirmLabel}
-      </Button>
-      <Button variant="secondary" type="button" onPress={onCancel}>
-        Huỷ
-      </Button>
-    </div>
+    <AlertDialog.Backdrop isOpen onOpenChange={(open) => !open && !pending && onCancel()}>
+      <AlertDialog.Container>
+        <AlertDialog.Dialog className="sm:max-w-md">
+          <AlertDialog.Header>
+            <AlertDialog.Icon status="danger" />
+            <AlertDialog.Heading>{text}</AlertDialog.Heading>
+          </AlertDialog.Header>
+          <AlertDialog.Footer>
+            <Button slot="close" variant="tertiary" isDisabled={pending === true}>
+              Huỷ
+            </Button>
+            <Button variant="danger" isPending={pending === true} onPress={onConfirm}>
+              {confirmLabel}
+            </Button>
+          </AlertDialog.Footer>
+        </AlertDialog.Dialog>
+      </AlertDialog.Container>
+    </AlertDialog.Backdrop>
   );
 }
 
-/** A small pill for a state that is also spelled out in words (never colour alone). */
+/** A small status chip that is also spelled out in words (never colour alone). */
 export function Pill({
   tone = "neutral",
   children,
@@ -81,7 +89,7 @@ export function Pill({
     high: "danger",
   } as const;
   return (
-    <Chip color={color[tone]} variant="soft" size="sm" className="max-w-full font-semibold">
+    <Chip color={color[tone]} variant="soft" size="sm" className="max-w-full">
       <Chip.Label className="whitespace-normal break-words">{children}</Chip.Label>
     </Chip>
   );
