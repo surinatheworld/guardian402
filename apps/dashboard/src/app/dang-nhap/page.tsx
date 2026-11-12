@@ -36,7 +36,7 @@ export default function SignInPage() {
     <div className="mx-auto grid w-full max-w-5xl flex-1 items-center gap-10 py-8 lg:grid-cols-[1fr_420px] lg:gap-16">
       <section aria-labelledby="gioi-thieu" className="flex flex-col gap-8">
         <div className="flex flex-col gap-3">
-          <h1 id="gioi-thieu" className="text-title sm:text-[2.25rem] sm:leading-[1.15]">
+          <h1 id="gioi-thieu" className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Cho AI agent tiêu tiền,
             <br />
             trong giới hạn bạn đặt.
@@ -62,7 +62,7 @@ export default function SignInPage() {
         </ol>
       </section>
 
-      <Card className="w-full p-2">
+      <Card className="w-full sm:p-6">
         <Card.Header className="gap-1">
           <Card.Title className="text-heading">Đăng nhập</Card.Title>
           <Card.Description>Chưa có tài khoản thì lần đăng nhập đầu tiên sẽ tạo luôn.</Card.Description>

@@ -339,7 +339,7 @@ function Setup({
   if (left === 0) return null;
   const nextIndex = steps.findIndex((s) => !s.done);
   return (
-    <Card className="p-2">
+    <Card className="sm:p-5">
       <Card.Header className="flex flex-row flex-wrap items-baseline justify-between gap-2">
         <Card.Title className="text-heading">Còn {left} bước để agent chi tiêu được</Card.Title>
         <span className="text-sm text-muted tabular-nums">
@@ -377,7 +377,7 @@ function Setup({
 
 function Figure({ label, children, foot }: { label: string; children: ReactNode; foot?: ReactNode }) {
   return (
-    <Card className="min-w-0 p-2">
+    <Card className="min-w-0 sm:p-5">
       <Card.Header>
         <Card.Description className="text-sm font-medium">{label}</Card.Description>
       </Card.Header>
@@ -390,7 +390,7 @@ function Figure({ label, children, foot }: { label: string; children: ReactNode;
 const Amount = ({ value, unit = "USDC" }: { value: string; unit?: string }) => (
   <p className="text-display tabular-nums wrap-anywhere">
     {value}
-    <span className="ml-1.5 text-base font-medium tracking-normal text-muted">{unit}</span>
+    <span className="ml-1.5 text-sm font-medium tracking-normal text-muted">{unit}</span>
   </p>
 );
 
@@ -529,7 +529,7 @@ function RecentActivity() {
   const [open, setOpen] = useState<ActivityItem | null>(null);
   const items = activity.items.slice(0, 6);
   return (
-    <Card className="min-w-0 p-2">
+    <Card className="min-w-0 sm:p-5">
       <Card.Header className="flex flex-row items-center justify-between gap-3">
         <Card.Title className="text-heading">Hoạt động gần đây</Card.Title>
         {items.length ? (
@@ -550,7 +550,12 @@ function RecentActivity() {
           empty={items.length === 0}
           emptyText="Chưa có giao dịch nào. Khi agent trả tiền, mỗi lần đều hiện ở đây: Guardian chấm gì, két quyết định ra sao."
         />
-        {items.length ? <ActivityRows items={items} label="Hoạt động gần đây" onOpen={setOpen} /> : null}
+        {/* Rows carry their own px-3 for the hover fill: pull them out so the text lines up with the title. */}
+        {items.length ? (
+          <div className="-mx-3">
+            <ActivityRows items={items} label="Hoạt động gần đây" onOpen={setOpen} />
+          </div>
+        ) : null}
       </Card.Content>
       <ActivityDrawer item={open} onClose={() => setOpen(null)} />
     </Card>
@@ -574,7 +579,7 @@ function AgentCard({
   const lowGas = b.avax !== undefined && b.avax < AGENT_FEE_AVAX / 5n;
   const lowFee = b.usdc !== undefined && b.usdc < AGENT_FEE_USDC / 5n;
   return (
-    <Card className="min-w-0 self-start p-2">
+    <Card className="min-w-0 self-start sm:p-5">
       <Card.Header className="flex flex-row items-center gap-3">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-default text-foreground">
           <Cpu aria-hidden="true" className="size-5" />

@@ -49,7 +49,7 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <Card className="p-2">
+    <Card className="sm:p-5">
       <Card.Header className="flex flex-row flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <Card.Title className="text-heading">{title}</Card.Title>
@@ -426,7 +426,7 @@ function TryIt({ vault, connected, lastUsed }: { vault: Address; connected: bool
     `Thử trả 50 USDC cho ${who}.`,
   ];
   return (
-    <Card className="self-start p-2">
+    <Card className="self-start sm:p-5">
       <Card.Header className="flex flex-col gap-1">
         <Card.Title className="text-heading">Thử với agent</Card.Title>
         <Card.Description>

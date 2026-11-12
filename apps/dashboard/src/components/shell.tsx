@@ -55,7 +55,7 @@ import { useOwnerGate, WalletMenu } from "./wallet";
 export const NAV = [
   { href: "/", label: PAGE.home, icon: House },
   { href: "/hoat-dong", label: PAGE.activity, icon: Pulse },
-  { href: "/quy-tac", label: PAGE.rules, icon: Sliders },
+  { href: "/quy-tac", label: PAGE.rules, short: "Quy tắc", icon: Sliders },
   { href: "/agent", label: PAGE.agents, icon: Cpu },
 ] as const;
 const DEMO_NAV = { href: "/chay-thu", label: PAGE.trial, icon: Play } as const;
@@ -73,7 +73,14 @@ const activeHref = (pathname: string) =>
 
 // ------------------------------------------------------------------ pieces
 
-export function Brand({ size = "md" }: { size?: "md" | "lg" }) {
+/** `markOnlyOnPhone`: the top bar on a phone shows the mark alone, so the demo chip and wallet fit one row. */
+export function Brand({
+  size = "md",
+  markOnlyOnPhone = false,
+}: {
+  size?: "md" | "lg";
+  markOnlyOnPhone?: boolean;
+}) {
   return (
     <NextLink
       href="/"
@@ -86,7 +93,9 @@ export function Brand({ size = "md" }: { size?: "md" | "lg" }) {
       >
         <ShieldCheck className={size === "lg" ? "size-5" : "size-4"} />
       </span>
-      <span className={`font-semibold tracking-tight ${size === "lg" ? "text-xl" : "text-base"}`}>
+      <span
+        className={`font-semibold tracking-tight ${size === "lg" ? "text-xl" : "text-base"} ${markOnlyOnPhone ? "max-sm:sr-only" : ""}`}
+      >
         Guardian402
       </span>
     </NextLink>
@@ -142,9 +151,9 @@ function VaultSwitcher() {
       <Button
         variant="ghost"
         aria-label={`Két đang xem: ${title}. Đổi két`}
-        className="h-auto w-full justify-start gap-3 rounded-xl px-2 py-2"
+        className="h-auto w-full justify-start gap-3 rounded-xl border border-border px-2 py-2 hover:bg-default"
       >
-        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface text-muted shadow-surface">
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-default text-foreground/70">
           <Vault aria-hidden="true" className="size-4" />
         </span>
         <span className="flex min-w-0 flex-col items-start">
@@ -194,10 +203,22 @@ function VaultSwitcher() {
   );
 }
 
+// Sidebar links (ui-ux skill, layouts/app/shell.md): 40px, regular weight at 70% foreground so names stay readable;
+// hover is the neutral fill; the current page takes the accent (a tinted accent marks the current item).
 const NAV_ITEM =
-  "flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium text-muted transition-colors hover:bg-default hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus aria-[current=page]:bg-surface aria-[current=page]:text-foreground aria-[current=page]:shadow-surface";
+  "flex h-10 items-center gap-2.5 rounded-xl px-3 text-sm text-foreground/70 transition-colors hover:bg-default hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus aria-[current=page]:bg-accent-soft aria-[current=page]:font-medium aria-[current=page]:text-accent-soft-foreground aria-[current=page]:hover:bg-accent-soft";
+const GROUP_LABEL = "px-3 pt-4 pb-1 text-xs font-medium tracking-wide text-muted uppercase";
 
-function NavLink({ href, label, icon: Icon }: { href: string; label: string; icon: typeof House }) {
+function NavLink({
+  href,
+  label,
+  icon: Icon,
+}: {
+  href: string;
+  label: string;
+  icon: typeof House;
+  short?: string;
+}) {
   const active = activeHref(usePathname());
   return (
     <NextLink href={href} aria-current={active === href ? "page" : undefined} className={NAV_ITEM}>
@@ -211,8 +232,8 @@ function Sidebar() {
   const pathname = usePathname();
   const agent = useAgentHealth();
   return (
-    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-5 px-3 py-4 lg:flex">
-      <div className="px-2">
+    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-4 overflow-y-auto bg-surface px-3 py-4 lg:flex">
+      <div className="flex h-8 items-center px-2">
         <Brand />
       </div>
       <VaultSwitcher />
@@ -222,8 +243,8 @@ function Sidebar() {
         ))}
       </nav>
       {agent.isSuccess ? (
-        <nav aria-label="Demo" className="flex flex-col gap-1">
-          <span className="px-3 pb-1 text-xs font-medium text-muted">Demo</span>
+        <nav aria-label="Demo" className="-mt-3 flex flex-col gap-1">
+          <span className={GROUP_LABEL}>Demo</span>
           <NavLink {...DEMO_NAV} />
         </nav>
       ) : null}
@@ -252,17 +273,20 @@ function BottomNav() {
       aria-label="Trang chính"
       className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-separator bg-surface px-1 pt-1 pb-[max(8px,env(safe-area-inset-bottom,0px))] lg:hidden"
     >
-      {NAV.map(({ href, label, icon: Icon }) => (
-        <NextLink
-          key={href}
-          href={href}
-          aria-current={active === href ? "page" : undefined}
-          className="flex h-14 flex-col items-center justify-center gap-1 rounded-xl text-xs font-medium text-muted aria-[current=page]:text-accent"
-        >
-          <Icon aria-hidden="true" className="size-5" />
-          {label}
-        </NextLink>
-      ))}
+      {NAV.map((n) => {
+        const Icon = n.icon;
+        return (
+          <NextLink
+            key={n.href}
+            href={n.href}
+            aria-current={active === n.href ? "page" : undefined}
+            className="flex h-14 flex-col items-center justify-center gap-1 rounded-xl text-xs font-medium text-foreground/70 aria-[current=page]:text-accent"
+          >
+            <Icon aria-hidden="true" className="size-5" />
+            {"short" in n ? n.short : n.label}
+          </NextLink>
+        );
+      })}
     </nav>
   );
 }
@@ -497,7 +521,9 @@ function DemoViewChip() {
     <div className="flex items-center gap-2">
       <Chip size="sm" variant="soft" color="warning">
         <Eye aria-hidden="true" className="size-3.5" />
-        <Chip.Label>Két demo · chỉ xem</Chip.Label>
+        <Chip.Label>
+          Két demo<span className="hidden sm:inline"> · chỉ xem</span>
+        </Chip.Label>
       </Chip>
       {demoChosen ? (
         <Button
@@ -517,17 +543,19 @@ function DemoViewChip() {
 
 function TopBar() {
   return (
-    <header className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 bg-background/85 px-4 py-2 backdrop-blur sm:px-6">
-      <div className="flex min-w-0 items-center lg:hidden">
-        <Brand />
+    <header className="sticky top-0 z-30 flex min-h-14 items-center gap-x-2 bg-background/85 px-4 py-2 backdrop-blur sm:gap-x-3 sm:px-6">
+      <div className="flex shrink-0 items-center lg:hidden">
+        <Brand markOnlyOnPhone />
       </div>
       <DemoViewChip />
-      <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+      <div className="ml-auto flex min-w-0 items-center justify-end gap-1.5 sm:gap-2">
         <ProtectionControl />
         <NotificationBell />
         <WalletMenu />
         <Separator orientation="vertical" className="mx-1 hidden h-5 sm:block" />
-        <ThemeToggle />
+        <div className="hidden sm:flex">
+          <ThemeToggle />
+        </div>
         <AccountMenu />
       </div>
     </header>
@@ -613,7 +641,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
         <main
           key={address}
           id="noi-dung"
-          className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-4 pt-2 pb-24 sm:px-8 lg:pb-12"
+          className="mx-auto flex w-full max-w-[1160px] flex-col gap-6 px-4 pt-2 pb-24 sm:px-6 lg:px-8 lg:pb-12"
         >
           {children}
         </main>

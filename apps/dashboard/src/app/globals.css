@@ -13,23 +13,24 @@
   --color-brand: var(--brand);
 
   /*
-   * Type scale (Inter, 400/500/600 only). Display sizes are set tight like Inter Display (Vercel, Linear and
-   * Stripe dashboards use -0.02em to -0.03em at these sizes); body text keeps Inter's own spacing.
-   *   display  money figures that answer the page's question (balance)
+   * Type scale (Inter, 400/500/600 only), on the app scale of the ui-ux skill (budgets.md): body text is sm,
+   * card titles base, the page title xl, card figures 2xl. Display sizes get a slight negative tracking as Inter
+   * Display does; body text keeps Inter's own spacing.
+   *   display  the figure a card answers with (balance, today's spending)
    *   title    page title, one per page
    *   heading  card and section titles
    */
-  --text-display: 2.5rem;
-  --text-display--line-height: 1.1;
-  --text-display--letter-spacing: -0.03em;
+  --text-display: 1.5rem;
+  --text-display--line-height: 2rem;
+  --text-display--letter-spacing: -0.02em;
   --text-display--font-weight: 600;
-  --text-title: 1.75rem;
-  --text-title--line-height: 1.2;
-  --text-title--letter-spacing: -0.022em;
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.75rem;
+  --text-title--letter-spacing: -0.012em;
   --text-title--font-weight: 600;
-  --text-heading: 1.0625rem;
-  --text-heading--line-height: 1.4;
-  --text-heading--letter-spacing: -0.011em;
+  --text-heading: 1rem;
+  --text-heading--line-height: 1.5rem;
+  --text-heading--letter-spacing: -0.006em;
   --text-heading--font-weight: 600;
 }
 
@@ -104,4 +105,39 @@
 }
 @utility animate-step-in {
   animation: step-in 220ms cubic-bezier(0.215, 0.61, 0.355, 1) both;
+}
+
+/*
+ * Scrollbars that stay out of the way (ui-ux skill, I18): transparent at rest, faint on hover, 4px, colour from
+ * --foreground so dark mode follows. Outside @layer on purpose (see the skill's tokens.css); no transition here,
+ * a `*` transition would override every Tailwind transition utility.
+ */
+* {
+  --scrollbar-thumb: transparent;
+}
+*:hover {
+  --scrollbar-thumb: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--foreground) 40%, transparent);
+}
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  *:hover {
+    scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
+  }
 }

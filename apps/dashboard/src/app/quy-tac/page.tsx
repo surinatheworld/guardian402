@@ -557,7 +557,7 @@ function MaxRisk({ p, vault, gate, owner }: SectionProps) {
             setOpen(true);
           }}
         >
-          Đổi
+          Sửa
         </Button>
       }
     >

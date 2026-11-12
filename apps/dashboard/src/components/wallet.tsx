@@ -17,9 +17,12 @@ import { Notice } from "./ui";
 export function ConnectWalletButton({
   size = "md",
   variant = "primary",
+  compact = false,
 }: {
   size?: "sm" | "md";
   variant?: "primary" | "secondary";
+  /** Icon only below `sm` (top bar on a phone). */
+  compact?: boolean;
 }) {
   const { connect, connectors, isPending, error } = useConnect();
   const connector = connectors[0];
@@ -30,10 +33,11 @@ export function ConnectWalletButton({
         size={size}
         isDisabled={!connector}
         isPending={isPending}
+        aria-label="Kết nối ví"
         onPress={() => connector && connect({ connector, chainId: avalancheFuji.id })}
       >
         <Wallet aria-hidden="true" />
-        {isPending ? "Đang mở ví…" : "Kết nối ví"}
+        <span className={compact ? "hidden sm:inline" : ""}>{isPending ? "Đang mở ví…" : "Kết nối ví"}</span>
       </Button>
       {error ? (
         <span role="alert" className="text-xs text-danger">
@@ -51,7 +55,7 @@ export function WalletMenu() {
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
   if (NETWORK === "local") return null;
-  if (!isConnected || !address) return <ConnectWalletButton size="sm" variant="secondary" />;
+  if (!isConnected || !address) return <ConnectWalletButton size="sm" variant="secondary" compact />;
   const wrongChain = chainId !== avalancheFuji.id;
   return (
     <Dropdown>

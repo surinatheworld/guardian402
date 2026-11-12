@@ -100,7 +100,7 @@ function Stepper({ current }: { current: number }) {
 function StepCard({ index, children, footer }: { index: number; children: ReactNode; footer: ReactNode }) {
   const s = STEPS[index];
   return (
-    <Card key={index} className="animate-step-in p-2 sm:p-4">
+    <Card key={index} className="animate-step-in sm:p-6">
       <Card.Header className="gap-2">
         <Card.Title className="text-title">{s?.title}</Card.Title>
         <Card.Description className="text-base">{s?.lead}</Card.Description>
