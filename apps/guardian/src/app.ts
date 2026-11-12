@@ -4,7 +4,7 @@ import type { Logger } from "pino";
 import type { x402ResourceServer } from "@x402/express";
 import { paymentMiddleware } from "@x402/express";
 import { RULE_IDS, type Deployment } from "@guardian402/shared";
-import type { Address } from "viem";
+import { isAddress, type Address } from "viem";
 import { InputError, UnavailableError, type Endpoint, type Pipeline } from "./pipeline.ts";
 import { RULE_SEVERITY } from "./rules/severity.ts";
 import type { RuleConfig } from "./rules/types.ts";
@@ -180,7 +180,14 @@ export function createApp(d: AppDeps) {
 
   app.get("/v1/checks", (req, res) => {
     const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
-    res.json({ checks: d.store.recentChecks(limit, read) });
+    // `?vault=`: that vault's checks only. The dashboard asks per vault, so checks of other vaults (the free
+    // demo endpoint takes any caller) cannot push an owner's HIGH checks off the list (THREAT_MODEL D4).
+    const vault = req.query.vault;
+    if (vault !== undefined && !(typeof vault === "string" && isAddress(vault))) {
+      res.status(400).json({ error: "invalid request", details: "vault must be an address" });
+      return;
+    }
+    res.json({ checks: d.store.recentChecks(limit, { ...read, ...(vault ? { vault } : {}) }) });
   });
 
   app.get("/v1/checks/:checkId", (req, res) => {

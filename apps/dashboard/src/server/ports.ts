@@ -58,7 +58,8 @@ export type ExecutionLookup =
 
 export interface GuardianPort {
   /** Recent checks of all vaults (the Guardian has no per-vault filter); throws when unreachable. */
-  recentChecks(limit: number): Promise<GuardianCheck[]>;
+  /** `vault`: only that vault's checks (filtered by the Guardian). */
+  recentChecks(limit: number, vault?: Address): Promise<GuardianCheck[]>;
   /** One check by id, or null when the Guardian does not know it. */
   check(checkId: string): Promise<GuardianCheck | null>;
 }
@@ -211,9 +212,15 @@ async function guardianJson<T>(path: string): Promise<T | null> {
 }
 
 export const guardianPort: GuardianPort = {
-  recentChecks: async (limit) =>
-    (await withTimeout(guardianJson<{ checks: GuardianCheck[] }>(`/v1/checks?limit=${limit}`), "guardian"))
-      ?.checks ?? [],
+  recentChecks: async (limit, vault) =>
+    (
+      await withTimeout(
+        guardianJson<{ checks: GuardianCheck[] }>(
+          `/v1/checks?limit=${limit}${vault ? `&vault=${vault}` : ""}`,
+        ),
+        "guardian",
+      )
+    )?.checks ?? [],
   check: async (checkId) => {
     if (!/^0x[0-9a-fA-F]{64}$/.test(checkId)) return null;
     // The single-check route returns full findings instead of ruleIds.

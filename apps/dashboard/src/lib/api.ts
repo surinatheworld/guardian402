@@ -36,7 +36,9 @@ export const useChecks = (limit = 50) => {
   return useQuery({
     queryKey: ["guardian", "checks", address, limit],
     queryFn: async () => {
-      const data = await getJson<{ checks: CheckListRow[] }>(`${GUARDIAN_URL}/v1/checks?limit=200`);
+      const data = await getJson<{ checks: CheckListRow[] }>(
+        `${GUARDIAN_URL}/v1/checks?limit=200&vault=${address}`,
+      );
       return {
         checks: data.checks.filter((c) => c.vault.toLowerCase() === address.toLowerCase()).slice(0, limit),
       };

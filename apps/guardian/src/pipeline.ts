@@ -112,7 +112,7 @@ export class Pipeline {
       knownContracts: d.knownContracts,
       contracts: await withCode(d.chain, touched),
       oracle,
-      addressBook: d.store?.paidRecipients(req.vault) ?? [],
+      addressBook: d.store?.paidRecipients(req.vault, [policy.agent, policy.owner]) ?? [],
       demoMode: d.demoMode,
     });
     // 4. Rules (pure).

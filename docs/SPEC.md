@@ -266,7 +266,7 @@ Required cross-check test (`pnpm test:crosscheck`):
 | `GET /v1/health` | free | liveness, fork block, signer address |
 | `GET /v1/rules` | free | rule ids, severities, thresholds |
 | `GET /v1/stats` | free | checks by risk, payments count and sum, p50/p95 latency |
-| `GET /v1/checks?limit=50` | free | recent checks (summaries only); a paid check appears once its payment settled |
+| `GET /v1/checks?limit=50&vault=0x…` | free | recent checks (summaries only), of one vault when `vault` is given; a paid check appears once its payment settled |
 | `GET /v1/checks/:checkId` | free | one check, same rule; the verdict without its signature |
 | `POST /v1/demo/check` | free, only when `DEMO_MODE=true` | for the dashboard "paste a transaction" page; rate-limited |
 
@@ -408,7 +408,7 @@ Aggregation: risk = the highest severity among findings (LOW when there are none
 | `RECIPIENT_NOT_ALLOWLISTED` | HIGH | any transfer out of the vault, or native value, to an address outside the allowlist | — |
 | `UNPROTECTED_SWAP` | MEDIUM | a swap through a known router whose `minOut` is more than the allowed gap below the simulated output (`minOut = 0` included): the execution, later and on Fuji, would accept any price | 3% (added 2026-11-11, §16) |
 
-- Address book = vault allowlist + known-contracts registry + addresses the vault has paid before (from the Guardian DB).
+- Address book = vault allowlist + known-contracts registry + addresses the vault has paid before (from the Guardian DB: recipients in LOW checks whose settled x402 payment came from the vault's agent or owner; DEMO checks never count).
 - Known-contracts registry: `apps/guardian/config/known-contracts.fuji.json` (USDC, mocks, router, ERC-8004 registries).
 - An explorer lookup ("unverified or created < 7 days ago") is optional: behind a flag, cached, 1 s timeout, and never used in tests or eval, so results stay deterministic.
 - Thresholds live in `apps/guardian/config/rules.json`.

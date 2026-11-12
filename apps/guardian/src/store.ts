@@ -28,6 +28,8 @@ export type ReadOptions = {
    * settlement, so without this a caller whose payment never settles could read the result for free.
    */
   settledOnly?: boolean;
+  /** Only this vault's checks (GET /v1/checks?vault=…), so other vaults' checks cannot push them off the list. */
+  vault?: Address;
 };
 
 /** The verdict as stored and served: never the signature, which only the paid response carries. */
@@ -126,14 +128,16 @@ export class Store {
   }
 
   recentChecks(limit: number, opts: ReadOptions = {}): CheckListRow[] {
+    const where = [...(opts.settledOnly ? [SETTLED] : []), ...(opts.vault ? ["c.vault = ?"] : [])];
+    const args = [...(opts.vault ? [opts.vault.toLowerCase()] : []), limit];
     const rows = this.#db
       .prepare(
         `SELECT c.checkId, c.createdAt, c.endpoint, c.vault, c.risk, c.score, c.latencyMs, c.demo,
                 c.findingsJson, c.explanationJson,
                 (SELECT p.txHash FROM payments p WHERE p.checkId = c.checkId LIMIT 1) AS paymentTx
-           FROM checks c ${opts.settledOnly ? `WHERE ${SETTLED}` : ""} ORDER BY c.createdAt DESC LIMIT ?`,
+           FROM checks c ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY c.createdAt DESC LIMIT ?`,
       )
-      .all(limit) as (Omit<CheckRow, "demo"> & {
+      .all(...args) as (Omit<CheckRow, "demo"> & {
       demo: number;
       findingsJson: string;
       explanationJson: string;
@@ -183,13 +187,27 @@ export class Store {
       .all(limit) as PaymentRow[];
   }
 
-  /** Addresses this vault has sent tokens to in LOW checks: an address-book source for the rules (SPEC §8). */
-  paidRecipients(vault: Address): Address[] {
+  /**
+   * Addresses this vault has sent tokens to in LOW checks: an address-book source for the rules (SPEC §8).
+   *
+   * Only checks whose settled x402 payment came from one of `payers` (the vault's agent and owner) count. The
+   * `vault` of a check is whatever the caller wrote, and the free demo endpoint takes any caller: without this,
+   * anyone could put an address of their choice into another vault's address book, and a real payee that looks
+   * like it would then be flagged as its lookalike (docs/THREAT_MODEL.md, D3). A payment is a signed USDC
+   * authorization, so the payer cannot be faked.
+   */
+  paidRecipients(vault: Address, payers: readonly Address[]): Address[] {
+    const who = [...new Set(payers.map((p) => p.toLowerCase()))];
+    if (who.length === 0) return [];
     const rows = this.#db
       .prepare(
-        "SELECT diffJson FROM checks WHERE vault = ? AND risk = 'LOW' ORDER BY createdAt DESC LIMIT 200",
+        `SELECT c.diffJson FROM checks c
+         WHERE c.vault = ? AND c.risk = 'LOW' AND c.endpoint <> 'demo'
+           AND EXISTS (SELECT 1 FROM payments p WHERE p.checkId = c.checkId
+                       AND lower(p.payer) IN (${who.map(() => "?").join(", ")}))
+         ORDER BY c.createdAt DESC LIMIT 200`,
       )
-      .all(vault.toLowerCase()) as { diffJson: string }[];
+      .all(vault.toLowerCase(), ...who) as { diffJson: string }[];
     const out = new Set<string>();
     for (const r of rows) {
       const diff = JSON.parse(r.diffJson) as { transfers: { from: string; to: string }[] };

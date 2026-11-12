@@ -4,23 +4,24 @@ import {
   assertSameOrigin,
   currentUser,
   handle,
-  loginLimiter,
+  limitSiwe,
   readJson,
+  requestOrigin,
   withSession,
 } from "@/server/http";
 
 export async function POST(req: Request) {
   return handle(async () => {
     assertSameOrigin(req);
-    loginLimiter.take(`siwe:${req.headers.get("x-forwarded-for") ?? "local"}`);
+    limitSiwe(req);
     const body = await readJson(req);
-    const url = new URL(req.url);
+    const { host, origin } = requestOrigin(req);
     const current = currentUser(req);
     const r = await accounts().signInWithEthereum({
       message: body.message,
       signature: body.signature,
-      host: url.host,
-      origin: url.origin,
+      host,
+      origin,
       currentUserId: current?.userId ?? null,
     });
     // Linking a wallet keeps the current session; any other outcome starts a SIWE session.

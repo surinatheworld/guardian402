@@ -132,7 +132,7 @@ export function sessionToken(req: Request): string | null {
 }
 
 function cookie(req: Request, value: string, maxAgeSeconds: number): string {
-  const secure = new URL(req.url).protocol === "https:" ? "; Secure" : "";
+  const secure = requestOrigin(req).https ? "; Secure" : "";
   return `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}${secure}`;
 }
 
@@ -168,10 +168,47 @@ export function currentUser(req: Request) {
 
 // ------------------------------------------------------------------ request checks
 
+const firstValue = (req: Request, name: string) => req.headers.get(name)?.split(",")[0]?.trim() || null;
+
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * The origin the browser used. Behind a TLS-terminating proxy (a public tunnel) the dashboard itself is reached
+ * over plain http, so the scheme and host come from X-Forwarded-Proto / X-Forwarded-Host when present: without
+ * that, the session cookie would lose `Secure` there. A page on another site cannot set these headers on a
+ * request that carries the user's cookies (a custom header needs a CORS preflight, which nothing here grants).
+ *
+ * `DASHBOARD_PUBLIC_ORIGINS` (comma-separated, e.g. https://demo.example.com) pins the accepted public origins:
+ * a client that writes its own Host or X-Forwarded-Host then cannot make the dashboard accept a Sign-In with
+ * Ethereum message that was signed for another site. This machine's own origins are always accepted.
+ */
+export function requestOrigin(req: Request): { origin: string; host: string; https: boolean } {
+  const url = new URL(req.url);
+  const proto = firstValue(req, "x-forwarded-proto");
+  const https = proto === "https" || (proto !== "http" && url.protocol === "https:");
+  const host = firstValue(req, "x-forwarded-host") ?? req.headers.get("host") ?? url.host;
+  const origin = `${https ? "https" : "http"}://${host}`;
+  const pinned = (process.env.DASHBOARD_PUBLIC_ORIGINS ?? "")
+    .split(",")
+    .map((o) => o.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+  if (pinned.length > 0 && !pinned.includes(origin)) {
+    let hostname = "";
+    try {
+      hostname = new URL(origin).hostname;
+    } catch {
+      /* not a host: refused below */
+    }
+    if (!LOCAL_HOSTNAMES.has(hostname))
+      throw new AccountError(403, "bad_origin", "Yêu cầu không đến từ dashboard này.");
+  }
+  return { origin, host, https };
+}
+
 /** Browsers send Origin on every cross-site POST/PATCH/DELETE; anything but our own origin is refused (CSRF). */
 export function assertSameOrigin(req: Request) {
   const origin = req.headers.get("origin");
-  if (!origin || origin !== new URL(req.url).origin)
+  if (!origin || origin !== requestOrigin(req).origin)
     throw new AccountError(403, "bad_origin", "Yêu cầu không đến từ dashboard này.");
 }
 
@@ -234,15 +271,75 @@ export class RateLimiter {
   take(key: string, now = Date.now()) {
     const recent = (this.#hits.get(key) ?? []).filter((t) => now - t < this.windowMs);
     if (recent.length >= this.max) {
+      this.#hits.delete(key);
       this.#hits.set(key, recent);
       throw new AccountError(429, "rate_limited", "Thử quá nhiều lần. Đợi vài phút rồi thử lại.");
     }
     recent.push(now);
+    // Re-insert so the map stays ordered by last use.
+    this.#hits.delete(key);
     this.#hits.set(key, recent);
-    if (this.#hits.size > 10_000) this.#hits.clear();
+    // Too many keys: drop expired ones, then the least recently used. Never everything at once: a flood of
+    // new keys must not reset the limits of the keys that matter.
+    if (this.#hits.size > RateLimiter.MAX_KEYS) {
+      for (const [k, hits] of this.#hits)
+        if (!hits.some((t) => now - t < this.windowMs)) this.#hits.delete(k);
+      for (const k of this.#hits.keys()) {
+        if (this.#hits.size <= RateLimiter.MAX_KEYS) break;
+        this.#hits.delete(k);
+      }
+    }
   }
+  static readonly MAX_KEYS = 10_000;
 }
-export const loginLimiter = new RateLimiter(10, 15 * 60 * 1000);
+
+const WINDOW_MS = 15 * 60 * 1000;
+
+/**
+ * The client as the nearest proxy saw it: the last X-Forwarded-For entry. A proxy (a public tunnel) appends the
+ * address it accepted the connection from; everything before that is the caller's own text and can be made up.
+ * With no proxy in front the whole header is the caller's, so no limit rests on this key alone: each one below
+ * also has a cap that does not depend on it.
+ */
+export function clientKey(req: Request): string {
+  const last = (req.headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .at(-1);
+  return last ? last.slice(0, 64) : "local";
+}
+
+const perClient = new RateLimiter(10, WINDOW_MS);
+const loginPerClient = new RateLimiter(30, WINDOW_MS);
+const loginPerEmail = new RateLimiter(50, WINDOW_MS);
+// Every registration costs one scrypt hash (32 MiB): bounded for all callers together.
+const registerOverall = new RateLimiter(60, WINDOW_MS);
+const siweOverall = new RateLimiter(600, WINDOW_MS);
+
+/** POST /api/auth/register. */
+export function limitRegister(req: Request) {
+  perClient.take(`register:${clientKey(req)}`);
+  registerOverall.take("register");
+}
+
+/**
+ * POST /api/auth/login. Ten tries per email from one client; someone else's wrong guesses no longer lock the
+ * owner of the email out after ten requests. The per-email cap (all clients together) still bounds guessing
+ * from many addresses.
+ */
+export function limitLogin(req: Request, email: string) {
+  const client = clientKey(req);
+  perClient.take(`login:${email}:${client}`);
+  loginPerClient.take(`login:${client}`);
+  loginPerEmail.take(`login:${email}`);
+}
+
+/** POST /api/auth/siwe/verify. */
+export function limitSiwe(req: Request) {
+  perClient.take(`siwe:${clientKey(req)}`);
+  siweOverall.take("siwe");
+}
 /** Agent API calls per key (the Guardian has its own limits; this keeps a leaked key from hammering it). */
 const agentLimiter = new RateLimiter(120, 60_000);
 

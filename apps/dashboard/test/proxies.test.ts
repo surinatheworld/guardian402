@@ -1,6 +1,16 @@
-// The two same-origin proxies a public tunnel exposes: /api/rpc (fork, reads only) and /api/agent-control.
+// The two same-origin proxies a public tunnel exposes: /api/rpc (fork, reads only) and /api/agent-control,
+// and how the account routes see a request that came through such a tunnel (origin, client, limits).
 import { describe, expect, it } from "vitest";
+import { AccountError } from "../src/server/accounts";
 import { classifyControl, forwardControl } from "../src/server/agent-control";
+import {
+  assertSameOrigin,
+  clientKey,
+  limitLogin,
+  limitRegister,
+  RateLimiter,
+  requestOrigin,
+} from "../src/server/http";
 import { proxyRpc, RPC_MAX_BATCH, RPC_MAX_BODY_BYTES } from "../src/server/rpc-proxy";
 
 type Sent = { url: string; init: RequestInit };
@@ -165,5 +175,84 @@ describe("/api/agent-control", () => {
       fetch: down,
     });
     expect(out.status).toBe(502);
+  });
+});
+
+describe("request origin, client key and limits", () => {
+  const req = (headers: Record<string, string> = {}, url = "http://localhost:3000/api/auth/login") =>
+    new Request(url, { method: "POST", headers });
+
+  it("uses the forwarded scheme and host behind a TLS-terminating proxy", () => {
+    expect(requestOrigin(req())).toEqual({
+      origin: "http://localhost:3000",
+      host: "localhost:3000",
+      https: false,
+    });
+    const tunnel = req({ "x-forwarded-proto": "https", "x-forwarded-host": "demo.example.com" });
+    expect(requestOrigin(tunnel)).toEqual({
+      origin: "https://demo.example.com",
+      host: "demo.example.com",
+      https: true,
+    });
+    expect(() =>
+      assertSameOrigin(req({ ...Object.fromEntries(tunnel.headers), origin: "https://demo.example.com" })),
+    ).not.toThrow();
+    expect(() =>
+      assertSameOrigin(req({ ...Object.fromEntries(tunnel.headers), origin: "http://localhost:3000" })),
+    ).toThrow(AccountError);
+    expect(() => assertSameOrigin(req({ origin: "https://evil.example" }))).toThrow(AccountError);
+    expect(() => assertSameOrigin(req())).toThrow(AccountError);
+  });
+
+  it("with DASHBOARD_PUBLIC_ORIGINS, accepts only those origins and this machine", () => {
+    process.env.DASHBOARD_PUBLIC_ORIGINS = "https://demo.example.com/, https://other.example.com";
+    try {
+      const at = (host: string) => req({ "x-forwarded-proto": "https", "x-forwarded-host": host });
+      expect(requestOrigin(at("demo.example.com")).origin).toBe("https://demo.example.com");
+      expect(requestOrigin(at("other.example.com")).https).toBe(true);
+      expect(() => requestOrigin(at("evil.example"))).toThrow(AccountError);
+      expect(() => requestOrigin(at("demo.example.com.evil.example"))).toThrow(AccountError);
+      expect(requestOrigin(req()).origin).toBe("http://localhost:3000");
+    } finally {
+      delete process.env.DASHBOARD_PUBLIC_ORIGINS;
+    }
+  });
+
+  it("keys a client by the last X-Forwarded-For entry, the one the proxy wrote", () => {
+    expect(clientKey(req())).toBe("local");
+    expect(clientKey(req({ "x-forwarded-for": "203.0.113.9" }))).toBe("203.0.113.9");
+    expect(clientKey(req({ "x-forwarded-for": "1.1.1.1, 2.2.2.2 , 203.0.113.9" }))).toBe("203.0.113.9");
+  });
+
+  it("wrong guesses from one client do not lock the email for another client", () => {
+    const from = (ip: string) => req({ "x-forwarded-for": ip });
+    const email = "owner-lockout@example.com";
+    for (let i = 0; i < 10; i++) limitLogin(from("198.51.100.1"), email);
+    expect(() => limitLogin(from("198.51.100.1"), email)).toThrow(AccountError);
+    expect(() => limitLogin(from("198.51.100.2"), email)).not.toThrow();
+  });
+
+  it("a made-up X-Forwarded-For does not lift the registration cap", () => {
+    let refused = 0;
+    for (let i = 0; i < 80; i++) {
+      try {
+        limitRegister(req({ "x-forwarded-for": `10.0.${i}.1` }));
+      } catch {
+        refused++;
+      }
+    }
+    expect(refused).toBe(20); // 60 per window for all callers together
+  });
+
+  it("past its key cap, drops the least recently used keys, not every key", () => {
+    const l = new RateLimiter(2, 1000);
+    for (let i = 0; i < RateLimiter.MAX_KEYS - 1; i++) l.take(`old-${i}`, 0);
+    l.take("victim", 1);
+    l.take("victim", 2);
+    for (let i = 0; i < 50; i++) l.take(`flood-${i}`, 3); // goes over the cap 50 times
+    expect(() => l.take("victim", 4)).toThrow(AccountError);
+    expect(() => l.take("old-0", 4)).not.toThrow(); // dropped: counted from zero again
+    expect(() => l.take("old-0", 5)).not.toThrow();
+    expect(() => l.take("old-0", 6)).toThrow(AccountError);
   });
 });
