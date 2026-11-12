@@ -2,7 +2,7 @@
 // agent pays with its own wallet: the x402 headers pass through unchanged in both directions, so a 402 with
 // PAYMENT-REQUIRED reaches the agent's x402 client, which retries with PAYMENT-SIGNATURE. This server never
 // holds or signs a payment.
-import { GUARDIAN_URL } from "@/lib/config";
+import { guardianUpstream } from "./upstream";
 import { AccountError } from "./accounts";
 import { PAYMENT_REQUEST_HEADERS, PAYMENT_RESPONSE_HEADERS, type AgentPrincipal } from "./agent-api";
 import { agentApi, readJson } from "./http";
@@ -18,7 +18,7 @@ export async function forwardCheck(p: AgentPrincipal, endpoint: "check" | "cosig
   }
   let res: Response;
   try {
-    res = await fetch(`${GUARDIAN_URL}/v1/${endpoint}`, {
+    res = await fetch(`${guardianUpstream()}/v1/${endpoint}`, {
       method: "POST",
       headers,
       body: JSON.stringify(body),

@@ -3,7 +3,8 @@
 // these, so tests pass in fakes; the real adapters below use viem and fetch.
 import { createPublicClient, isAddressEqual, parseEventLogs, type Address, type Hex } from "viem";
 import { agentVaultAbi, fujiChain, rpcTransport } from "@guardian402/shared";
-import { GUARDIAN_URL, RPC_URL } from "@/lib/config";
+import { RPC_URL } from "@/lib/config";
+import { guardianUpstream } from "./upstream";
 import type { OnChainPolicy } from "@/lib/policy-spec";
 import { AccountError } from "./accounts";
 
@@ -210,7 +211,7 @@ export const chainPort: ChainPort = {
 };
 
 async function guardianJson<T>(path: string): Promise<T | null> {
-  const res = await fetch(`${GUARDIAN_URL}${path}`, { cache: "no-store" });
+  const res = await fetch(`${guardianUpstream()}${path}`, { cache: "no-store" });
   if (res.status === 404) return null;
   if (!res.ok) throw unavailable("guardian");
   return (await res.json()) as T;
