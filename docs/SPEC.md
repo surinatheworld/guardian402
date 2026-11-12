@@ -214,6 +214,23 @@ Custom errors: `Paused`, `NotAgent`, `BadBatch`, `TargetNotAllowed`, `SelectorNo
   - Owner transfers 50 USDC into the vault. On a local fork, the owner's real Fuji USDC balance is inherited from Fuji.
 - Verify contracts on testnet Snowtrace. Look up the current verification instructions (Routescan verifier) in the Avalanche docs; do not guess the URL.
 
+### 4.9 Per-batch cap and running budget (added 2026-11-12)
+
+For each tracked token and for native AVAX (key `NATIVE = address(0)`), the owner may set `setLimits(token, maxPerTx, budget)`; `0` means no limit for either field.
+
+- `maxPerTx`: the net outflow of one agent batch (§4.3 step 6) may not exceed it → `TxCapExceeded(token, amount, cap)`, with or without a verdict.
+- `budget`: agent-path outflow is added to `spentSinceReset[token]` across days; going above `budget` → `BudgetExceeded(token, spent, budget)`. The agent then stays blocked for that token until the owner calls `resetBudget(token)` (or sets the limits again, which also restarts the count). The owner path is never counted.
+- Views: `limits(token)`, `spentSinceReset(token)`, `remainingBudget(token)` (`type(uint256).max` without a budget) and `getLimits()` (tracked tokens, then native). `getPolicy()` is unchanged, so vaults deployed before §4.9 stay readable; the Guardian treats a vault without `getLimits()` as having no limits.
+- The Guardian pre-check (§8 `POLICY_PRECHECK`) reports `tx-cap-exceeded` and `budget-exceeded` from the simulated outflow, before the vault would revert.
+- Events: `LimitsSet(token, maxPerTx, budget)`, `BudgetReset(token)`.
+
+### 4.10 VaultFactory and deposits (added 2026-11-12)
+
+- The constructor is now `(initialOwner, initialAgent, initialGuardian, Config config)`. `Config` carries `maxAgentRisk`, token policies with their limits, the native policy and limits, allowed targets with selectors, and allowed recipients; every entry goes through the same checks as the owner setters. An empty config starts with nothing allowed (Deploy/RedeployVault pass one, then seed).
+- `VaultFactory(guardian)` (`src/VaultFactory.sol`): `createVault(agent, config)` deploys a vault owned by `msg.sender` with the factory's Guardian, in one transaction, and emits `VaultCreated(owner, vault, agent)`. `vaultsOf(owner)`, `vaultCount()`, `vaultAt(i)`. The factory keeps no rights over the vaults. Deployed with `pnpm deploy-factory:fuji` (address in `addresses/{fuji,local}.json` as `factory`).
+- Deposits need no contract function: the owner (or anyone) sends USDC with a plain ERC-20 `transfer` to the vault, and AVAX through `receive()`. The dashboard reads deposits from the token's `Transfer` logs.
+- One agent per vault: an owner who runs several agents creates one vault per agent.
+
 ## 5. Verdict encoding (TypeScript and Solidity must match byte for byte)
 
 In `packages/shared/src/verdict.ts`:
@@ -663,3 +680,4 @@ Mainnet; real user funds; any token; ERC-4337 bundlers and paymasters; EIP-7702;
   - Fork upstream: Tenderly's public gateway `https://avalanche-fuji.gateway.tenderly.co` keeps older state with no key; every fork test (simulator 13/13 including the background reset, API 5/5) and the eval ran through it after the official RPC rate-limited this machine.
   - §8 `UNPROTECTED_SWAP` (MEDIUM, team lead's decision on the open `minOut` question of the third review): a swap through a known router whose `minOut` is more than 3% below the simulated output. §10: the safe planner sets `minOut` = oracle quote − 1% (S1 stays LOW); S4 keeps `minOut = 0` and reports ABNORMAL_SLIPPAGE + UNPROTECTED_SWAP (HIGH, 85). §12 before/after: new rule with the old cases → blocked = HIGH unchanged (TP 25 FP 0 TN 15 FN 0), blocked ≥ MEDIUM TP 25 FP 8 TN 7 FN 0 (the eight benign swaps with `minOut = 0`); benign swaps given `minOut` as the agent now sets it → TP 25 FP 0 TN 15 FN 0 at both thresholds, fingerprint `75b364aac5a8179c` (two runs). On Fuji: S1 LOW and executed, S4 HIGH 85 and `RiskTooHigh`.
   - §14: the team has one member; the fresh-clone run was done from a clean clone of `main` (results in docs/PROGRESS.md).
+- 2026-11-12 — happy-path gaps (team review): §4.9 per-batch cap `maxPerTx` and running budget `budget` + `resetBudget` on AgentVault; §4.10 constructor `Config`, `VaultFactory` (Fuji `0xf6007B6a2C58831917979875a8d52E093De4af85`), deposits by plain transfer, one agent per vault. The previous Fuji vault (`0x6A8C…Cf3c`, old code) stays the DEMO vault for scenarios S0–S6.

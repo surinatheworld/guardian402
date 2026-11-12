@@ -41,7 +41,8 @@ abstract contract AgentVaultBase is Test {
         guardian = vm.addr(GUARDIAN_PK);
         usdc = new MockUSDC();
         target = new MockTarget();
-        vault = new AgentVault(owner, agent, guardian);
+        AgentVault.Config memory emptyConfig;
+        vault = new AgentVault(owner, agent, guardian, emptyConfig);
 
         vm.startPrank(owner);
         vault.setTokenPolicy(address(usdc), true, USDC_CAP, USDC_MAX_APPROVAL, USDC_THRESHOLD);

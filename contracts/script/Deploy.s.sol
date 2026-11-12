@@ -26,7 +26,8 @@ contract Deploy is Script {
         uint256 startBlock = vm.getBlockNumber();
 
         vm.startBroadcast(deployerPk);
-        AgentVault vault = new AgentVault(owner, address(0), address(0));
+        AgentVault.Config memory emptyConfig;
+        AgentVault vault = new AgentVault(owner, address(0), address(0), emptyConfig);
         MockERC20 wavax = new MockERC20("Mock Wrapped AVAX", "mWAVAX", 18, deployer);
         MockOracle oracle = new MockOracle(deployer, INITIAL_PRICE);
         MockRouter router = new MockRouter(IERC20(FUJI_USDC), IERC20(address(wavax)), oracle, deployer);

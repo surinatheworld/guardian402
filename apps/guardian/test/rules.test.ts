@@ -311,6 +311,24 @@ describe("rule details", () => {
     ]);
   });
 
+  it("POLICY_PRECHECK checks the per-batch cap and the budget left (SPEC §4.9)", () => {
+    const f = fx("normal-swap"); // the vault sends 2 USDC
+    const usdc = must(f.ctx.policy.tokens[0]).token;
+    const withLimits = (maxPerTx: bigint, budget: bigint, spentSinceReset: bigint) =>
+      fire("POLICY_PRECHECK", f, {
+        ...f.ctx,
+        policy: { ...f.ctx.policy, limits: [{ token: usdc, maxPerTx, budget, spentSinceReset }] },
+      }).map((x) => x.evidence.reason);
+
+    expect(withLimits(0n, 0n, 0n)).toEqual([]);
+    expect(withLimits(2_000_000n, 2_000_000n, 0n)).toEqual([]);
+    expect(withLimits(1_999_999n, 0n, 0n)).toEqual(["tx-cap-exceeded"]);
+    expect(withLimits(0n, 5_000_000n, 3_000_001n)).toEqual(["budget-exceeded"]);
+    expect(withLimits(1_000_000n, 1_000_000n, 1_000_000n)).toEqual(["tx-cap-exceeded", "budget-exceeded"]);
+    // A vault without getLimits() (deployed before SPEC §4.9) has no such finding.
+    expect(fire("POLICY_PRECHECK", f).map((x) => x.evidence.reason)).toEqual([]);
+  });
+
   it("UNLIMITED_APPROVAL flags ApprovalForAll(true) and ignores ApprovalForAll(false)", () => {
     const f = fx("normal-swap");
     const ev = {

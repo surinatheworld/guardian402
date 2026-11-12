@@ -22,6 +22,9 @@ export const deploymentSchema = z.object({
   cancunSmoke: addressSchema.optional(),
   // AgentVault replaced by `pnpm redeploy-vault:<network>` (emptied and paused).
   previousVault: addressSchema.optional(),
+  // VaultFactory (`pnpm deploy-factory:<network>`): owners create their own vault (SPEC §4.10).
+  factory: addressSchema.optional(),
+  factoryStartBlock: z.number().int().nonnegative().optional(),
 });
 export type Deployment = z.infer<typeof deploymentSchema>;
 

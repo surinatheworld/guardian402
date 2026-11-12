@@ -15,6 +15,8 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 /// @notice Holds an owner's funds and runs an AI agent's call batches only when they pass the on-chain policy
 /// (allowlists, daily caps, kill switch) and, when required, carry a valid EIP-712 verdict signed by the
 /// Guardian (docs/SPEC.md §4). The owner can withdraw at any time; the Guardian can only sign verdicts.
+/// Besides the daily cap, each tracked token (and native AVAX) can carry a per-batch cap (`maxPerTx`) and a
+/// running budget (`budget`) that stops the agent once reached, until the owner resets it (SPEC §4.9).
 contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -56,6 +58,45 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
     struct TargetView {
         address target;
         bytes4[] selectors;
+    }
+
+    /// @dev Zero means "no limit" for both fields. Keyed by token, NATIVE for AVAX.
+    struct Limits {
+        uint256 maxPerTx;
+        uint256 budget;
+    }
+
+    struct LimitsView {
+        address token;
+        uint256 maxPerTx;
+        uint256 budget;
+        uint256 spentSinceReset;
+    }
+
+    struct TokenConfig {
+        address token;
+        uint256 dailyCap;
+        uint256 maxApproval;
+        uint256 verdictThreshold;
+        uint256 maxPerTx;
+        uint256 budget;
+    }
+
+    struct TargetConfig {
+        address target;
+        bytes4[] selectors;
+    }
+
+    /// @notice The policy a vault starts with, so a new vault is usable in the transaction that creates it.
+    struct Config {
+        uint8 maxAgentRisk;
+        TokenConfig[] tokens;
+        uint256 nativeDailyCap;
+        uint256 nativeVerdictThreshold;
+        uint256 nativeMaxPerTx;
+        uint256 nativeBudget;
+        TargetConfig[] targets;
+        address[] recipients;
     }
 
     /// @notice Everything the Guardian needs to pre-check a batch, read in one call.
@@ -116,6 +157,11 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
     mapping(address target => EnumerableSet.Bytes32Set) private _selectors;
     EnumerableSet.AddressSet private _recipients;
 
+    /// @notice Per-batch cap and running budget. token (NATIVE for AVAX) => limits.
+    mapping(address token => Limits) public limits;
+    /// @notice token (NATIVE for AVAX) => agent-path outflow since the budget was last set or reset.
+    mapping(address token => uint256 amount) public spentSinceReset;
+
     // --------------------------------------------------------------- events
 
     event Executed(bytes32 indexed callsHash, bytes32 indexed checkId, bool withVerdict, uint256 nonceUsed);
@@ -134,6 +180,8 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
     event AllowedTargetSet(address indexed target, bool allowed);
     event AllowedSelectorSet(address indexed target, bytes4 indexed selector, bool allowed);
     event AllowedRecipientSet(address indexed recipient, bool allowed);
+    event LimitsSet(address indexed token, uint256 maxPerTx, uint256 budget);
+    event BudgetReset(address indexed token);
 
     // --------------------------------------------------------------- errors
 
@@ -149,6 +197,8 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
     error BadSignature();
     error RiskTooHigh(uint8 risk);
     error DailyCapExceeded(address token, uint256 spent, uint256 cap);
+    error TxCapExceeded(address token, uint256 amount, uint256 cap);
+    error BudgetExceeded(address token, uint256 spent, uint256 budget);
     error CallFailed(uint256 index, bytes returndata);
     error VerdictRequired();
     error TooManyTrackedTokens();
@@ -157,9 +207,10 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
     // ---------------------------------------------------------- constructor
 
     /// @dev A zero agent or guardian is valid: no agent means the agent path is revoked; no guardian means no
-    /// verdict is accepted. The zero owner is rejected by Ownable.
+    /// verdict is accepted. The zero owner is rejected by Ownable. `config` goes through the same checks as the
+    /// owner setters; an empty config starts with nothing allowed.
     // forge-lint: disable-next-line(missing-zero-check)
-    constructor(address initialOwner, address initialAgent, address initialGuardian)
+    constructor(address initialOwner, address initialAgent, address initialGuardian, Config memory config)
         Ownable(initialOwner)
         EIP712("Guardian402 AgentVault", "1")
     {
@@ -167,6 +218,25 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
         guardian = initialGuardian;
         emit AgentSet(address(0), initialAgent);
         emit GuardianSet(address(0), initialGuardian);
+
+        _setMaxAgentRisk(config.maxAgentRisk);
+        for (uint256 i; i < config.tokens.length; ++i) {
+            TokenConfig memory t = config.tokens[i];
+            _setTokenPolicy(t.token, true, t.dailyCap, t.maxApproval, t.verdictThreshold);
+            _setLimits(t.token, t.maxPerTx, t.budget);
+        }
+        _setNativePolicy(config.nativeDailyCap, config.nativeVerdictThreshold);
+        _setLimits(NATIVE, config.nativeMaxPerTx, config.nativeBudget);
+        for (uint256 i; i < config.targets.length; ++i) {
+            TargetConfig memory t = config.targets[i];
+            _setAllowedTarget(t.target, true);
+            for (uint256 j; j < t.selectors.length; ++j) {
+                _setAllowedSelector(t.target, t.selectors[j], true);
+            }
+        }
+        for (uint256 i; i < config.recipients.length; ++i) {
+            _setAllowedRecipient(config.recipients[i], true);
+        }
     }
 
     receive() external payable {}
@@ -262,9 +332,7 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
     }
 
     function setMaxAgentRisk(uint8 newMaxAgentRisk) external onlyOwner {
-        if (newMaxAgentRisk > MAX_RISK) revert RiskTooHigh(newMaxAgentRisk);
-        maxAgentRisk = newMaxAgentRisk;
-        emit MaxAgentRiskSet(newMaxAgentRisk);
+        _setMaxAgentRisk(newMaxAgentRisk);
     }
 
     function setTokenPolicy(
@@ -274,51 +342,37 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
         uint256 maxApproval,
         uint256 verdictThreshold
     ) external onlyOwner {
-        // address(0) is the native key; the vault itself is never a valid token target.
-        if (token == NATIVE || token == address(this)) revert TargetNotAllowed(token);
-        bool wasTracked = tokenPolicy[token].tracked;
-        if (tracked && !wasTracked) {
-            if (trackedTokens.length >= MAX_TRACKED_TOKENS) revert TooManyTrackedTokens();
-            trackedTokens.push(token);
-        } else if (!tracked && wasTracked) {
-            _untrack(token);
-        }
-        tokenPolicy[token] = TokenPolicy(tracked, dailyCap, maxApproval, verdictThreshold);
-        emit TokenPolicySet(token, tracked, dailyCap, maxApproval, verdictThreshold);
+        _setTokenPolicy(token, tracked, dailyCap, maxApproval, verdictThreshold);
     }
 
     function setNativePolicy(uint256 dailyCap, uint256 verdictThreshold) external onlyOwner {
-        nativeDailyCap = dailyCap;
-        nativeVerdictThreshold = verdictThreshold;
-        emit NativePolicySet(dailyCap, verdictThreshold);
+        _setNativePolicy(dailyCap, verdictThreshold);
+    }
+
+    /// @notice Per-batch cap and running budget of a token (NATIVE for AVAX); zero means no limit. Setting the
+    /// limits also restarts the budget count, so a new budget always starts from zero spent.
+    function setLimits(address token, uint256 maxPerTx, uint256 budget) external onlyOwner {
+        _setLimits(token, maxPerTx, budget);
+    }
+
+    /// @notice Restarts the budget count of a token (NATIVE for AVAX), e.g. after the agent used it all.
+    function resetBudget(address token) external onlyOwner {
+        spentSinceReset[token] = 0;
+        emit BudgetReset(token);
     }
 
     /// @notice Removing a target also removes its selectors (review finding R5), so allowing it again later
     /// starts from an empty selector list.
     function setAllowedTarget(address target, bool allowed) external onlyOwner {
-        if (allowed) {
-            _targets.add(target);
-        } else {
-            _targets.remove(target);
-            EnumerableSet.Bytes32Set storage selectors = _selectors[target];
-            bytes32[] memory removed = selectors.values();
-            selectors.clear();
-            for (uint256 i; i < removed.length; ++i) {
-                // forge-lint: disable-next-line(unsafe-typecast) -- selectors are stored left-aligned, so this is lossless
-                emit AllowedSelectorSet(target, bytes4(removed[i]), false);
-            }
-        }
-        emit AllowedTargetSet(target, allowed);
+        _setAllowedTarget(target, allowed);
     }
 
     function setAllowedSelector(address target, bytes4 selector, bool allowed) external onlyOwner {
-        allowed ? _selectors[target].add(selector) : _selectors[target].remove(selector);
-        emit AllowedSelectorSet(target, selector, allowed);
+        _setAllowedSelector(target, selector, allowed);
     }
 
     function setAllowedRecipient(address recipient, bool allowed) external onlyOwner {
-        allowed ? _recipients.add(recipient) : _recipients.remove(recipient);
-        emit AllowedRecipientSet(recipient, allowed);
+        _setAllowedRecipient(recipient, allowed);
     }
 
     /// @notice Disabled: an ownerless vault could never be withdrawn from.
@@ -352,6 +406,27 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
         else return 0;
         uint256 used = spent[token][_today()];
         return used >= cap ? 0 : cap - used;
+    }
+
+    /// @notice Budget left before the owner must reset it. NATIVE for AVAX; type(uint256).max when no budget.
+    function remainingBudget(address token) external view returns (uint256) {
+        uint256 budget = limits[token].budget;
+        if (budget == 0) return type(uint256).max;
+        uint256 used = spentSinceReset[token];
+        return used >= budget ? 0 : budget - used;
+    }
+
+    /// @notice Per-batch caps and budgets of every tracked token, then native AVAX last (token = NATIVE).
+    function getLimits() external view returns (LimitsView[] memory views) {
+        uint256 tokenCount = trackedTokens.length;
+        views = new LimitsView[](tokenCount + 1);
+        for (uint256 i; i <= tokenCount; ++i) {
+            address token = i < tokenCount ? trackedTokens[i] : NATIVE;
+            Limits storage l = limits[token];
+            views[i] = LimitsView({
+                token: token, maxPerTx: l.maxPerTx, budget: l.budget, spentSinceReset: spentSinceReset[token]
+            });
+        }
     }
 
     function hashCalls(Call[] calldata calls) public pure returns (bytes32) {
@@ -413,6 +488,74 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
         }
 
         p.recipients = _recipients.values();
+    }
+
+    // ---------------------------------------------------------- policy setters
+
+    function _setMaxAgentRisk(uint8 newMaxAgentRisk) private {
+        if (newMaxAgentRisk > MAX_RISK) revert RiskTooHigh(newMaxAgentRisk);
+        maxAgentRisk = newMaxAgentRisk;
+        emit MaxAgentRiskSet(newMaxAgentRisk);
+    }
+
+    function _setTokenPolicy(
+        address token,
+        bool tracked,
+        uint256 dailyCap,
+        uint256 maxApproval,
+        uint256 verdictThreshold
+    ) private {
+        // address(0) is the native key; the vault itself is never a valid token target.
+        if (token == NATIVE || token == address(this)) revert TargetNotAllowed(token);
+        bool wasTracked = tokenPolicy[token].tracked;
+        if (tracked && !wasTracked) {
+            if (trackedTokens.length >= MAX_TRACKED_TOKENS) revert TooManyTrackedTokens();
+            trackedTokens.push(token);
+        } else if (!tracked && wasTracked) {
+            _untrack(token);
+        }
+        tokenPolicy[token] = TokenPolicy(tracked, dailyCap, maxApproval, verdictThreshold);
+        emit TokenPolicySet(token, tracked, dailyCap, maxApproval, verdictThreshold);
+    }
+
+    function _setNativePolicy(uint256 dailyCap, uint256 verdictThreshold) private {
+        nativeDailyCap = dailyCap;
+        nativeVerdictThreshold = verdictThreshold;
+        emit NativePolicySet(dailyCap, verdictThreshold);
+    }
+
+    function _setLimits(address token, uint256 maxPerTx, uint256 budget) private {
+        if (token == address(this)) revert TargetNotAllowed(token);
+        limits[token] = Limits(maxPerTx, budget);
+        spentSinceReset[token] = 0;
+        emit LimitsSet(token, maxPerTx, budget);
+        emit BudgetReset(token);
+    }
+
+    function _setAllowedTarget(address target, bool allowed) private {
+        if (allowed) {
+            _targets.add(target);
+        } else {
+            _targets.remove(target);
+            EnumerableSet.Bytes32Set storage selectors = _selectors[target];
+            bytes32[] memory removed = selectors.values();
+            selectors.clear();
+            for (uint256 i; i < removed.length; ++i) {
+                // forge-lint: disable-next-line(unsafe-typecast) -- selectors are stored left-aligned, so this is lossless
+                emit AllowedSelectorSet(target, bytes4(removed[i]), false);
+            }
+        }
+        emit AllowedTargetSet(target, allowed);
+    }
+
+    function _setAllowedSelector(address target, bytes4 selector, bool allowed) private {
+        allowed ? _selectors[target].add(selector) : _selectors[target].remove(selector);
+        emit AllowedSelectorSet(target, selector, allowed);
+    }
+
+    function _setAllowedRecipient(address recipient, bool allowed) private {
+        allowed ? _recipients.add(recipient) : _recipients.remove(recipient);
+        emit AllowedRecipientSet(recipient, allowed);
     }
 
     // -------------------------------------------------------------- internal
@@ -547,6 +690,12 @@ contract AgentVault is Ownable2Step, EIP712, ReentrancyGuard {
         uint256 total = spent[token][day] + outflow;
         if (total > cap) revert DailyCapExceeded(token, total, cap);
         spent[token][day] = total;
+
+        Limits storage l = limits[token];
+        if (l.maxPerTx != 0 && outflow > l.maxPerTx) revert TxCapExceeded(token, outflow, l.maxPerTx);
+        uint256 sinceReset = spentSinceReset[token] + outflow;
+        if (l.budget != 0 && sinceReset > l.budget) revert BudgetExceeded(token, sinceReset, l.budget);
+        spentSinceReset[token] = sinceReset;
         return outflow > threshold;
     }
 

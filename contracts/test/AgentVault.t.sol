@@ -840,7 +840,8 @@ contract AgentVaultTest is AgentVaultBase {
 
     function test_RevertWhen_ConstructorZeroOwner() public {
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0)));
-        new AgentVault(address(0), agent, guardian);
+        AgentVault.Config memory emptyConfig;
+        new AgentVault(address(0), agent, guardian, emptyConfig);
     }
 
     // ============================================================== views

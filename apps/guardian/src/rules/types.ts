@@ -11,6 +11,14 @@ export type TokenPolicySnapshot = {
   balance: bigint;
 };
 
+/** Per-batch cap and budget of one token (ZERO_ADDRESS for AVAX), from AgentVault.getLimits(). 0 = no limit. */
+export type LimitsSnapshot = {
+  token: Address;
+  maxPerTx: bigint;
+  budget: bigint;
+  spentSinceReset: bigint;
+};
+
 /** AgentVault.getPolicy() read before the check (docs/SPEC.md §4.4). */
 export type PolicySnapshot = {
   owner: Address;
@@ -27,6 +35,8 @@ export type PolicySnapshot = {
   nativeBalance: bigint;
   targets: { target: Address; selectors: Hex[] }[];
   recipients: Address[];
+  /** AgentVault.getLimits() (SPEC §4.9); absent on vaults deployed before it existed. */
+  limits?: LimitsSnapshot[];
 };
 
 export type KnownContract = {

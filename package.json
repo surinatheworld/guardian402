@@ -41,7 +41,8 @@
     "erc8004:fuji": "tsx scripts/erc8004.ts fuji",
     "bench:guardian": "tsx scripts/bench-guardian.ts",
     "mcp": "pnpm --filter @guardian402/guardian-mcp start",
-    "mcp:example": "pnpm --filter @guardian402/guardian-mcp example"
+    "mcp:example": "pnpm --filter @guardian402/guardian-mcp example",
+    "deploy-factory:fuji": "node scripts/contracts.mjs deploy-factory fuji"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

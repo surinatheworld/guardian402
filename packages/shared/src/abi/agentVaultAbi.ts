@@ -18,6 +18,97 @@ export const agentVaultAbi = [
         type: "address",
         internalType: "address",
       },
+      {
+        name: "config",
+        type: "tuple",
+        internalType: "struct AgentVault.Config",
+        components: [
+          {
+            name: "maxAgentRisk",
+            type: "uint8",
+            internalType: "uint8",
+          },
+          {
+            name: "tokens",
+            type: "tuple[]",
+            internalType: "struct AgentVault.TokenConfig[]",
+            components: [
+              {
+                name: "token",
+                type: "address",
+                internalType: "address",
+              },
+              {
+                name: "dailyCap",
+                type: "uint256",
+                internalType: "uint256",
+              },
+              {
+                name: "maxApproval",
+                type: "uint256",
+                internalType: "uint256",
+              },
+              {
+                name: "verdictThreshold",
+                type: "uint256",
+                internalType: "uint256",
+              },
+              {
+                name: "maxPerTx",
+                type: "uint256",
+                internalType: "uint256",
+              },
+              {
+                name: "budget",
+                type: "uint256",
+                internalType: "uint256",
+              },
+            ],
+          },
+          {
+            name: "nativeDailyCap",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "nativeVerdictThreshold",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "nativeMaxPerTx",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "nativeBudget",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "targets",
+            type: "tuple[]",
+            internalType: "struct AgentVault.TargetConfig[]",
+            components: [
+              {
+                name: "target",
+                type: "address",
+                internalType: "address",
+              },
+              {
+                name: "selectors",
+                type: "bytes4[]",
+                internalType: "bytes4[]",
+              },
+            ],
+          },
+          {
+            name: "recipients",
+            type: "address[]",
+            internalType: "address[]",
+          },
+        ],
+      },
     ],
     stateMutability: "nonpayable",
   },
@@ -284,6 +375,41 @@ export const agentVaultAbi = [
   },
   {
     type: "function",
+    name: "getLimits",
+    inputs: [],
+    outputs: [
+      {
+        name: "views",
+        type: "tuple[]",
+        internalType: "struct AgentVault.LimitsView[]",
+        components: [
+          {
+            name: "token",
+            type: "address",
+            internalType: "address",
+          },
+          {
+            name: "maxPerTx",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "budget",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "spentSinceReset",
+            type: "uint256",
+            internalType: "uint256",
+          },
+        ],
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "getPolicy",
     inputs: [],
     outputs: [
@@ -467,6 +593,30 @@ export const agentVaultAbi = [
   },
   {
     type: "function",
+    name: "limits",
+    inputs: [
+      {
+        name: "token",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    outputs: [
+      {
+        name: "maxPerTx",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "budget",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "maxAgentRisk",
     inputs: [],
     outputs: [
@@ -582,6 +732,25 @@ export const agentVaultAbi = [
   },
   {
     type: "function",
+    name: "remainingBudget",
+    inputs: [
+      {
+        name: "token",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "remainingToday",
     inputs: [
       {
@@ -605,6 +774,19 @@ export const agentVaultAbi = [
     inputs: [],
     outputs: [],
     stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "resetBudget",
+    inputs: [
+      {
+        name: "token",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -693,6 +875,29 @@ export const agentVaultAbi = [
   },
   {
     type: "function",
+    name: "setLimits",
+    inputs: [
+      {
+        name: "token",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "maxPerTx",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "budget",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "setMaxAgentRisk",
     inputs: [
       {
@@ -768,6 +973,25 @@ export const agentVaultAbi = [
         name: "day",
         type: "uint256",
         internalType: "uint256",
+      },
+    ],
+    outputs: [
+      {
+        name: "amount",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "spentSinceReset",
+    inputs: [
+      {
+        name: "token",
+        type: "address",
+        internalType: "address",
       },
     ],
     outputs: [
@@ -1049,6 +1273,19 @@ export const agentVaultAbi = [
   },
   {
     type: "event",
+    name: "BudgetReset",
+    inputs: [
+      {
+        name: "token",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
     name: "EIP712DomainChanged",
     inputs: [],
     anonymous: false,
@@ -1099,6 +1336,31 @@ export const agentVaultAbi = [
         type: "address",
         indexed: true,
         internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "LimitsSet",
+    inputs: [
+      {
+        name: "token",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "maxPerTx",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "budget",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
       },
     ],
     anonymous: false,
@@ -1327,6 +1589,27 @@ export const agentVaultAbi = [
   },
   {
     type: "error",
+    name: "BudgetExceeded",
+    inputs: [
+      {
+        name: "token",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "spent",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "budget",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+  },
+  {
+    type: "error",
     name: "CallFailed",
     inputs: [
       {
@@ -1510,6 +1793,27 @@ export const agentVaultAbi = [
     type: "error",
     name: "TooManyTrackedTokens",
     inputs: [],
+  },
+  {
+    type: "error",
+    name: "TxCapExceeded",
+    inputs: [
+      {
+        name: "token",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "amount",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "cap",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
   },
   {
     type: "error",

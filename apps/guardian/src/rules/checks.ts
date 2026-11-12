@@ -160,6 +160,29 @@ export const policyPrecheck: Rule = (sim, ctx) => {
       remaining: nativeRemaining.toString(),
     });
   }
+
+  // Per-batch cap and running budget on the same simulated outflow (SPEC §4.9). 0 = no limit.
+  for (const l of p.limits ?? []) {
+    const isNative = lc(l.token) === lc(ZERO_ADDRESS);
+    const delta = isNative
+      ? sim.nativeDelta
+      : sim.tokenDeltas.find((d) => lc(d.token) === lc(l.token))?.delta;
+    const outflow = delta !== undefined && delta < 0n ? -delta : 0n;
+    if (outflow === 0n) continue;
+    if (l.maxPerTx > 0n && outflow > l.maxPerTx) {
+      fail("tx-cap-exceeded", {
+        token: l.token,
+        outflow: outflow.toString(),
+        maxPerTx: l.maxPerTx.toString(),
+      });
+    }
+    if (l.budget > 0n) {
+      const left = l.budget > l.spentSinceReset ? l.budget - l.spentSinceReset : 0n;
+      if (outflow > left) {
+        fail("budget-exceeded", { token: l.token, outflow: outflow.toString(), remaining: left.toString() });
+      }
+    }
+  }
   return out;
 };
 

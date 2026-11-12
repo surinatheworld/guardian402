@@ -298,7 +298,8 @@ contract AgentVaultReviewTest is AgentVaultBase {
 
     /// A verdict signed for another vault with the same owner, agent, guardian and nonce is rejected.
     function test_ReviewOk_VerdictForAnotherVaultIsRejected() public {
-        AgentVault other = new AgentVault(owner, agent, guardian);
+        AgentVault.Config memory emptyConfig;
+        AgentVault other = new AgentVault(owner, agent, guardian, emptyConfig);
         AgentVault.Call[] memory calls = _one(_transfer(treasury, 5e6));
         AgentVault.Verdict memory v = _verdictFor(calls, 0);
         (uint8 r8, bytes32 r, bytes32 s) = vm.sign(GUARDIAN_PK, other.verdictDigest(v));

@@ -40,7 +40,8 @@ contract RedeployVault is Script {
         }
 
         vm.startBroadcast(vm.envUint("DEPLOYER_PK"));
-        AgentVault vault = new AgentVault(owner, address(0), address(0));
+        AgentVault.Config memory emptyConfig;
+        AgentVault vault = new AgentVault(owner, address(0), address(0), emptyConfig);
         vm.stopBroadcast();
 
         string memory key = "vault";

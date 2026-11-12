@@ -46,6 +46,8 @@ export const PRECHECK_REASON_LABEL: Record<string, string> = {
   "spender-not-allowed": "bên được cấp quyền rút không được phép",
   "approval-too-large": "quyền rút vượt mức cho phép",
   "daily-cap-exceeded": "vượt hạn mức mỗi ngày",
+  "tx-cap-exceeded": "vượt hạn mức mỗi giao dịch",
+  "budget-exceeded": "đã dùng hết tổng ngân sách, chờ chủ két làm mới",
 };
 
 const REVERT_LABEL: Record<string, string> = {
@@ -58,6 +60,8 @@ const REVERT_LABEL: Record<string, string> = {
   VerdictRequired: "thiếu phê duyệt của Guardian",
   BadSignature: "chữ ký phê duyệt sai",
   DailyCapExceeded: "vượt hạn mức mỗi ngày",
+  TxCapExceeded: "vượt hạn mức mỗi giao dịch",
+  BudgetExceeded: "đã dùng hết tổng ngân sách, chờ chủ két làm mới",
   ApprovalTooLarge: "quyền rút vượt mức cho phép",
   NotAgent: "ví gửi không phải agent của két",
   CallFailed: "một bước trong giao dịch thất bại",

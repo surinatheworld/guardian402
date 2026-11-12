@@ -89,6 +89,7 @@ Available now:
 - `pnpm deploy:fuji` / `pnpm seed:fuji` — same on Fuji; addresses go to `packages/shared/src/addresses/<network>.json`. Seed is idempotent.
 - `pnpm verify:fuji` — verify the Fuji contracts on Routescan / testnet.snowtrace.io
 - `pnpm handoff:fuji` — start the Ownable2Step transfer of AgentVault to the team lead's wallet
+- `pnpm deploy-factory:fuji` — deploy and verify the `VaultFactory` (owners create their own vault in one transaction; guardian = the `GUARDIAN_SIGNER_PK` signer) and write `factory` into `addresses/{fuji,local}.json`
 - `pnpm redeploy-mocks:fuji` / `pnpm swap-router:fuji <oldRouter>` — replace mWAVAX and MockRouter (verified in the same run), then move the vault allowlist from the old router to the new one
 - `pnpm redeploy-vault:fuji` — deploy a new AgentVault with the current code (verified in the same run) and keep the mocks; if `OWNER_PK` owns the old vault it is emptied to the owner and paused first. Then run `pnpm seed:fuji`, `pnpm handoff:fuji` and `pnpm known-contracts`. It also points `local.json` at the new vault, because the fork tests and `local` mode use the seeded Fuji deployment
 - `node scripts/contracts.mjs adopt local` — fork only: impersonate the owners on the running fork and move the seeded Fuji vault to `OWNER_PK` and the DEMO mocks to `DEPLOYER_PK`, so `pnpm seed:local` can set the agent, the guardian, the oracle price and test USDC for fresh keys. Plain JSON-RPC, no `cast` (works where Smart App Control blocks `cast.exe`). Changes fork state only; no deploy, no tracked file

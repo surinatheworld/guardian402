@@ -2,10 +2,19 @@
 // inputs touch the network; the rules themselves stay pure.
 import { getAddress, type Address, type PublicClient } from "viem";
 import { agentVaultAbi, mockOracleAbi, type Deployment } from "@guardian402/shared";
-import type { Context, KnownContract, OracleReference, PolicySnapshot } from "./rules/types.ts";
+import type {
+  Context,
+  KnownContract,
+  LimitsSnapshot,
+  OracleReference,
+  PolicySnapshot,
+} from "./rules/types.ts";
 
 export async function readPolicy(client: PublicClient, vault: Address): Promise<PolicySnapshot> {
-  const p = await client.readContract({ address: vault, abi: agentVaultAbi, functionName: "getPolicy" });
+  const [p, limits] = await Promise.all([
+    client.readContract({ address: vault, abi: agentVaultAbi, functionName: "getPolicy" }),
+    readLimits(client, vault),
+  ]);
   return {
     owner: p.owner,
     agent: p.agent,
@@ -28,7 +37,23 @@ export async function readPolicy(client: PublicClient, vault: Address): Promise<
     nativeBalance: p.nativeBalance,
     targets: p.targets.map((t) => ({ target: t.target, selectors: [...t.selectors] })),
     recipients: [...p.recipients],
+    ...(limits ? { limits } : {}),
   };
+}
+
+/** AgentVault.getLimits(), or undefined for a vault deployed before per-batch caps and budgets (SPEC §4.9). */
+async function readLimits(client: PublicClient, vault: Address): Promise<LimitsSnapshot[] | undefined> {
+  try {
+    const l = await client.readContract({ address: vault, abi: agentVaultAbi, functionName: "getLimits" });
+    return l.map((x) => ({
+      token: x.token,
+      maxPerTx: x.maxPerTx,
+      budget: x.budget,
+      spentSinceReset: x.spentSinceReset,
+    }));
+  } catch {
+    return undefined;
+  }
 }
 
 /** MockOracle reference for ABNORMAL_SLIPPAGE: USDC (quote, 6 decimals) per 1 mWAVAX (base, 18 decimals). */

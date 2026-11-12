@@ -5,6 +5,7 @@
 //   node scripts/contracts.mjs redeploy-mocks <local|fuji>       (new mWAVAX + MockRouter; verified on fuji)
 //   node scripts/contracts.mjs swap-router <local|fuji> <oldRouter>  (vault allowlist: old router → new router)
 //   node scripts/contracts.mjs redeploy-vault <local|fuji>       (new AgentVault, old one emptied and paused; verified on fuji)
+//   node scripts/contracts.mjs deploy-factory <local|fuji>       (VaultFactory with the GUARDIAN_SIGNER_PK signer; verified on fuji)
 //   node scripts/contracts.mjs adopt local                       (fork only: hand the seeded Fuji vault to OWNER_PK)
 //
 // Loads secrets from the repo-root .env.local into the environment of forge/cast (never on the command line),
@@ -46,6 +47,7 @@ const ACTIONS = [
   "redeploy-mocks",
   "swap-router",
   "redeploy-vault",
+  "deploy-factory",
   "adopt",
 ];
 const [action, network, extraArg] = process.argv.slice(2);
@@ -127,6 +129,31 @@ if (action === "verify") {
     const next = { ...local, vault: merged.vault, startBlock: merged.startBlock };
     writeFileSync(localFile, `${JSON.stringify(next, null, 2)}\n`);
     console.log("[contracts] local.json follows the new vault; run `pnpm known-contracts` next");
+  }
+} else if (action === "deploy-factory") {
+  const verify = network === "fuji" ? ["--verify", ...VERIFY_FLAGS] : [];
+  run("forge", [
+    "script",
+    "script/DeployFactory.s.sol:DeployFactory",
+    "--rpc-url",
+    rpc,
+    "--broadcast",
+    "--slow",
+    ...verify,
+  ]);
+  const deployed = JSON.parse(readFileSync(join(FORGE_DEPLOYMENTS, `${network}-factory.json`), "utf8"));
+  // The fork tests and `local` mode use the Fuji deployment, so a Fuji factory is also the local one.
+  for (const name of network === "fuji" ? ["fuji", "local"] : ["local"]) {
+    const file = join(SHARED_ADDRESSES, `${name}.json`);
+    const next = { ...JSON.parse(readFileSync(file, "utf8")), ...deployed };
+    writeFileSync(
+      file,
+      `${JSON.stringify(next, null, 2)}
+`,
+    );
+    console.log(
+      `[contracts] factory ${deployed.factory} written to packages/shared/src/addresses/${name}.json`,
+    );
   }
 } else if (action === "swap-router") {
   run("forge", [
@@ -335,11 +362,13 @@ function verifyAll() {
     [
       "src/AgentVault.sol:AgentVault",
       a.vault,
+      // Vaults deployed by Deploy/RedeployVault since SPEC §4.9 take an empty Config as the fourth argument.
       enc(
-        "f(address,address,address)",
+        "f(address,address,address,(uint8,(address,uint256,uint256,uint256,uint256,uint256)[],uint256,uint256,uint256,uint256,(address,bytes4[])[],address[]))",
         a.owner,
         "0x0000000000000000000000000000000000000000",
         "0x0000000000000000000000000000000000000000",
+        "(0,[],0,0,0,0,[],[])",
       ),
     ],
     [
@@ -354,6 +383,10 @@ function verifyAll() {
       enc("f(address,address,address,address)", a.usdc, a.mWAVAX, a.oracle, a.deployer),
     ],
   ];
+  if (a.factory) {
+    const guardian = privateKeyToAccount(process.env.GUARDIAN_SIGNER_PK).address;
+    contracts.push(["src/VaultFactory.sol:VaultFactory", a.factory, enc("f(address)", guardian)]);
+  }
   if (a.cancunSmoke) contracts.push(["src/smoke/CancunSmoke.sol:CancunSmoke", a.cancunSmoke, "0x"]);
   for (const [id, address, args] of contracts) {
     console.log(`[contracts] verifying ${id} at ${address}`);

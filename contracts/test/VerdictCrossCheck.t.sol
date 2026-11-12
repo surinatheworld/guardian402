@@ -34,7 +34,8 @@ contract VerdictCrossCheckTest is Test {
         // Deterministic addresses: the fixed deployer creates vault, token and target at nonces 0, 1 and 2.
         vm.setNonce(deployer, 0);
         vm.startPrank(deployer);
-        vault = new AgentVault(owner, agent, json.readAddress(".signer"));
+        AgentVault.Config memory emptyConfig;
+        vault = new AgentVault(owner, agent, json.readAddress(".signer"), emptyConfig);
         token = new MockUSDC();
         target = new MockTarget();
         vm.stopPrank();

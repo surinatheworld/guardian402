@@ -24,6 +24,11 @@ const POLICY_REASON: Record<string, Record<Lang, string>> = {
     en: "AVAX sent to a target that is not allowed",
   },
   "daily-cap-exceeded": { vi: "vượt hạn mức chi trong ngày", en: "daily spending cap exceeded" },
+  "tx-cap-exceeded": { vi: "vượt hạn mức mỗi giao dịch", en: "per-transaction cap exceeded" },
+  "budget-exceeded": {
+    vi: "vượt tổng ngân sách, cần chủ két làm mới",
+    en: "total budget used up; the owner must reset it",
+  },
 };
 
 type Sentence = (f: Finding, input: ExplainInput, lang: Lang) => string;

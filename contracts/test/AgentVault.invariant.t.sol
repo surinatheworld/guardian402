@@ -27,6 +27,10 @@ contract VaultHandler is Test {
 
     // ghost state
     mapping(address token => mapping(uint256 day => uint256 amount)) public agentOutflow;
+    /// @dev Agent-path outflow over the whole run (no budget reset happens in the handler) and the largest
+    /// outflow of one batch, per token (address(0) for native).
+    mapping(address token => uint256 amount) public totalOutflow;
+    mapping(address token => uint256 amount) public maxBatchOutflow;
     uint256[] public touchedDays;
     mapping(uint256 day => bool) internal _dayTouched;
     bool public ghostPaused;
@@ -141,7 +145,7 @@ contract VaultHandler is Test {
 
     /// @dev Malicious: the agent calls owner-only functions. Every call must revert.
     function agentTriesAdmin(uint256 which) external {
-        bytes[8] memory payloads = [
+        bytes[10] memory payloads = [
             abi.encodeCall(AgentVault.setAgent, (attacker)),
             abi.encodeCall(AgentVault.setGuardian, (attacker)),
             abi.encodeCall(AgentVault.pause, ()),
@@ -149,10 +153,12 @@ contract VaultHandler is Test {
             abi.encodeCall(AgentVault.setTokenPolicy, (address(usdc), true, type(uint256).max, type(uint256).max, 0)),
             abi.encodeCall(AgentVault.setNativePolicy, (type(uint256).max, type(uint256).max)),
             abi.encodeCall(AgentVault.setAllowedRecipient, (attacker, true)),
-            abi.encodeCall(AgentVault.setMaxAgentRisk, (2))
+            abi.encodeCall(AgentVault.setMaxAgentRisk, (2)),
+            abi.encodeCall(AgentVault.setLimits, (address(usdc), 0, 0)),
+            abi.encodeCall(AgentVault.resetBudget, (address(usdc)))
         ];
         vm.prank(agent);
-        (bool ok,) = address(vault).call(payloads[bound(which, 0, 7)]);
+        (bool ok,) = address(vault).call(payloads[bound(which, 0, 9)]);
         if (ok) agentChangedAdmin = true;
         vm.prank(agent);
         (ok,) = address(vault).call(abi.encodeCall(vault.transferOwnership, (agent)));
@@ -214,8 +220,8 @@ contract VaultHandler is Test {
             }
             uint256 usdcAfter = usdc.balanceOf(address(vault));
             uint256 nativeAfter = address(vault).balance;
-            if (usdcAfter < usdcBefore) agentOutflow[address(usdc)][day] += usdcBefore - usdcAfter;
-            if (nativeAfter < nativeBefore) agentOutflow[address(0)][day] += nativeBefore - nativeAfter;
+            if (usdcAfter < usdcBefore) _recordOutflow(address(usdc), day, usdcBefore - usdcAfter);
+            if (nativeAfter < nativeBefore) _recordOutflow(address(0), day, nativeBefore - nativeAfter);
             if (withVerdict) {
                 ++verdictsConsumed;
                 delete _lastCalls;
@@ -233,6 +239,12 @@ contract VaultHandler is Test {
         uint256 nonceAfter = vault.verdictNonce();
         if (nonceAfter < nonceBefore) nonceDecreased = true;
         if (nonceAfter > maxNonceSeen) maxNonceSeen = nonceAfter;
+    }
+
+    function _recordOutflow(address token, uint256 day, uint256 amount) internal {
+        agentOutflow[token][day] += amount;
+        totalOutflow[token] += amount;
+        if (amount > maxBatchOutflow[token]) maxBatchOutflow[token] = amount;
     }
 
     function _sign(AgentVault.Call[] memory calls)
@@ -272,7 +284,7 @@ contract VaultHandler is Test {
 contract AgentVaultInvariantTest is AgentVaultBase {
     VaultHandler internal handler;
 
-    function setUp() public override {
+    function setUp() public virtual override {
         super.setUp();
         handler = new VaultHandler(vault, usdc, target, owner, agent, treasury, attacker);
         targetContract(address(handler));
@@ -365,6 +377,12 @@ contract AgentVaultInvariantTest is AgentVaultBase {
         assertFalse(handler.targetPaidWithoutVerdict());
     }
 
+    /// 8. The budget counter matches the agent-path outflow since it was set (the handler never resets it).
+    function invariant_BudgetCounterMatchesOutflow() public view {
+        assertEq(vault.spentSinceReset(address(usdc)), handler.totalOutflow(address(usdc)), "usdc budget drift");
+        assertEq(vault.spentSinceReset(address(0)), handler.totalOutflow(address(0)), "native budget drift");
+    }
+
     /// Not an invariant: shows that runs exercise both accepted and blocked agent batches.
     function afterInvariant() public view {
         console2.log("agent batches accepted / blocked:", handler.agentSucceeded(), handler.agentBlocked());
@@ -375,5 +393,35 @@ contract AgentVaultInvariantTest is AgentVaultBase {
         assertFalse(handler.attackerPaid());
         assertEq(usdc.balanceOf(attacker), 0);
         assertEq(attacker.balance, 0);
+    }
+}
+
+/// Same handler and invariants on a vault that also has per-batch caps and budgets (SPEC §4.9): no batch
+/// moves more than maxPerTx and the agent never spends more than the budget in total, across days.
+contract AgentVaultLimitsInvariantTest is AgentVaultInvariantTest {
+    uint256 internal constant USDC_MAX_PER_TX = 6e6;
+    uint256 internal constant USDC_BUDGET = 30e6;
+    uint256 internal constant NATIVE_MAX_PER_TX = 0.03 ether;
+    uint256 internal constant NATIVE_BUDGET = 0.25 ether;
+
+    function setUp() public override {
+        super.setUp();
+        vm.startPrank(owner);
+        vault.setLimits(address(usdc), USDC_MAX_PER_TX, USDC_BUDGET);
+        vault.setLimits(address(0), NATIVE_MAX_PER_TX, NATIVE_BUDGET);
+        vm.stopPrank();
+    }
+
+    /// 9. No agent batch moves more than maxPerTx of a token.
+    function invariant_BatchOutflowWithinMaxPerTx() public view {
+        assertLe(handler.maxBatchOutflow(address(usdc)), USDC_MAX_PER_TX, "usdc batch above maxPerTx");
+        assertLe(handler.maxBatchOutflow(address(0)), NATIVE_MAX_PER_TX, "native batch above maxPerTx");
+    }
+
+    /// 10. Over the whole run (many days), the agent never spends more than the budget.
+    function invariant_TotalOutflowWithinBudget() public view {
+        assertLe(handler.totalOutflow(address(usdc)), USDC_BUDGET, "usdc above budget");
+        assertLe(handler.totalOutflow(address(0)), NATIVE_BUDGET, "native above budget");
+        assertLe(vault.spentSinceReset(address(usdc)), USDC_BUDGET);
     }
 }

@@ -13,6 +13,7 @@ const DEST = join(ROOT, "packages/shared/src/abi");
 // [source file, contract name, export name]
 const CONTRACTS = [
   ["AgentVault.sol", "AgentVault", "agentVaultAbi"],
+  ["VaultFactory.sol", "VaultFactory", "vaultFactoryAbi"],
   ["MockERC20.sol", "MockERC20", "mockErc20Abi"],
   ["MockOracle.sol", "MockOracle", "mockOracleAbi"],
   ["MockRouter.sol", "MockRouter", "mockRouterAbi"],
