@@ -7,7 +7,7 @@ import type { NextConfig } from "next";
 // Public endpoint: a browser on another machine (public tunnel) cannot reach 127.0.0.1, so it calls these
 // same-origin paths and the dashboard forwards them to the services on its own host (src/lib/config.ts).
 // The agent control API lives under /api/agent-control: /api/agent/v1/* is the dashboard's own agent REST
-// API, and a rewrite there would capture its dynamic routes (checks/:checkId, transactions/:hash).
+// API, and a route there would capture its dynamic routes (checks/:checkId, transactions/:hash).
 const config: NextConfig = {
   allowedDevOrigins: (process.env.DASHBOARD_DEV_ORIGINS ?? "")
     .split(",")
@@ -33,14 +33,9 @@ const config: NextConfig = {
         source: "/api/guardian/:path*",
         destination: `${(process.env.GUARDIAN_PROXY_URL || "http://127.0.0.1:4402").replace(/\/$/, "")}/:path*`,
       },
-      {
-        source: "/api/agent-control/:path*",
-        destination: "http://127.0.0.1:4403/:path*",
-      },
-      {
-        source: "/api/rpc",
-        destination: "http://127.0.0.1:8545",
-      },
+      // /api/rpc and /api/agent-control are route handlers, not rewrites: a rewrite would hand the fork's
+      // admin methods and the scenario buttons to anyone who has the public URL (src/server/rpc-proxy.ts,
+      // src/server/agent-control.ts).
     ];
   },
 };

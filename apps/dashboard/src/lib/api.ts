@@ -75,7 +75,9 @@ export function errorText(e: unknown): string {
     if (e.status === 503)
       return "Guardian đang bận hoặc chưa mô phỏng được giao dịch (HTTP 503, không tính phí). Thử lại sau vài giây.";
     if (e.status === 429) return "Gửi quá nhiều yêu cầu (HTTP 429). Chờ khoảng một phút rồi thử lại.";
-    const b = e.body as { error?: string } | null;
+    const b = e.body as { error?: string; message?: string } | null;
+    // The dashboard's own routes answer with a Vietnamese `message` (signed out, not the vault's owner, …).
+    if (typeof b?.message === "string" && b.message) return b.message;
     return `${e.message}${b?.error ? `: ${b.error}` : ""}`;
   }
   if (e instanceof TypeError) return "Không kết nối được (máy chủ chưa chạy, hoặc bị chặn CORS).";
