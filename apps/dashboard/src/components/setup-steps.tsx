@@ -35,6 +35,7 @@ import {
   checkAgent,
   filledRecipients,
   limitIssues,
+  limitNotes,
   recipientIssues,
   rulesInWords,
   type SetupDraft,
@@ -344,6 +345,7 @@ function UsdcField({
   value,
   onChange,
   error,
+  note,
   allowZero,
 }: {
   label: string;
@@ -351,6 +353,7 @@ function UsdcField({
   value: number;
   onChange: (n: number) => void;
   error?: string | undefined;
+  note?: string | undefined;
   allowZero?: boolean;
 }) {
   return (
@@ -368,7 +371,7 @@ function UsdcField({
         <NumberField.Input />
         <NumberField.IncrementButton />
       </NumberField.Group>
-      <Description>{allowZero && value === 0 ? "0 = không giới hạn." : description}</Description>
+      <Description>{allowZero && value === 0 ? "0 = không giới hạn." : (note ?? description)}</Description>
       <FieldError>{error}</FieldError>
     </NumberField>
   );
@@ -381,6 +384,8 @@ export function RulesStep({ draft, setDraft }: StepProps) {
     showErrors ? recIssues.find((x) => x.index === i && x.field === field)?.message : undefined;
   const lim = limitIssues(draft);
   const limitError = (f: "dailyCap" | "maxPerTx" | "budget") => lim.find((x) => x.field === f)?.message;
+  const notes = limitNotes(draft);
+  const limitNote = (f: "dailyCap" | "maxPerTx" | "budget") => notes.find((x) => x.field === f)?.message;
   const setRecipient = (i: number, patch: Partial<{ name: string; address: string }>) =>
     setDraft({
       ...draft,
@@ -471,6 +476,7 @@ export function RulesStep({ draft, setDraft }: StepProps) {
               value={draft.maxPerTx}
               onChange={(n) => setDraft({ ...draft, maxPerTx: n })}
               error={limitError("maxPerTx")}
+              note={limitNote("maxPerTx")}
               allowZero
             />
             <UsdcField
@@ -479,6 +485,7 @@ export function RulesStep({ draft, setDraft }: StepProps) {
               value={draft.budget}
               onChange={(n) => setDraft({ ...draft, budget: n })}
               error={limitError("budget")}
+              note={limitNote("budget")}
               allowZero
             />
           </div>

@@ -93,6 +93,7 @@ export const filledRecipients = (list: readonly Recipient[]) =>
 
 export type LimitIssue = { field: "dailyCap" | "maxPerTx" | "budget"; message: string };
 
+/** Limits the vault cannot work with: they block the step. */
 export function limitIssues(d: Pick<SetupDraft, "dailyCap" | "maxPerTx" | "budget">): LimitIssue[] {
   const out: LimitIssue[] = [];
   const bad = (n: number) => !Number.isFinite(n) || n < 0;
@@ -102,11 +103,20 @@ export function limitIssues(d: Pick<SetupDraft, "dailyCap" | "maxPerTx" | "budge
       message: "Hạn mức ngày phải lớn hơn 0, nếu không agent không chi được gì.",
     });
   if (bad(d.maxPerTx)) out.push({ field: "maxPerTx", message: "Không được âm." });
-  else if (d.maxPerTx > d.dailyCap && d.dailyCap > 0)
-    out.push({ field: "maxPerTx", message: "Lớn hơn hạn mức ngày thì không có tác dụng." });
   if (bad(d.budget)) out.push({ field: "budget", message: "Không được âm." });
-  else if (d.budget > 0 && d.budget < d.dailyCap)
-    out.push({ field: "budget", message: "Nhỏ hơn hạn mức ngày: agent sẽ dùng hết trong ngày đầu." });
+  return out;
+}
+
+/** Valid limits worth a second look: shown next to the field, never blocking. */
+export function limitNotes(d: Pick<SetupDraft, "dailyCap" | "maxPerTx" | "budget">): LimitIssue[] {
+  const out: LimitIssue[] = [];
+  if (d.dailyCap > 0 && d.maxPerTx > d.dailyCap)
+    out.push({ field: "maxPerTx", message: "Lớn hơn hạn mức ngày nên mức ngày sẽ chặn trước." });
+  if (d.budget > 0 && d.dailyCap > 0 && d.budget < d.dailyCap)
+    out.push({
+      field: "budget",
+      message: "Nhỏ hơn hạn mức ngày: agent có thể dùng hết ngay trong ngày, rồi chờ bạn làm mới.",
+    });
   return out;
 }
 

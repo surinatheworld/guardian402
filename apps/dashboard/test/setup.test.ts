@@ -5,6 +5,7 @@ import {
   checkAgent,
   DEFAULT_DRAFT,
   limitIssues,
+  limitNotes,
   recipientIssues,
   rulesInWords,
   vaultConfig,
@@ -51,9 +52,17 @@ describe("setup draft", () => {
 
   it("flags limits that cannot work", () => {
     expect(limitIssues({ dailyCap: 0, maxPerTx: 0, budget: 0 }).map((i) => i.field)).toEqual(["dailyCap"]);
-    expect(limitIssues({ dailyCap: 10, maxPerTx: 20, budget: 0 }).map((i) => i.field)).toEqual(["maxPerTx"]);
-    expect(limitIssues({ dailyCap: 10, maxPerTx: 5, budget: 5 }).map((i) => i.field)).toEqual(["budget"]);
+    expect(limitIssues({ dailyCap: 10, maxPerTx: -1, budget: 0 }).map((i) => i.field)).toEqual(["maxPerTx"]);
     expect(limitIssues({ dailyCap: 20, maxPerTx: 5, budget: 100 })).toEqual([]);
+  });
+
+  it("notes odd but valid limits without blocking", () => {
+    // A total below the daily cap is the "spend this much, then wait for me" setup.
+    expect(limitIssues({ dailyCap: 10, maxPerTx: 2, budget: 5 })).toEqual([]);
+    expect(limitNotes({ dailyCap: 10, maxPerTx: 2, budget: 5 }).map((i) => i.field)).toEqual(["budget"]);
+    expect(limitIssues({ dailyCap: 10, maxPerTx: 20, budget: 0 })).toEqual([]);
+    expect(limitNotes({ dailyCap: 10, maxPerTx: 20, budget: 0 }).map((i) => i.field)).toEqual(["maxPerTx"]);
+    expect(limitNotes({ dailyCap: 20, maxPerTx: 5, budget: 100 })).toEqual([]);
   });
 
   it("becomes a payments-only Config in USDC base units", () => {
