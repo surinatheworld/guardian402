@@ -13,11 +13,12 @@ import { existsSync } from "node:fs";
 import "./foundry-path.mjs";
 
 const FOUNDRY_IMAGE = "ghcr.io/foundry-rs/foundry:v1.8.5";
+// .env.local first, so FORK_PORT and ANVIL_RUNNER set there apply (variables already in the environment win).
+if (existsSync(".env.local")) process.loadEnvFile(".env.local");
+
 const PORT = process.env.FORK_PORT || "8545";
 const CHAIN_ID = "43113";
 const HARDFORK = "cancun";
-
-if (existsSync(".env.local")) process.loadEnvFile(".env.local");
 
 const forkUrl = process.env.FUJI_RPC_URL || "https://api.avax-test.network/ext/bc/C/rpc";
 const runner = process.env.ANVIL_RUNNER || "auto";
