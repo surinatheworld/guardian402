@@ -56,7 +56,9 @@ const GUARDIAN = (process.env.GUARDIAN_URL || "http://127.0.0.1:4402").replace(/
 const chain = createPublicClient({ chain: fujiChain, transport: rpcTransport(rpc) });
 const ownerWallet = createWalletClient({ account: owner, chain: fujiChain, transport: rpcTransport(rpc) });
 const agentWallet = createWalletClient({ account: agent, chain: fujiChain, transport: rpcTransport(rpc) });
-const usdc = (n: number) => parseUnits(String(n), 6);
+// HAPPY_PATH_UNIT scales every amount (default 1 USDC), so the run fits what the test wallets hold.
+const UNIT = Number(process.env.HAPPY_PATH_UNIT || "1");
+const usdc = (n: number) => parseUnits(String(Math.round(n * UNIT * 1e6) / 1e6), 6);
 const treasury = d.deployer;
 
 let failures = 0;
@@ -237,7 +239,7 @@ const plan: [number, "paid" | "blocked", string][] = [
   [0.5, "blocked", "0,5 USDC sau khi đã dùng hết tổng ngân sách"],
 ];
 for (const [amount, want, what] of plan) {
-  const r = await call("pay", { to: treasury, amount: String(amount) });
+  const r = await call("pay", { to: treasury, amount: String(Math.round(amount * UNIT * 1e6) / 1e6) });
   const detail =
     r.outcome === "paid"
       ? String(r.txUrl)
