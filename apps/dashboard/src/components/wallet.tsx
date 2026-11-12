@@ -20,7 +20,7 @@ export function ConnectWalletButton({
   compact = false,
 }: {
   size?: "sm" | "md";
-  variant?: "primary" | "secondary";
+  variant?: "primary" | "tertiary";
   /** Icon only below `sm` (top bar on a phone). */
   compact?: boolean;
 }) {
@@ -55,11 +55,11 @@ export function WalletMenu() {
   const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
   if (NETWORK === "local") return null;
-  if (!isConnected || !address) return <ConnectWalletButton size="sm" variant="secondary" compact />;
+  if (!isConnected || !address) return <ConnectWalletButton size="sm" variant="tertiary" compact />;
   const wrongChain = chainId !== avalancheFuji.id;
   return (
     <Dropdown>
-      <Button variant="secondary" size="sm" aria-label={`Ví ${address}`}>
+      <Button variant="tertiary" size="sm" aria-label={`Ví ${address}`}>
         <Wallet aria-hidden="true" />
         <span className="font-mono text-xs">{shortHex(address)}</span>
         {wrongChain ? (

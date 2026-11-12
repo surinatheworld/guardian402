@@ -124,7 +124,7 @@ export function RuleChips({ ids }: { ids: readonly string[] | undefined }) {
     <ul className="flex flex-wrap gap-1.5" aria-label="Lý do">
       {ids.map((id) => (
         <li key={id} className="max-w-full">
-          <Chip variant="secondary" size="sm" className="max-w-full">
+          <Chip variant="tertiary" size="sm" className="max-w-full">
             <Chip.Label className="whitespace-normal break-words">{ruleLabel(id)}</Chip.Label>
           </Chip>
         </li>
@@ -228,7 +228,7 @@ export function ErrorBox({
         <Alert.Title>{title}</Alert.Title>
         {detail ? <Alert.Description className="break-words">{detail}</Alert.Description> : null}
         {onRetry ? (
-          <Button variant="secondary" size="sm" className="mt-2 self-start" onPress={onRetry}>
+          <Button variant="tertiary" size="sm" className="mt-2 self-start" onPress={onRetry}>
             Thử lại
           </Button>
         ) : null}

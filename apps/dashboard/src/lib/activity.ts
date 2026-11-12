@@ -163,13 +163,15 @@ export type ActivityFilter = "all" | "high" | "rejected" | "executed";
 export const FILTER_LABEL: Record<ActivityFilter, string> = {
   all: "Tất cả",
   high: "Rủi ro cao",
-  rejected: "Két đã từ chối",
+  rejected: "Bị chặn",
   executed: "Đã thực hiện",
 };
 export const matchesFilter = (item: ActivityItem, f: ActivityFilter) =>
   f === "all" ||
   (f === "high" && item.risk === "HIGH") ||
-  (f === "rejected" && item.outcome.kind === "rejected") ||
+  // Blocked: refused by the vault, or stopped before sending because the Guardian rated it HIGH.
+  (f === "rejected" &&
+    (item.outcome.kind === "rejected" || (item.outcome.kind === "not-seen" && item.risk === "HIGH"))) ||
   (f === "executed" && item.outcome.kind === "executed");
 
 /** Needs the owner's attention: high risk that was not just a trial, or anything the vault rejected. */

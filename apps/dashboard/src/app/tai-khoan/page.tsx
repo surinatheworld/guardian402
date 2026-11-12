@@ -116,7 +116,7 @@ function Vaults({ me }: { me: MeResponse }) {
             <Plus aria-hidden="true" />
             Tạo két mới
           </Button>
-          <Button size="sm" variant="secondary" onPress={() => setOpen(true)}>
+          <Button size="sm" variant="tertiary" onPress={() => setOpen(true)}>
             Liên kết két có sẵn
           </Button>
         </>
@@ -257,7 +257,7 @@ function Wallets({ me }: { me: MeResponse }) {
               <span className="flex flex-wrap items-center gap-2">
                 <AddressLink address={w.address} />
                 {w.isPrimary ? (
-                  <Chip size="sm" variant="secondary">
+                  <Chip size="sm" variant="tertiary">
                     Ví chính
                   </Chip>
                 ) : null}
@@ -289,13 +289,13 @@ function Wallets({ me }: { me: MeResponse }) {
       {NETWORK === "local" ? (
         <p className="text-xs text-muted">Bản demo trên fork không kết nối ví.</p>
       ) : !isConnected ? (
-        <ConnectWalletButton size="sm" variant="secondary" />
+        <ConnectWalletButton size="sm" variant="tertiary" />
       ) : connectedLinked ? (
         <p className="text-xs text-muted">Ví đang kết nối đã liên kết.</p>
       ) : (
         <Button
           size="sm"
-          variant="secondary"
+          variant="tertiary"
           className="self-start"
           isPending={link.isPending}
           onPress={() => link.mutate()}
@@ -367,7 +367,7 @@ function Profile({ me }: { me: MeResponse }) {
         </div>
         <Button
           type="submit"
-          variant="secondary"
+          variant="tertiary"
           isPending={save.isPending}
           isDisabled={name === (u.displayName ?? "")}
         >
@@ -403,12 +403,7 @@ function Profile({ me }: { me: MeResponse }) {
                 {errorOf(addPassword.error)}
               </p>
             ) : null}
-            <Button
-              type="submit"
-              variant="secondary"
-              className="self-start"
-              isPending={addPassword.isPending}
-            >
+            <Button type="submit" variant="tertiary" className="self-start" isPending={addPassword.isPending}>
               Thêm email và mật khẩu
             </Button>
           </form>

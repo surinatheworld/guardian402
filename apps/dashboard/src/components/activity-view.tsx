@@ -100,6 +100,16 @@ function vaultView(item: ActivityItem, detail: CheckDetail | undefined, maxAgent
       why: "Chỉ kiểm tra, Guardian không ký duyệt",
       Icon: Flask,
     };
+  // A co-signed check that never reached the vault: when the vault would have refused it (risk above the
+  // owner's maximum, or a rule it breaks), the agent's MCP `pay` stopped before sending. Say so.
+  const d = detail
+    ? vaultDecision(
+        { findings: detail.findings, riskCode: ["LOW", "MEDIUM", "HIGH"].indexOf(detail.risk) as 0 | 1 | 2 },
+        maxAgentRisk,
+      )
+    : null;
+  if (d?.blocked)
+    return { tone: "bad" as Tone, label: "Chặn trước khi gửi", why: d.text, Icon: OctagonXmark };
   return {
     tone: "neutral" as Tone,
     label: "Chưa thấy trên két",
@@ -151,7 +161,7 @@ export function ActivityTable({ items, label, onOpen }: ListProps) {
           <th className="h-10 pr-3 pl-4 font-medium">Giao dịch</th>
           <th className="hidden w-56 px-3 font-medium md:table-cell">Guardian</th>
           <th className="hidden w-40 px-3 font-medium md:table-cell">Két</th>
-          <th className="hidden w-36 px-3 text-right font-medium lg:table-cell">Rời két</th>
+          <th className="hidden w-36 px-3 text-right font-medium lg:table-cell">Số tiền</th>
           <th className="w-28 pr-4 pl-3 text-right font-medium">Lúc</th>
         </tr>
       </thead>
@@ -187,7 +197,12 @@ export function ActivityTable({ items, label, onOpen }: ListProps) {
               <td className="hidden px-3 md:table-cell">
                 <VaultResult view={view} />
               </td>
-              <td className="hidden px-3 text-right text-sm tabular-nums lg:table-cell">{outflow(detail)}</td>
+              <td
+                className={`hidden px-3 text-right text-sm tabular-nums lg:table-cell ${amountClass(item)}`}
+                title={amountTitle(item)}
+              >
+                {outflow(detail)}
+              </td>
               <td className="py-3 pr-4 pl-3 text-right align-top text-xs text-muted tabular-nums md:align-middle">
                 {item.at ? formatTime(item.at) : ""}
               </td>
@@ -200,6 +215,12 @@ export function ActivityTable({ items, label, onOpen }: ListProps) {
 }
 
 const shortTime = new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+/** Money that really left the vault reads as such; an amount that never left (blocked, check only) is struck. */
+const amountClass = (item: ActivityItem) =>
+  item.outcome.kind === "executed" ? "font-medium" : "text-muted line-through decoration-muted/60";
+const amountTitle = (item: ActivityItem) =>
+  item.outcome.kind === "executed" ? "Đã rời két" : "Không rời két: giao dịch không được thực hiện";
 
 /** The overview's short list: name and reason, risk, what would have left, when. */
 export function ActivityRows({ items, label, onOpen }: ListProps) {
@@ -238,7 +259,9 @@ export function ActivityRows({ items, label, onOpen }: ListProps) {
                 <span className="text-xs text-muted tabular-nums sm:hidden">
                   {out && (
                     <>
-                      <span className="sr-only">Dự kiến rời két </span>
+                      <span className="sr-only">
+                        {item.outcome.kind === "executed" ? "Đã rời két " : "Không rời két "}
+                      </span>
                       {amount} {out.symbol} ·{" "}
                     </>
                   )}
@@ -246,10 +269,14 @@ export function ActivityRows({ items, label, onOpen }: ListProps) {
                 </span>
               </span>
               <span
-                className="hidden text-right text-sm wrap-anywhere tabular-nums sm:block"
-                title={out ? `Dự kiến rời két: ${amount} ${out.symbol}` : undefined}
+                className={`hidden text-right text-sm wrap-anywhere tabular-nums sm:block ${out ? amountClass(item) : "text-muted"}`}
+                title={out ? amountTitle(item) : undefined}
               >
-                {out && <span className="sr-only">Dự kiến rời két </span>}
+                {out && (
+                  <span className="sr-only">
+                    {item.outcome.kind === "executed" ? "Đã rời két " : "Không rời két "}
+                  </span>
+                )}
                 {amount}
                 {unit ? ` ${unit}` : null}
                 {out?.symbol === "USDC" && <span className="sr-only"> USDC</span>}
@@ -324,7 +351,7 @@ function ReviewForm({ checkId, vault }: { checkId: string; vault: string }) {
       </Description>
       <Button
         size="sm"
-        variant="secondary"
+        variant="tertiary"
         className="self-start"
         isPending={save.isPending}
         onPress={() => save.mutate()}
@@ -434,7 +461,7 @@ export function DetailBody({ item }: { item: ActivityItem }) {
           <p className="text-sm">
             {proposalText(item, detail, vault)}
             {item.attempt?.mode === "scripted-attack" ? (
-              <Chip size="sm" variant="secondary" className="ml-2 align-middle">
+              <Chip size="sm" variant="tertiary" className="ml-2 align-middle">
                 Tấn công mô phỏng
               </Chip>
             ) : null}

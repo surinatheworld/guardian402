@@ -358,7 +358,7 @@ export class Accounts {
 
   async linkVault(userId: string, input: { address?: unknown; label?: unknown }): Promise<PublicVault> {
     if (typeof input.address !== "string" || !isAddress(input.address))
-      throw new AccountError(400, "bad_address", "Địa chỉ vault không hợp lệ.");
+      throw new AccountError(400, "bad_address", "Địa chỉ két không hợp lệ.");
     const vault = getAddress(input.address);
     const owner = await this.#readVaultOwner(vault);
     if (!owner)
@@ -374,7 +374,7 @@ export class Accounts {
       throw new AccountError(
         403,
         "not_owner",
-        `Chủ của vault này trên chain là ${owner}. Hãy đăng nhập/liên kết đúng ví đó trước.`,
+        `Chủ của két này trên chain là ${owner}. Hãy đăng nhập/liên kết đúng ví đó trước.`,
       );
     const now = this.#now();
     const label = cleanText(input.label, 40);
@@ -404,12 +404,12 @@ export class Accounts {
     }
     this.audit(userId, "vault_linked", { address: vault });
     const v = this.me(userId).vaults.find((x) => x.address === vault);
-    if (!v) throw new AccountError(500, "internal", "Không lưu được vault.");
+    if (!v) throw new AccountError(500, "internal", "Không lưu được két.");
     return v;
   }
 
   unlinkVault(userId: string, rawAddress: string) {
-    if (!isAddress(rawAddress)) throw new AccountError(400, "bad_address", "Địa chỉ vault không hợp lệ.");
+    if (!isAddress(rawAddress)) throw new AccountError(400, "bad_address", "Địa chỉ két không hợp lệ.");
     const res = this.#db
       .prepare("DELETE FROM vaults WHERE user_id = ? AND chain_id = ? AND address = ?")
       .run(userId, this.#chainId, rawAddress.toLowerCase());

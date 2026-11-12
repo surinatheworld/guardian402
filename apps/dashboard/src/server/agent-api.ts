@@ -259,7 +259,7 @@ export class AgentApi {
   async check(p: AgentPrincipal, checkId: string) {
     const c = await this.#o.guardian.check(checkId);
     if (!c || !sameAddress(c.vault, p.vault.address))
-      throw new AccountError(404, "not_found", "Không tìm thấy lần kiểm tra này cho vault của agent.");
+      throw new AccountError(404, "not_found", "Không tìm thấy lần kiểm tra này cho két của agent.");
     return c;
   }
 

@@ -15,7 +15,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
   return (
     <Button
       size="sm"
-      variant="secondary"
+      variant="tertiary"
       onPress={async () => {
         try {
           await navigator.clipboard.writeText(value);

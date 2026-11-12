@@ -59,7 +59,12 @@ export default function AboutPage() {
                 </span>,
               ],
               ["Nhận phí kiểm tra", <AddressLink key="p" address={health.data.payTo} />],
-              ["Mạng", health.data.network],
+              [
+                "Mạng",
+                health.data.network === "fuji"
+                  ? "Avalanche Fuji (mạng thử)"
+                  : "Fork của Avalanche Fuji (DEMO)",
+              ],
             ]}
           />
         ) : null}

@@ -141,12 +141,24 @@ export function stopsFor(
       sub: "Chỉ kiểm tra, Guardian không ký duyệt",
       tone: "neutral",
     };
-  else
-    vaultStop = {
-      label: "Két quyết định",
-      value: "Chưa thấy trên két",
-      sub: "Agent chưa gửi giao dịch này",
-      tone: "neutral",
-    };
+  else {
+    const d = detail
+      ? vaultDecision(
+          {
+            findings: detail.findings,
+            riskCode: ["LOW", "MEDIUM", "HIGH"].indexOf(detail.risk) as 0 | 1 | 2,
+          },
+          maxAgentRisk,
+        )
+      : null;
+    vaultStop = d?.blocked
+      ? { label: "Két quyết định", value: "Chặn trước khi gửi", sub: d.text, tone: "bad" }
+      : {
+          label: "Két quyết định",
+          value: "Chưa thấy trên két",
+          sub: "Agent chưa gửi giao dịch này",
+          tone: "neutral",
+        };
+  }
   return [proposal, guardian, vaultStop];
 }

@@ -35,7 +35,7 @@ import { EditModal } from "@/components/edit-modal";
 import { AgentFeeForm, DepositForm } from "@/components/fund";
 import { useOwnerAction } from "@/components/owner-action";
 import { AddressLink, ErrorBox } from "@/components/ui";
-import { useOwnerGate } from "@/components/wallet";
+import { OwnerGateNotice, useOwnerGate } from "@/components/wallet";
 import type { ActivityItem } from "@/lib/activity";
 import { useActivity } from "@/lib/activity-hooks";
 import { AGENT_FEE_AVAX, AGENT_FEE_USDC, useBalances } from "@/lib/balances";
@@ -63,6 +63,7 @@ export default function Overview() {
     ? "Két demo"
     : (me.data?.vaults.find((v) => v.address.toLowerCase() === vault.toLowerCase())?.label ?? "Két của tôi");
   const agent = p && p.agent !== ZERO_ADDRESS ? p.agent : undefined;
+  const gate = useOwnerGate(p?.owner);
 
   return (
     <>
@@ -91,6 +92,7 @@ export default function Overview() {
         )}
       </header>
 
+      {!viewingDemo && p ? <OwnerGateNotice gate={gate} /> : null}
       {!viewingDemo && p ? <Setup vault={vault} p={p} onModal={setModal} /> : null}
 
       {policy.isError ? (
@@ -157,11 +159,6 @@ function MoneyModal({
             <p className="text-sm text-muted">{lead}</p>
           </Modal.Header>
           <Modal.Body className="pb-2">{children}</Modal.Body>
-          <Modal.Footer>
-            <Button slot="close" variant="tertiary">
-              Đóng
-            </Button>
-          </Modal.Footer>
         </Modal.Dialog>
       </Modal.Container>
     </Modal.Backdrop>
@@ -195,7 +192,7 @@ function QuickActions({
         Nạp tiền
       </Button>
       <Button
-        variant="secondary"
+        variant="tertiary"
         isDisabled={!gate.ok || balance === 0n}
         onPress={() => {
           setAmount(fromUnits(balance, 6));
@@ -206,18 +203,15 @@ function QuickActions({
         Rút tiền
       </Button>
       {hasAgent ? (
-        <Button variant="secondary" onPress={() => onModal("fee")}>
+        <Button variant="tertiary" onPress={() => onModal("fee")}>
           <Thunderbolt aria-hidden="true" />
           Gửi phí cho agent
         </Button>
       ) : null}
-      <NextLink href="/quy-tac" className={buttonVariants({ variant: "secondary" })}>
+      <NextLink href="/quy-tac" className={buttonVariants({ variant: "tertiary" })}>
         <Sliders aria-hidden="true" />
         Sửa quy tắc
       </NextLink>
-      {!gate.ok && gate.reason === "wrong-wallet" ? (
-        <span className="text-sm text-muted">{gate.message}</span>
-      ) : null}
       <EditModal
         isOpen={withdrawing}
         onOpenChange={setWithdrawing}
@@ -619,7 +613,7 @@ function AgentCard({
       {viewingDemo ? null : (
         <Card.Footer className="flex flex-wrap gap-2">
           {agent ? (
-            <Button size="sm" variant="secondary" onPress={onFee}>
+            <Button size="sm" variant="tertiary" onPress={onFee}>
               <Thunderbolt aria-hidden="true" />
               Gửi phí
             </Button>

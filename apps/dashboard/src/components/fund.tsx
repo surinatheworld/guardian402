@@ -14,7 +14,7 @@ import { useAccount, useSendTransaction, useWriteContract } from "wagmi";
 import { avalancheFuji } from "wagmi/chains";
 import { AGENT_FEE_AVAX, AGENT_FEE_USDC, FAUCET, useBalances } from "@/lib/balances";
 import { deployment } from "@/lib/config";
-import { formatAmount } from "@/lib/format";
+import { formatAmount, fromUnits } from "@/lib/format";
 import { useTx } from "@/lib/tx";
 import { TxStatus } from "./tx-status";
 import { ConnectWalletButton } from "./wallet";
@@ -36,7 +36,10 @@ export function DepositForm({ vault, onDone }: { vault: Address; onDone?: () => 
   const { address, isConnected } = useAccount();
   const wallet = useBalances(address);
   const inVault = useBalances(vault);
-  const [amount, setAmount] = useState(20);
+  // Start from what the wallet can actually send (at most 20), so the field never opens in an error state.
+  const [amount, setAmount] = useState<number | null>(null);
+  const suggested = wallet.usdc === undefined ? 20 : Math.min(20, Math.floor(fromUnits(wallet.usdc, 6)));
+  const value = amount ?? suggested;
   const { writeContractAsync } = useWriteContract();
   const tx = useTx();
   if (!isConnected || !address)
@@ -46,7 +49,7 @@ export function DepositForm({ vault, onDone }: { vault: Address; onDone?: () => 
         <ConnectWalletButton />
       </div>
     );
-  const raw = Number.isFinite(amount) && amount > 0 ? parseUnits(String(amount), 6) : 0n;
+  const raw = Number.isFinite(value) && value > 0 ? parseUnits(String(value), 6) : 0n;
   const tooMuch = wallet.usdc !== undefined && raw > wallet.usdc;
   const empty = wallet.usdc === 0n;
   return (
@@ -67,13 +70,13 @@ export function DepositForm({ vault, onDone }: { vault: Address; onDone?: () => 
         </p>
       ) : null}
       <NumberField
-        value={amount}
+        value={value}
         onChange={setAmount}
         minValue={0}
         step={1}
         formatOptions={{ maximumFractionDigits: 6 }}
         isInvalid={tooMuch}
-        isDisabled={tx.busy}
+        isDisabled={tx.busy || empty}
       >
         <Label>Số USDC nạp vào két</Label>
         <NumberField.Group>
@@ -143,7 +146,7 @@ export function AgentFeeForm({ agent, onDone }: { agent: Address; onDone?: () =>
           </div>
           <Button
             size="sm"
-            variant={needGas ? "primary" : "secondary"}
+            variant={needGas ? "primary" : "tertiary"}
             isPending={gasTx.busy}
             isDisabled={wallet.avax !== undefined && wallet.avax < AGENT_FEE_AVAX}
             onPress={() =>
@@ -166,7 +169,7 @@ export function AgentFeeForm({ agent, onDone }: { agent: Address; onDone?: () =>
           </div>
           <Button
             size="sm"
-            variant={needFee ? "primary" : "secondary"}
+            variant={needFee ? "primary" : "tertiary"}
             isPending={feeTx.busy}
             isDisabled={wallet.usdc !== undefined && wallet.usdc < AGENT_FEE_USDC}
             onPress={() =>

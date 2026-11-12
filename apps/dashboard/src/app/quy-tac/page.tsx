@@ -455,7 +455,7 @@ function Limits({ p, vault, gate, owner }: SectionProps) {
                   <Table.Cell className="text-right">
                     <Button
                       size="sm"
-                      variant="secondary"
+                      variant="tertiary"
                       isDisabled={!gate.ok}
                       aria-label={`Sửa hạn mức ${r.symbol}`}
                       onPress={() => {
@@ -550,7 +550,7 @@ function MaxRisk({ p, vault, gate, owner }: SectionProps) {
       actions={
         <Button
           size="sm"
-          variant="secondary"
+          variant="tertiary"
           isDisabled={!gate.ok}
           onPress={() => {
             setValue(String(p.maxAgentRisk));
@@ -710,7 +710,7 @@ function Recipients({ p, vault, gate, owner, linked }: SectionProps & { linked: 
       actions={
         <Button
           size="sm"
-          variant="secondary"
+          variant="tertiary"
           isDisabled={!gate.ok}
           onPress={() => {
             setName("");

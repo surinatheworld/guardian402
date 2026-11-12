@@ -135,7 +135,7 @@ function preparePolicy(
     case "allow_target": {
       const a = address(raw.address, "address");
       const allowed = bool(raw.allowed, "allowed");
-      if (sameAddress(a, vault)) throw bad("bad_address", "Không thể thêm chính vault vào danh sách.");
+      if (sameAddress(a, vault)) throw bad("bad_address", "Không thể thêm chính két vào danh sách.");
       return {
         params: { address: a, allowed },
         fn: kind === "allow_recipient" ? "setAllowedRecipient" : "setAllowedTarget",
@@ -145,7 +145,7 @@ function preparePolicy(
     }
     case "allow_selector": {
       const target = address(raw.target, "target");
-      if (sameAddress(target, vault)) throw bad("bad_address", "Không thể cho phép gọi chính vault.");
+      if (sameAddress(target, vault)) throw bad("bad_address", "Không thể cho phép gọi chính két.");
       if (typeof raw.selector !== "string" || !/^0x[0-9a-fA-F]{8}$/.test(raw.selector))
         throw bad("bad_field", "selector phải là 4 byte (0x + 8 ký tự hex).");
       const selector = raw.selector.toLowerCase() as Hex;
@@ -169,7 +169,7 @@ function preparePolicy(
         warnings.push(
           "Ngưỡng cần verdict lớn hơn hạn mức/ngày: mọi khoản chi hợp lệ sẽ không cần chữ ký Guardian.",
         );
-      if (!tracked) warnings.push("Bỏ theo dõi token: vault sẽ không còn giới hạn chi tiêu token này.");
+      if (!tracked) warnings.push("Bỏ theo dõi token: két sẽ không còn giới hạn chi tiêu token này.");
       return {
         params: {
           token,
@@ -278,7 +278,7 @@ export class Workspace {
 
   /** The caller's link to `rawVault`, or 404 (never reveals whether someone else linked it). */
   vault(userId: string, rawVault: string): VaultCtx {
-    if (!isAddress(rawVault)) throw bad("bad_address", "Địa chỉ vault không hợp lệ.");
+    if (!isAddress(rawVault)) throw bad("bad_address", "Địa chỉ két không hợp lệ.");
     const row = this.#db
       .prepare("SELECT id FROM vaults WHERE user_id = ? AND chain_id = ? AND address = ?")
       .get(userId, this.#o.chainId, rawVault.toLowerCase()) as { id: number } | undefined;
@@ -341,7 +341,7 @@ export class Workspace {
         "Ví chủ không được làm agent: agent phải là một khoá riêng của tiến trình AI.",
       );
     if (this.#count("agents", v.id) >= LIMITS.agents)
-      throw new AccountError(409, "limit", `Tối đa ${LIMITS.agents} agent cho một vault.`);
+      throw new AccountError(409, "limit", `Tối đa ${LIMITS.agents} agent cho một két.`);
     if (
       this.#db
         .prepare("SELECT 1 FROM agents WHERE vault_id = ? AND address = ?")
@@ -392,7 +392,7 @@ export class Workspace {
       throw new AccountError(
         409,
         "agent_active_on_chain",
-        "Agent này đang là agent của vault trên chain. Hãy thu hồi agent (revoke_agent) trước khi xoá.",
+        "Agent này đang là agent của két trên chain. Hãy thu hồi agent (revoke_agent) trước khi xoá.",
       );
     this.#db.prepare("DELETE FROM agents WHERE id = ?").run(row.id);
     this.#audit(v.userId, "agent_removed", { vault: v.address, address: getAddress(row.address) });
@@ -432,7 +432,7 @@ export class Workspace {
     if (addr === zeroAddress || sameAddress(addr, v.address))
       throw bad("bad_address", "Không lưu được địa chỉ này vào danh bạ.");
     if (this.#count("contacts", v.id) >= LIMITS.contacts)
-      throw new AccountError(409, "limit", `Tối đa ${LIMITS.contacts} liên hệ cho một vault.`);
+      throw new AccountError(409, "limit", `Tối đa ${LIMITS.contacts} liên hệ cho một két.`);
     if (
       this.#db
         .prepare("SELECT 1 FROM contacts WHERE vault_id = ? AND address = ?")
@@ -669,7 +669,7 @@ export class Workspace {
         "Chưa thấy giao dịch này trên chain. Đợi vài giây rồi gửi lại mã giao dịch.",
       );
     if (!tx.to || !sameAddress(tx.to, v.address))
-      throw reject("tx_wrong_vault", "Giao dịch không gửi tới vault này.");
+      throw reject("tx_wrong_vault", "Giao dịch không gửi tới két này.");
     if (tx.input.toLowerCase() !== row.calldata.toLowerCase())
       throw reject("tx_wrong_call", "Giao dịch không khớp với thay đổi đã soạn (dữ liệu gọi hàm khác).");
     if (!this.#wallets(v.userId).some((w) => sameAddress(w, tx.from)))
@@ -722,7 +722,7 @@ export class Workspace {
     const f = this.#ruleFields(input, kind);
     if (kind === "cap_usage" && !f.cap_percent) throw bad("bad_amount", "capPercent phải từ 1 đến 100.");
     if (this.#count("alert_rules", v.id) >= LIMITS.alertRules)
-      throw new AccountError(409, "limit", `Tối đa ${LIMITS.alertRules} cảnh báo cho một vault.`);
+      throw new AccountError(409, "limit", `Tối đa ${LIMITS.alertRules} cảnh báo cho một két.`);
     const now = this.#now();
     const res = this.#db
       .prepare(
@@ -929,7 +929,7 @@ export class Workspace {
     const status = oneOf(input.status, ["reviewed", "false_positive", "escalated"] as const, "status");
     const note = text(input.note, 500, "Ghi chú");
     const check = await this.#o.guardian.check(checkId);
-    if (!check || !sameAddress(check.vault, v.address)) throw notFound("lần kiểm tra này của vault");
+    if (!check || !sameAddress(check.vault, v.address)) throw notFound("lần kiểm tra này của két");
     // A LOW check cannot be a false positive: there was no alarm to dismiss.
     if (status === "false_positive" && check.risk === "LOW")
       throw new AccountError(409, "not_an_alarm", "Kiểm tra rủi ro THẤP không thể là báo động nhầm.");

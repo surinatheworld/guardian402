@@ -11,7 +11,7 @@ const HEADER: Record<RiskLevel, Record<Lang, string>> = {
 };
 
 const POLICY_REASON: Record<string, Record<Lang, string>> = {
-  paused: { vi: "vault đang tạm dừng", en: "the vault is paused" },
+  paused: { vi: "két đang khoá", en: "the vault is paused" },
   "no-agent": { vi: "agent đã bị thu hồi", en: "the agent was revoked" },
   "bad-batch": { vi: "số lệnh không hợp lệ", en: "invalid number of calls" },
   "target-not-allowed": { vi: "địa chỉ gọi không được phép", en: "target not allowed" },
@@ -47,7 +47,7 @@ const SENTENCES: Record<RuleId, Sentence> = {
       POLICY_REASON[String(f.evidence.reason)]?.[lang] ??
       (lang === "vi" ? "vi phạm luật" : "policy violation");
     return lang === "vi"
-      ? `Luật của vault sẽ từ chối giao dịch này: ${r}.`
+      ? `Quy tắc của két sẽ từ chối giao dịch này: ${r}.`
       : `The vault policy would reject it: ${r}.`;
   },
   UNLIMITED_APPROVAL: (f, i, lang) => {
@@ -76,7 +76,7 @@ const SENTENCES: Record<RuleId, Sentence> = {
       : `${label(i, f.evidence.address)} is a lookalike of ${label(i, f.evidence.looksLike)}.`,
   DRAIN_PATTERN: (f, i, lang) =>
     lang === "vi"
-      ? `Chuyển ${String(f.evidence.percent).replace(".", ",")}% số dư (${amount(i, f.evidence.token, f.evidence.outflow, lang)}) ra khỏi vault.`
+      ? `Chuyển ${String(f.evidence.percent).replace(".", ",")}% số dư (${amount(i, f.evidence.token, f.evidence.outflow, lang)}) ra khỏi két.`
       : `Moves ${f.evidence.percent}% of the balance (${amount(i, f.evidence.token, f.evidence.outflow, lang)}) out of the vault.`,
   ABNORMAL_SLIPPAGE: (f, _i, lang) => {
     const pct = (Number(f.evidence.slippageBps) / 100).toString();
@@ -87,20 +87,20 @@ const SENTENCES: Record<RuleId, Sentence> = {
   RECIPIENT_NOT_ALLOWLISTED: (f, i, lang) =>
     f.evidence.via === "swap-output"
       ? lang === "vi"
-        ? `Token nhận được từ hoán đổi được gửi tới ${label(i, f.evidence.recipient)} thay vì vault, ngoài danh sách cho phép.`
+        ? `Token nhận được từ hoán đổi được gửi tới ${label(i, f.evidence.recipient)} thay vì két, ngoài danh sách cho phép.`
         : `The swap output is sent to ${label(i, f.evidence.recipient)} instead of the vault, outside the allowlist.`
       : lang === "vi"
-        ? `${amount(i, f.evidence.token, f.evidence.amount, lang)} rời vault tới ${label(i, f.evidence.recipient)}, ngoài danh sách cho phép.`
+        ? `${amount(i, f.evidence.token, f.evidence.amount, lang)} rời két tới ${label(i, f.evidence.recipient)}, ngoài danh sách cho phép.`
         : `${amount(i, f.evidence.token, f.evidence.amount, lang)} leaves the vault to ${label(i, f.evidence.recipient)}, outside the allowlist.`,
   UNPROTECTED_SWAP: (f, _i, lang) => {
     if (f.evidence.minOut === "0") {
       return lang === "vi"
-        ? "Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận."
+        ? "Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, két vẫn phải nhận."
         : "The swap sets no minimum output (minOut = 0): if the price moves before it really runs, the vault still takes it.";
     }
     const pct = (Number(f.evidence.gapBps) / 100).toString();
     return lang === "vi"
-      ? `Mức nhận tối thiểu thấp hơn kết quả chạy thử ${pct.replace(".", ",")}%: nếu giá xấu đi trước khi giao dịch chạy thật, vault vẫn phải nhận.`
+      ? `Mức nhận tối thiểu thấp hơn kết quả chạy thử ${pct.replace(".", ",")}%: nếu giá xấu đi trước khi giao dịch chạy thật, két vẫn phải nhận.`
       : `The minimum output is ${pct}% below the simulated output: if the price gets worse before it really runs, the vault still takes it.`;
   },
 };
@@ -115,8 +115,8 @@ function changes(input: ExplainInput, lang: Lang): string {
     const a = amount(input, "0x0000000000000000000000000000000000000000", input.diff.nativeDelta, lang);
     parts.push(a.startsWith("-") ? a : `+${a}`);
   }
-  if (parts.length === 0) return lang === "vi" ? "Số dư vault không đổi." : "Vault balances do not change.";
-  return `${lang === "vi" ? "Vault" : "Vault"}: ${parts.join(", ")}.`;
+  if (parts.length === 0) return lang === "vi" ? "Số dư két không đổi." : "Vault balances do not change.";
+  return `${lang === "vi" ? "Két" : "Vault"}: ${parts.join(", ")}.`;
 }
 
 function write(input: ExplainInput, lang: Lang): string {

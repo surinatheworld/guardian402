@@ -443,7 +443,7 @@ function LinkedBell({ vault }: { vault: string }) {
               ))}
             </ul>
           )}
-          <NextLink href="/hoat-dong" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+          <NextLink href="/hoat-dong" className={buttonVariants({ variant: "tertiary", size: "sm" })}>
             Xem hoạt động
           </NextLink>
         </Popover.Dialog>

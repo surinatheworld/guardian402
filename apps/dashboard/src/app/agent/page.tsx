@@ -207,13 +207,13 @@ function Identity({
         linked ? (
           <>
             {agent ? (
-              <Button variant="secondary" size="sm" onPress={() => setFees(true)}>
+              <Button variant="tertiary" size="sm" onPress={() => setFees(true)}>
                 <Thunderbolt aria-hidden="true" />
                 Gửi phí
               </Button>
             ) : null}
             <Button
-              variant={agent ? "secondary" : "primary"}
+              variant={agent ? "tertiary" : "primary"}
               size="sm"
               isDisabled={!gateOk}
               onPress={() => {
@@ -347,7 +347,7 @@ function Connect({ vault, agent }: { vault: Address; agent: Agent }) {
         description="Khoá API cho agent gọi Guardian. Nó không rút được tiền và không đổi được quy tắc."
         actions={
           <Button
-            variant={active.length ? "secondary" : "primary"}
+            variant={active.length ? "tertiary" : "primary"}
             size="sm"
             isPending={create.isPending}
             onPress={() => create.mutate()}
@@ -439,7 +439,7 @@ function TryIt({ vault, connected, lastUsed }: { vault: Address; connected: bool
         {prompts.map((t, i) => (
           <Button
             key={t}
-            variant="secondary"
+            variant="tertiary"
             className="h-auto justify-between gap-3 py-2.5 text-left whitespace-normal"
             onPress={async () => {
               await navigator.clipboard.writeText(t).catch(() => undefined);

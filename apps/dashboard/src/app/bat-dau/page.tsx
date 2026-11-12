@@ -51,7 +51,8 @@ const STEPS = [
   { title: "Kết nối agent", lead: "Đưa khoá API và cấu hình này cho agent. Xong là agent tự chi được." },
 ] as const;
 
-function Stepper({ current }: { current: number }) {
+/** `done[i]`: step i is really complete (not merely before the current one), so a deep link never fakes a ✓. */
+function Stepper({ current, done: doneSteps }: { current: number; done: boolean[] }) {
   return (
     <>
       <div className="flex flex-col gap-2 md:hidden">
@@ -66,7 +67,7 @@ function Stepper({ current }: { current: number }) {
       </div>
       <ol aria-label="Các bước" className="hidden items-center gap-2 md:flex">
         {STEPS.map((s, i) => {
-          const done = i < current;
+          const done = i !== current && doneSteps[i] === true;
           const active = i === current;
           return (
             <li
@@ -241,6 +242,14 @@ export default function SetupPage() {
     );
 
   const creating = tx.busy || saving.busy;
+  const ready = [
+    owner.ready,
+    agentStepReady(draft, owner.wallets, generatedPk, savedKey),
+    rulesStepReady(draft),
+    Boolean(created?.apiKey),
+    Boolean(created),
+    false,
+  ];
   const rowState = (i: number): "done" | "busy" | "todo" | "bad" => {
     const ph = tx.phase.step;
     if (i === 0)
@@ -278,7 +287,7 @@ export default function SetupPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 py-6">
-      <Stepper current={step} />
+      <Stepper current={step} done={ready} />
 
       {step === 0 ? (
         <StepCard
@@ -355,7 +364,7 @@ export default function SetupPage() {
                   variant="primary"
                   size="lg"
                   isPending={creating}
-                  isDisabled={!owner.ready}
+                  isDisabled={!ready.slice(0, 3).every(Boolean)}
                   onPress={() => void create()}
                 >
                   {tx.phase.step === "failed" ? "Thử lại" : "Tạo két"}
@@ -375,9 +384,17 @@ export default function SetupPage() {
               <Input />
             </TextField>
             <ReviewSummary draft={draft} owner={owner.address} />
-            {!owner.ready ? (
-              <Notice status="warning" title="Ví chủ chưa sẵn sàng">
-                Quay lại bước 1: ví cần kết nối, ở mạng Fuji, thuộc tài khoản và có AVAX trả phí.
+            {!created && !ready.slice(0, 3).every(Boolean) ? (
+              <Notice status="warning" title="Chưa đủ để tạo két">
+                {[
+                  !ready[0]
+                    ? "Bước 1: ví cần kết nối, ở mạng Fuji, thuộc tài khoản và có AVAX trả phí."
+                    : null,
+                  !ready[1] ? "Bước 2: cần tên và địa chỉ ví của agent." : null,
+                  !ready[2] ? "Bước 3: cần ít nhất một người nhận và hạn mức hợp lệ." : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
               </Notice>
             ) : null}
             {tx.phase.step !== "idle" ? (

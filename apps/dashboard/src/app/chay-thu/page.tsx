@@ -242,7 +242,7 @@ export default function TrialPage() {
                             </Chip>
                           ) : null}
                           {!s.preset ? (
-                            <Chip size="sm" variant="secondary">
+                            <Chip size="sm" variant="tertiary">
                               Chỉ chạy thật
                             </Chip>
                           ) : null}

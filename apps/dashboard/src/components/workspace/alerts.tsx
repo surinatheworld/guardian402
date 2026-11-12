@@ -43,7 +43,7 @@ export function AlertSettings({ vault }: { vault: string }) {
       title="Cảnh báo"
       description="Khi nào dashboard báo cho bạn ở biểu tượng chuông"
       actions={
-        <Button size="sm" variant="secondary" onPress={() => setAdding(true)}>
+        <Button size="sm" variant="tertiary" onPress={() => setAdding(true)}>
           <Plus aria-hidden="true" />
           Thêm cảnh báo
         </Button>

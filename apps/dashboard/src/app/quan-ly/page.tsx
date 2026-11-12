@@ -1,5 +1,5 @@
 "use client";
-// The old "Quản lý vault" page and its tabs now live on their own pages; keep old links (and #tab hashes) working.
+// The old "Quản lý két" page and its tabs now live on their own pages; keep old links (and #tab hashes) working.
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loading } from "@/components/ui";

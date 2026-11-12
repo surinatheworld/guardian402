@@ -132,9 +132,7 @@ export function OwnerStep() {
         state={o.isConnected ? "done" : "todo"}
         title={o.isConnected && o.address ? `Ví ${shortHex(o.address)} đã kết nối` : "Kết nối ví"}
         detail={
-          o.isConnected ? (
-            "Ví này sẽ là chủ két: chỉ nó rút được tiền và đổi được quy tắc."
-          ) : (
+          o.isConnected ? null : (
             <>
               Core hoặc MetaMask. Chưa có ví? <ExternalLink href="https://core.app">Cài Core</ExternalLink>
             </>
@@ -287,7 +285,7 @@ export function AgentStep({
         </TextField>
         <div className="flex flex-wrap items-center gap-3">
           <Button
-            variant="secondary"
+            variant="tertiary"
             onPress={() => {
               const pk = generatePrivateKey();
               setGeneratedPk(pk);
@@ -437,7 +435,7 @@ export function RulesStep({ draft, setDraft }: StepProps) {
           </ul>
           <div>
             <Button
-              variant="secondary"
+              variant="tertiary"
               size="sm"
               isDisabled={draft.recipients.length >= 10}
               onPress={() =>
@@ -560,11 +558,14 @@ export function ReviewSummary({ draft, owner }: { draft: SetupDraft; owner: stri
         <dd className="font-mono text-xs break-all">{owner ?? "…"}</dd>
         <dt className="text-muted">Agent</dt>
         <dd className="flex min-w-0 flex-col">
-          <span className="font-medium">{draft.agentName}</span>
-          <span className="font-mono text-xs break-all text-muted">{draft.agentAddress}</span>
+          <span className="font-medium">{draft.agentName || "—"}</span>
+          <span className={`text-xs break-all text-muted ${draft.agentAddress ? "font-mono" : ""}`}>
+            {draft.agentAddress || "Chưa có địa chỉ"}
+          </span>
         </dd>
         <dt className="text-muted">Người nhận</dt>
         <dd className="flex min-w-0 flex-col gap-1">
+          {recipients.length === 0 ? <span className="text-muted">Chưa có</span> : null}
           {recipients.map((r) => (
             <span key={r.address} className="flex min-w-0 flex-wrap gap-x-2">
               <span className="font-medium">{r.name}</span>

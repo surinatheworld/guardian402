@@ -95,7 +95,7 @@ export default function SignInPage() {
           </div>
           <div className="flex flex-col gap-1.5">
             <Button
-              variant="secondary"
+              variant="tertiary"
               fullWidth
               onPress={() => {
                 setViewingDemo(true);
