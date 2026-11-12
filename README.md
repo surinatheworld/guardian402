@@ -198,17 +198,6 @@ Agent gọi Guardian trước khi gửi giao dịch, rồi gửi lệnh kèm ver
 ## 3. Cơ chế hoạt động
 
 ```mermaid
-flowchart LR
-    Owner["Chủ két<br/>đặt luật, rút tiền"] -->|"cấu hình"| Vault["AgentVault<br/>cưỡng chế on-chain"]
-    Agent["AI Agent"] -->|"1. gửi giao dịch dự định + phí x402"| Guardian["Guardian API<br/>mô phỏng + 9 luật"]
-    Guardian -->|"2. verdict EIP-712 đã ký"| Agent
-    Agent -->|"3. executeBatch(calls, verdict)"| Vault
-    Vault -->|"4. kiểm tra luật"| Gate{"Hợp lệ?"}
-    Gate -->|"có"| Exec["Thực thi"]
-    Gate -->|"không"| Rej["Revert, tiền ở lại két"]
-```
-
-```mermaid
 sequenceDiagram
     autonumber
     participant A as AI Agent
