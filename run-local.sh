@@ -4,6 +4,8 @@
 # ==============================================================================
 # Usage:
 #   ./run-local.sh                 # start fork, facilitator, Guardian, agent API and dashboard
+#   ./run-local.sh fuji            # the same stack on real Avalanche Fuji (vault, payments, wallet); the Anvil
+#                                  # fork is only the Guardian's simulator, reset from Fuji
 #   ./run-local.sh setup           # first-time setup: .env files, dependencies, contract build
 #   ./run-local.sh scenario <S0..S6|all>
 #   ./run-local.sh stop            # stop what this script started
@@ -248,6 +250,65 @@ cmd_start() {
   wait
 }
 
+# Real Fuji: chain reads, x402 settlement and wallet transactions go to FUJI_RPC_URL; the vault and the
+# VaultFactory are the deployed ones (packages/shared/src/addresses/fuji.json). The Anvil fork on :8545 is
+# only where the Guardian simulates a batch before scoring it (SPEC §1); it is reset from Fuji, never adopted
+# or seeded. Needs FUJI_RPC_URL, GUARDIAN_SIGNER_PK and FACILITATOR_PK (with a little AVAX) in .env.local.
+cmd_fuji() {
+  check_prerequisites
+  [ -f ".env.local" ] || { log_err "No .env.local: run ./run-local.sh setup first."; exit 1; }
+  local fuji
+  fuji=$(grep -E '^FUJI_RPC_URL=' .env.local | cut -d= -f2-)
+  [ -n "$fuji" ] || { log_err "FUJI_RPC_URL is missing in .env.local."; exit 1; }
+  if [ -f "$PID_FILE" ]; then stop_services; fi
+  local busy=()
+  for port in "${PORTS[@]}"; do port_in_use "$port" && busy+=("$port"); done
+  if [ "${#busy[@]}" -gt 0 ]; then
+    log_err "Ports already in use: ${busy[*]}. Stop those programs first (run-local.sh never kills processes it did not start)."
+    exit 1
+  fi
+
+  echo -e "
+${BOLD}=== Starting Guardian402 on Avalanche Fuji ===${NC}
+"
+  mkdir -p "$LOG_DIR"
+  : >"$PID_FILE"
+  trap 'echo; log_info "Shutting down..."; stop_services' EXIT
+  trap 'exit 130' INT TERM
+
+  export NETWORK=fuji CHAIN_RPC_URL="$fuji" FACILITATOR_RPC_URL="$fuji" FORK_RPC_URL="$FORK_URL" DEMO_MODE=true
+  export FACILITATOR_URL="http://127.0.0.1:4022"
+  export NEXT_PUBLIC_NETWORK=fuji NEXT_PUBLIC_RPC_URL="" NEXT_PUBLIC_GUARDIAN_URL="" NEXT_PUBLIC_AGENT_URL=""
+
+  log_info "[1/5] Guardian simulator (Anvil fork of Fuji) on :8545"
+  FUJI_RPC_URL="$fuji" start_bg fork node scripts/fork.mjs
+  wait_for_rpc "$FORK_URL" "Guardian simulator" 120
+
+  log_info "[2/5] x402 facilitator on :4022 (settles on Fuji)"
+  start_bg facilitator pnpm facilitator
+  wait_for_url "http://127.0.0.1:4022/supported" "x402 facilitator" 60
+
+  log_info "[3/5] Guardian API on :4402"
+  start_bg guardian pnpm dev:guardian
+  wait_for_url "http://127.0.0.1:4402/v1/health" "Guardian API" 90
+
+  log_info "[4/5] Agent control API on :4403"
+  start_bg agent pnpm dev:agent
+  wait_for_url "http://127.0.0.1:4403/health" "Agent control API" 60
+
+  log_info "[5/5] Dashboard on :3000"
+  start_bg dashboard pnpm dev:dashboard
+  wait_for_url "http://localhost:3000/dang-nhap" "Dashboard" 120
+
+  echo -e "
+${GREEN}${BOLD}Guardian402 is running on Avalanche Fuji.${NC}"
+  echo -e "  Dashboard     http://localhost:3000"
+  echo -e "  Guardian API  http://127.0.0.1:4402/v1/health"
+  echo -e "Logs: $LOG_DIR. Press ${BOLD}Ctrl+C${NC} to stop everything.
+"
+  wait
+}
+
 cmd_status() {
   echo -e "\n${BOLD}=== Guardian402 local services ===${NC}"
   local line
@@ -269,11 +330,12 @@ cmd_scenario() {
 case "${1:-start}" in
   setup) cmd_setup ;;
   start) cmd_start ;;
+  fuji) cmd_fuji ;;
   stop) stop_services ;;
   status) cmd_status ;;
   scenario) cmd_scenario "${2:-all}" ;;
   *)
-    echo "Usage: $0 {start|setup|stop|status|scenario <id>}"
+    echo "Usage: $0 {start|fuji|setup|stop|status|scenario <id>}"
     exit 1
     ;;
 esac

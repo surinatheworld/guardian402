@@ -5,7 +5,7 @@
 //   node scripts/contracts.mjs redeploy-mocks <local|fuji>       (new mWAVAX + MockRouter; verified on fuji)
 //   node scripts/contracts.mjs swap-router <local|fuji> <oldRouter>  (vault allowlist: old router → new router)
 //   node scripts/contracts.mjs redeploy-vault <local|fuji>       (new AgentVault, old one emptied and paused; verified on fuji)
-//   node scripts/contracts.mjs deploy-factory <local|fuji>       (VaultFactory with the GUARDIAN_SIGNER_PK signer; verified on fuji)
+//   node scripts/contracts.mjs deploy-factory <local|fuji>       (VaultFactory, each vault gets the Guardian its creator passes; verified on fuji)
 //   node scripts/contracts.mjs adopt local                       (fork only: hand the seeded Fuji vault to OWNER_PK)
 //
 // Loads secrets from the repo-root .env.local into the environment of forge/cast (never on the command line),
@@ -383,10 +383,7 @@ function verifyAll() {
       enc("f(address,address,address,address)", a.usdc, a.mWAVAX, a.oracle, a.deployer),
     ],
   ];
-  if (a.factory) {
-    const guardian = privateKeyToAccount(process.env.GUARDIAN_SIGNER_PK).address;
-    contracts.push(["src/VaultFactory.sol:VaultFactory", a.factory, enc("f(address)", guardian)]);
-  }
+  if (a.factory) contracts.push(["src/VaultFactory.sol:VaultFactory", a.factory, "0x"]);
   if (a.cancunSmoke) contracts.push(["src/smoke/CancunSmoke.sol:CancunSmoke", a.cancunSmoke, "0x"]);
   for (const [id, address, args] of contracts) {
     console.log(`[contracts] verifying ${id} at ${address}`);

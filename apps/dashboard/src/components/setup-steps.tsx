@@ -549,7 +549,15 @@ export const rulesStepReady = (d: SetupDraft) =>
 
 // ------------------------------------------------------------------ 4. review
 
-export function ReviewSummary({ draft, owner }: { draft: SetupDraft; owner: string | undefined }) {
+export function ReviewSummary({
+  draft,
+  owner,
+  guardian,
+}: {
+  draft: SetupDraft;
+  owner: string | undefined;
+  guardian: string | undefined;
+}) {
   const recipients = filledRecipients(draft.recipients);
   return (
     <div className="flex flex-col gap-5">
@@ -583,13 +591,16 @@ export function ReviewSummary({ draft, owner }: { draft: SetupDraft; owner: stri
               ))}
           </ul>
         </dd>
+        <dt className="text-muted">Guardian ký duyệt</dt>
+        <dd className="font-mono text-xs break-all">{guardian ?? "Đang hỏi Guardian…"}</dd>
         <dt className="text-muted">Phí</dt>
         <dd>Khoảng 0,01 AVAX phí mạng. Guardian402 không thu phí tạo két.</dd>
       </dl>
       <TechDetails>
         <span>
-          Gọi <code className="font-mono">VaultFactory.createVault(agent, config)</code>: tạo một AgentVault
-          mới, chủ là ví của bạn, Guardian là người ký duyệt. Factory không giữ quyền gì với két.
+          Gọi <code className="font-mono">VaultFactory.createVault(agent, guardian, config)</code>: tạo một
+          AgentVault mới, chủ là ví của bạn, người ký duyệt là Guardian của dashboard này. Factory không giữ
+          quyền gì với két.
         </span>
       </TechDetails>
     </div>

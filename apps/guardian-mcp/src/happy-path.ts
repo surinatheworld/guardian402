@@ -52,6 +52,7 @@ const owner = privateKeyToAccount(need("OWNER_PK"));
 const agent = privateKeyToAccount(need("AGENT_PK"));
 const rpc = process.env.FUJI_RPC_URL || "https://api.avax-test.network/ext/bc/C/rpc";
 const DASHBOARD = (process.env.DASHBOARD_URL || "http://localhost:3000").replace(/\/$/, "");
+const GUARDIAN = (process.env.GUARDIAN_URL || "http://127.0.0.1:4402").replace(/\/$/, "");
 const chain = createPublicClient({ chain: fujiChain, transport: rpcTransport(rpc) });
 const ownerWallet = createWalletClient({ account: owner, chain: fujiChain, transport: rpcTransport(rpc) });
 const agentWallet = createWalletClient({ account: agent, chain: fujiChain, transport: rpcTransport(rpc) });
@@ -93,7 +94,12 @@ async function api<T>(path: string, method = "GET", body?: unknown): Promise<T> 
 
 // ------------------------------------------------------------------ run
 
-say(`[happy path] Fuji · factory ${factory} · dashboard ${DASHBOARD}`);
+// The vault's Guardian is the signer of the Guardian API the dashboard forwards to.
+const health = (await (await fetch(`${GUARDIAN}/v1/health`)).json()) as { signer: Address; network: string };
+if (health.network !== "fuji")
+  throw new Error(`the Guardian on ${GUARDIAN} runs ${health.network}, not fuji`);
+const guardianSigner = health.signer;
+say(`[happy path] Fuji · factory ${factory} · dashboard ${DASHBOARD} · Guardian signer ${guardianSigner}`);
 
 const resume = process.env.HAPPY_PATH_VAULT as Address | undefined;
 let vault: Address;
@@ -129,6 +135,7 @@ if (resume) {
       functionName: "createVault",
       args: [
         agent.address,
+        guardianSigner,
         {
           maxAgentRisk: 0,
           tokens: [

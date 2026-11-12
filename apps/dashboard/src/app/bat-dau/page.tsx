@@ -39,6 +39,7 @@ import { accountApi, useRefreshMe } from "@/lib/account";
 import { deployment, NETWORK } from "@/lib/config";
 import { DEFAULT_DRAFT, filledRecipients, vaultConfig, type SetupDraft } from "@/lib/setup";
 import { useTx } from "@/lib/tx";
+import { useGuardianHealth } from "@/lib/api";
 import { useSelectedVault } from "@/lib/vault-context";
 import { wsApi } from "@/lib/workspace";
 
@@ -141,6 +142,8 @@ export default function SetupPage() {
   const [saving, setSaving] = useState<{ busy: boolean; error?: string }>({ busy: false });
   const { writeContractAsync } = useWriteContract();
   const tx = useTx();
+  const guardianHealth = useGuardianHealth();
+  const guardianSigner = guardianHealth.data?.signer;
 
   const factory = deployment.factory;
 
@@ -183,13 +186,15 @@ export default function SetupPage() {
   }
 
   async function create() {
-    if (!factory) return;
+    if (!factory || !guardianSigner) return;
     const receipt = await tx.run(() =>
       writeContractAsync({
         address: factory,
         abi: vaultFactoryAbi,
         functionName: "createVault",
-        args: [draft.agentAddress as Address, vaultConfig(draft, deployment.usdc)],
+        // The vault's Guardian is the signer of the Guardian API this dashboard talks to (each deployment has
+        // its own signing key; VaultFactory takes it per vault).
+        args: [draft.agentAddress as Address, guardianSigner as Address, vaultConfig(draft, deployment.usdc)],
         chainId: avalancheFuji.id,
       }),
     );
@@ -364,7 +369,7 @@ export default function SetupPage() {
                   variant="primary"
                   size="lg"
                   isPending={creating}
-                  isDisabled={!ready.slice(0, 3).every(Boolean)}
+                  isDisabled={!ready.slice(0, 3).every(Boolean) || !guardianSigner}
                   onPress={() => void create()}
                 >
                   {tx.phase.step === "failed" ? "Thử lại" : "Tạo két"}
@@ -383,7 +388,12 @@ export default function SetupPage() {
               <Label>Tên két</Label>
               <Input />
             </TextField>
-            <ReviewSummary draft={draft} owner={owner.address} />
+            <ReviewSummary draft={draft} owner={owner.address} guardian={guardianSigner} />
+            {guardianHealth.isError ? (
+              <Notice status="danger" title="Không kết nối được Guardian">
+                Cần Guardian để biết ai ký duyệt cho két. Kiểm tra dịch vụ Guardian rồi tải lại trang.
+              </Notice>
+            ) : null}
             {!created && !ready.slice(0, 3).every(Boolean) ? (
               <Notice status="warning" title="Chưa đủ để tạo két">
                 {[

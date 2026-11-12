@@ -10,7 +10,7 @@ import {MockUSDC} from "./mocks/MockUSDC.sol";
 /// The factory creates a vault owned by the caller, with the caller's policy and the factory's Guardian, and
 /// keeps no rights over it: only the owner can withdraw or change the policy.
 contract VaultFactoryTest is Test {
-    event VaultCreated(address indexed owner, address indexed vault, address indexed agent);
+    event VaultCreated(address indexed owner, address indexed vault, address indexed agent, address guardian);
 
     VaultFactory internal factory;
     MockUSDC internal usdc;
@@ -21,7 +21,7 @@ contract VaultFactoryTest is Test {
     address internal treasury = makeAddr("treasury");
 
     function setUp() public {
-        factory = new VaultFactory(guardian);
+        factory = new VaultFactory();
         usdc = new MockUSDC();
     }
 
@@ -36,14 +36,25 @@ contract VaultFactoryTest is Test {
 
     function test_RevertWhen_ZeroGuardian() public {
         vm.expectRevert(VaultFactory.ZeroGuardian.selector);
-        new VaultFactory(address(0));
+        vm.prank(alice);
+        factory.createVault(agent, address(0), _config());
+    }
+
+    function test_EachVaultHasTheGuardianItWasCreatedWith() public {
+        address other = makeAddr("other-guardian");
+        vm.prank(alice);
+        AgentVault a = factory.createVault(agent, guardian, _config());
+        vm.prank(bob);
+        AgentVault b = factory.createVault(agent, other, _config());
+        assertEq(a.guardian(), guardian);
+        assertEq(b.guardian(), other);
     }
 
     function test_CreateVault_CallerOwnsIt() public {
         vm.expectEmit(true, false, true, false, address(factory));
-        emit VaultCreated(alice, address(0), agent);
+        emit VaultCreated(alice, address(0), agent, guardian);
         vm.prank(alice);
-        AgentVault vault = factory.createVault(agent, _config());
+        AgentVault vault = factory.createVault(agent, guardian, _config());
 
         assertEq(vault.owner(), alice);
         assertEq(vault.pendingOwner(), address(0));
@@ -63,17 +74,17 @@ contract VaultFactoryTest is Test {
 
     function test_CreateVault_ZeroAgentAllowed() public {
         vm.prank(alice);
-        AgentVault vault = factory.createVault(address(0), _config());
+        AgentVault vault = factory.createVault(address(0), guardian, _config());
         assertEq(vault.agent(), address(0));
     }
 
     function test_VaultsAreTrackedPerOwner() public {
         vm.startPrank(alice);
-        factory.createVault(agent, _config());
-        factory.createVault(agent, _config());
+        factory.createVault(agent, guardian, _config());
+        factory.createVault(agent, guardian, _config());
         vm.stopPrank();
         vm.prank(bob);
-        factory.createVault(agent, _config());
+        factory.createVault(agent, guardian, _config());
         assertEq(factory.vaultsOf(alice).length, 2);
         assertEq(factory.vaultsOf(bob).length, 1);
         assertEq(factory.vaultCount(), 3);
@@ -82,7 +93,7 @@ contract VaultFactoryTest is Test {
     /// Money path: the owner deposits with a plain transfer and can always withdraw; nobody else can.
     function test_DepositThenOnlyOwnerWithdraws() public {
         vm.prank(alice);
-        AgentVault vault = factory.createVault(agent, _config());
+        AgentVault vault = factory.createVault(agent, guardian, _config());
         usdc.mint(alice, 10e6);
         vm.prank(alice);
         IERC20(address(usdc)).transfer(address(vault), 10e6);
@@ -102,7 +113,7 @@ contract VaultFactoryTest is Test {
 
     function test_FactoryCannotChangeTheVault() public {
         vm.prank(alice);
-        AgentVault vault = factory.createVault(agent, _config());
+        AgentVault vault = factory.createVault(agent, guardian, _config());
         vm.startPrank(address(factory));
         vm.expectRevert();
         vault.setAgent(bob);
@@ -113,7 +124,7 @@ contract VaultFactoryTest is Test {
 
     function test_NativeDepositThroughReceive() public {
         vm.prank(alice);
-        AgentVault vault = factory.createVault(agent, _config());
+        AgentVault vault = factory.createVault(agent, guardian, _config());
         vm.deal(alice, 1 ether);
         vm.prank(alice);
         (bool ok,) = address(vault).call{value: 0.5 ether}("");

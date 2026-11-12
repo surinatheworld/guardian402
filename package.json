@@ -44,7 +44,8 @@
     "mcp:example": "pnpm --filter @guardian402/guardian-mcp example",
     "deploy-factory:fuji": "node scripts/contracts.mjs deploy-factory fuji",
     "mcp:agent": "pnpm --silent --filter @guardian402/guardian-mcp agent",
-    "happy-path:fuji": "pnpm --filter @guardian402/guardian-mcp happy-path"
+    "happy-path:fuji": "pnpm --filter @guardian402/guardian-mcp happy-path",
+    "local:fuji": "bash run-local.sh fuji"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
