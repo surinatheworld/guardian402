@@ -68,13 +68,23 @@ async function json(res: Response) {
 const api: AgentApi = {
   me: async () => (await json(await fetch(`${base}/me`, { headers: auth }))) as AgentMe,
   ask: async (endpoint, calls) => {
-    const res = await payingFetch(`${base}/${endpoint}`, {
-      method: "POST",
-      headers: { ...auth, "content-type": "application/json" },
-      body: JSON.stringify({
-        calls: calls.map((c) => ({ target: c.target, value: c.value.toString(), data: c.data })),
-      }),
+    const body = JSON.stringify({
+      calls: calls.map((c) => ({ target: c.target, value: c.value.toString(), data: c.data })),
     });
+    // A 503 is the Guardian's own state (busy, or its fork catching up with a new vault), never a verdict, and
+    // it is not charged: ask again after Retry-After (at most 10 s), twice at most.
+    let res: Response;
+    for (let attempt = 0; ; attempt++) {
+      res = await payingFetch(`${base}/${endpoint}`, {
+        method: "POST",
+        headers: { ...auth, "content-type": "application/json" },
+        body,
+      });
+      if (res.status !== 503 || attempt >= 2) break;
+      await res.body?.cancel();
+      const wait = Math.min(Number(res.headers.get("retry-after")) || 5, 10);
+      await new Promise((r) => setTimeout(r, wait * 1000));
+    }
     const header = res.headers.get("PAYMENT-RESPONSE");
     const receipt = header ? decodePaymentResponseHeader(header) : undefined;
     const paymentTx = receipt?.success && receipt.transaction ? (receipt.transaction as Hex) : undefined;

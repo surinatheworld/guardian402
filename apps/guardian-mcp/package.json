@@ -9,7 +9,8 @@
     "example": "tsx src/client-example.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",
-    "agent": "tsx src/agent-main.ts"
+    "agent": "tsx src/agent-main.ts",
+    "happy-path": "tsx src/happy-path.ts"
   },
   "dependencies": {
     "@guardian402/guardian": "workspace:*",
