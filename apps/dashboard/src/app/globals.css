@@ -3,15 +3,32 @@
 
 /*
  * Guardian402 uses the HeroUI default theme as it ships (DESIGN.md): colours, radii, shadows and the dark
- * palette come from @heroui/styles. This file only sets the type family and a few typographic defaults.
+ * palette come from @heroui/styles. The wireframe's grayscale is applied at the document level.
  */
 @theme inline {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
 
+/*
+ * Three tokens are one step darker than HeroUI ships them, hue unchanged, so text reaches 4.5:1 (P16 design
+ * pass): white on the accent (primary button) was 3.6:1, accent text on white 3.7:1, muted text on the page
+ * 4.4:1. The dark palette keeps HeroUI's values, which already pass.
+ */
+:root:not(.dark),
+.light,
+.default,
+[data-theme="light"],
+[data-theme="default"] {
+  --accent: oklch(0.53 0.2 255);
+  --muted: oklch(0.5 0.014 286);
+  --success-soft-foreground: oklch(0.42 0.11 151);
+}
+
 @layer base {
   html {
+    /* The approved wireframe presents the whole dashboard, including overlays, in grayscale. */
+    filter: grayscale(1);
     /* Inter's optical-size axis: tighter letterforms at display sizes, more open text at 12–14px. */
     font-optical-sizing: auto;
     -webkit-text-size-adjust: 100%;

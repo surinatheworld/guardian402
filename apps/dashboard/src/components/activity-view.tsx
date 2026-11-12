@@ -1,7 +1,17 @@
 "use client";
-// The activity list (each row a compact journey) and the detail drawer (the full journey, the money effect,
-// the reasons, the explanation, the owner's review and the technical details).
-import { Button } from "@heroui/react/button";
+// Activity as the owner reads it: a dense table (one transaction per row), compact rows for the overview, and
+// the detail drawer. The drawer opens with the conclusion ("the vault rejected it, the money is still there"),
+// then the three stops, with the way to act on a rejection next to the vault's decision.
+import {
+  CircleCheck,
+  CircleXmark,
+  Flask,
+  OctagonXmark,
+  PersonPlus,
+  Sliders,
+  TriangleExclamation,
+} from "@gravity-ui/icons";
+import { Button, buttonVariants } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Description } from "@heroui/react/description";
 import { Drawer } from "@heroui/react/drawer";
@@ -13,19 +23,23 @@ import { Tabs } from "@heroui/react/tabs";
 import { TextField } from "@heroui/react/textfield";
 import { toast } from "@heroui/react/toast";
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import NextLink from "next/link";
+import { useState, type ReactNode } from "react";
 import { checkIdOf, moneyEffects, type ActivityItem } from "@/lib/activity";
 import { useCheckDetail, useCheckDetails, type CheckDetail } from "@/lib/activity-hooks";
 import { errorText } from "@/lib/api";
 import { useMe } from "@/lib/account";
+import { vaultDecision } from "@/lib/check-calls";
 import { formatAmount, formatTime } from "@/lib/format";
-import { ENDPOINT_LABEL, ENDPOINT_PATH, findingLabel, RISK_TITLE } from "@/lib/labels";
+import { ENDPOINT_PATH, findingLabel, revertLabel } from "@/lib/labels";
 import { scenarioTitle } from "@/lib/scenarios";
 import { useVaultPolicy } from "@/lib/vault";
 import { useSelectedVault } from "@/lib/vault-context";
 import { REVIEW_LABEL, useInvalidate, useWorkspaceChecks, wsApi, type ReviewStatus } from "@/lib/workspace";
-import { Journey, proposalText, stopsFor } from "./journey";
+import { proposalText } from "./journey";
 import { ErrorBox, LoadingRows, RiskBadge, TechDetails, TxLink } from "./ui";
+
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** The headline of an item: what happened, in one line. */
 function headline(item: ActivityItem, detail: CheckDetail | undefined, vault: string) {
@@ -33,83 +47,219 @@ function headline(item: ActivityItem, detail: CheckDetail | undefined, vault: st
   return proposalText(item, detail, vault);
 }
 
-export function ActivityList({
-  items,
-  label,
-  onOpen,
-}: {
-  items: ActivityItem[];
-  label: string;
-  onOpen: (item: ActivityItem) => void;
-}) {
+type Tone = "ok" | "bad" | "neutral";
+const TONE_TEXT: Record<Tone, string> = {
+  ok: "text-success-soft-foreground",
+  bad: "text-danger-soft-foreground",
+  neutral: "text-muted",
+};
+const TONE_SOFT: Record<Tone, string> = {
+  ok: "bg-success-soft text-success-soft-foreground",
+  bad: "bg-danger-soft text-danger-soft-foreground",
+  neutral: "bg-default text-foreground",
+};
+
+/** What the vault did (or, for a trial, would do), as a word, a tone and the reason in the owner's words. */
+function vaultView(item: ActivityItem, detail: CheckDetail | undefined, maxAgentRisk: number | undefined) {
+  const o = item.outcome;
+  if (o.kind === "executed")
+    return {
+      tone: "ok" as Tone,
+      label: "Đã thực hiện",
+      why: item.execution && !item.execution.withVerdict ? "Dưới ngưỡng cần Guardian duyệt" : "",
+      Icon: CircleCheck,
+    };
+  if (o.kind === "rejected")
+    return {
+      tone: "bad" as Tone,
+      label: "Két từ chối",
+      why: capital(revertLabel(o.reason)),
+      Icon: OctagonXmark,
+    };
+  if (o.kind === "trial") {
+    const d = detail
+      ? vaultDecision(
+          {
+            findings: detail.findings,
+            riskCode: ["LOW", "MEDIUM", "HIGH"].indexOf(detail.risk) as 0 | 1 | 2,
+          },
+          maxAgentRisk,
+        )
+      : null;
+    return {
+      tone: (d ? (d.blocked ? "bad" : "ok") : "neutral") as Tone,
+      label: d ? (d.blocked ? "Két sẽ từ chối" : "Két sẽ chấp nhận") : "Chỉ chạy thử",
+      why: d ? d.text : "Không gửi lên chain",
+      Icon: d ? (d.blocked ? OctagonXmark : CircleCheck) : Flask,
+    };
+  }
+  if (o.kind === "check-only")
+    return {
+      tone: "neutral" as Tone,
+      label: "Chưa gửi",
+      why: "Chỉ kiểm tra, Guardian không ký duyệt",
+      Icon: Flask,
+    };
+  return {
+    tone: "neutral" as Tone,
+    label: "Chưa thấy trên két",
+    why: "Agent chưa gửi giao dịch này",
+    Icon: Flask,
+  };
+}
+
+function VaultResult({ view }: { view: ReturnType<typeof vaultView> }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 text-sm font-medium whitespace-nowrap ${TONE_TEXT[view.tone]}`}
+    >
+      <view.Icon aria-hidden="true" className="size-4 shrink-0" />
+      {view.label}
+    </span>
+  );
+}
+
+const projectedOutflow = (detail: CheckDetail | undefined) =>
+  detail && moneyEffects(detail.diff).find((line) => line.raw < 0n);
+
+/** What would leave the vault, as one short figure for a table cell ("−2 USDC"), or "—". */
+function outflow(detail: CheckDetail | undefined): string {
+  if (!detail) return "—";
+  const out = projectedOutflow(detail);
+  if (out) return `−${formatAmount(-out.raw, out.decimals, 4)} ${out.symbol}`;
+  return detail.diff.approvals.length ? "Cấp quyền" : "—";
+}
+
+const guardianCell = (item: ActivityItem, withScore: boolean) =>
+  item.risk ? (
+    <RiskBadge risk={item.risk} score={withScore ? item.check?.score : undefined} />
+  ) : (
+    <span className="text-sm text-muted">Không cần duyệt</span>
+  );
+
+type ListProps = { items: ActivityItem[]; label: string; onOpen: (item: ActivityItem) => void };
+
+/** One transaction per row; risk and the vault's decision line up in columns. A row opens the detail. */
+export function ActivityTable({ items, label, onOpen }: ListProps) {
   const { address: vault } = useSelectedVault();
   const policy = useVaultPolicy();
   const details = useCheckDetails(items.flatMap((i) => (i.check ? [i.check.checkId] : [])));
   return (
-    <ListBox
-      aria-label={label}
-      selectionMode="none"
-      onAction={(key) => {
-        const item = items.find((i) => i.id === key);
-        if (item) onOpen(item);
-      }}
-      className="flex flex-col gap-1 p-0"
-    >
-      {items.map((item) => {
-        const detail = item.check ? details.get(item.check.checkId) : undefined;
-        const title = headline(item, detail, vault);
-        return (
-          <ListBox.Item
-            key={item.id}
-            id={item.id}
-            textValue={title}
-            className="flex flex-col items-stretch gap-3 rounded-xl px-3 py-3"
-          >
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <span className="min-w-0 text-sm font-medium break-words">{title}</span>
-              <span className="flex items-center gap-2 text-xs text-muted tabular-nums">
-                {item.outcome.kind === "trial" ? (
-                  <Chip size="sm" variant="secondary">
-                    Chạy thử
-                  </Chip>
-                ) : null}
-                {item.attempt?.mode === "scripted-attack" ? (
-                  <Chip size="sm" variant="secondary">
-                    Tấn công mô phỏng
-                  </Chip>
-                ) : null}
+    <table aria-label={label} className="w-full table-fixed border-collapse text-left">
+      <thead>
+        <tr className="text-xs text-muted">
+          <th className="h-10 pr-3 pl-4 font-medium">Giao dịch</th>
+          <th className="hidden w-56 px-3 font-medium md:table-cell">Guardian</th>
+          <th className="hidden w-40 px-3 font-medium md:table-cell">Két</th>
+          <th className="hidden w-36 px-3 text-right font-medium lg:table-cell">Rời két</th>
+          <th className="w-28 pr-4 pl-3 text-right font-medium">Lúc</th>
+        </tr>
+      </thead>
+      <tbody>
+        {items.map((item) => {
+          const detail = item.check ? details.get(item.check.checkId) : undefined;
+          const title = headline(item, detail, vault);
+          const view = vaultView(item, detail, policy.data?.maxAgentRisk);
+          return (
+            <tr
+              key={item.id}
+              className="relative border-t border-separator transition-colors hover:bg-default/60"
+            >
+              <td className="py-3 pr-3 pl-4">
+                <button
+                  type="button"
+                  onClick={() => onOpen(item)}
+                  className="line-clamp-2 cursor-pointer text-left text-sm font-medium after:absolute after:inset-0 md:line-clamp-1"
+                  title={title}
+                >
+                  {title}
+                </button>
+                <span className="mt-0.5 block truncate text-xs text-muted">
+                  {view.why ||
+                    (item.attempt?.mode === "scripted-attack" ? "Tấn công mô phỏng" : "Guardian đã duyệt")}
+                </span>
+                <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 md:hidden">
+                  {guardianCell(item, false)}
+                  <VaultResult view={view} />
+                </span>
+              </td>
+              <td className="hidden px-3 md:table-cell">{guardianCell(item, true)}</td>
+              <td className="hidden px-3 md:table-cell">
+                <VaultResult view={view} />
+              </td>
+              <td className="hidden px-3 text-right text-sm tabular-nums lg:table-cell">{outflow(detail)}</td>
+              <td className="py-3 pr-4 pl-3 text-right align-top text-xs text-muted tabular-nums md:align-middle">
                 {item.at ? formatTime(item.at) : ""}
-              </span>
-            </div>
-            <Journey compact stops={stopsFor(item, detail, vault, policy.data?.maxAgentRisk).slice(1)} />
-          </ListBox.Item>
-        );
-      })}
-    </ListBox>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
-function Money({ detail }: { detail: CheckDetail }) {
-  const lines = moneyEffects(detail.diff);
+const shortTime = new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+/** The overview's short list: name and reason, risk, what would have left, when. */
+export function ActivityRows({ items, label, onOpen }: ListProps) {
+  const { address: vault } = useSelectedVault();
+  const policy = useVaultPolicy();
+  const details = useCheckDetails(items.flatMap((i) => (i.check ? [i.check.checkId] : [])));
   return (
-    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-xl bg-surface-secondary px-4 py-3 text-sm">
-      <span className="text-muted">
-        {detail.endpoint === "demo" ? "Nếu chạy, két sẽ" : "Theo mô phỏng, két"}
-      </span>
-      {lines.length ? (
-        lines.map((l) => (
-          <span
-            key={l.symbol}
-            className={`font-semibold tabular-nums ${l.raw < 0n ? "text-danger" : "text-success-soft-foreground"}`}
-          >
-            {l.raw > 0n ? "+" : "−"}
-            {formatAmount(l.raw < 0n ? -l.raw : l.raw, l.decimals, 6)} {l.symbol}
-          </span>
-        ))
-      ) : (
-        <span className="font-medium">không đổi số dư</span>
-      )}
-    </div>
+    <ul aria-label={label} className="flex flex-col gap-1">
+      {items.map((item) => {
+        const detail = item.check ? details.get(item.check.checkId) : undefined;
+        const title = headline(item, detail, vault);
+        const view = vaultView(item, detail, policy.data?.maxAgentRisk);
+        const out = projectedOutflow(detail);
+        const amount = out ? `−${formatAmount(-out.raw, out.decimals, 4)}` : "—";
+        const unit = out?.symbol === "USDC" ? "" : out?.symbol;
+        const time = item.at ? (
+          <time dateTime={new Date(item.at).toISOString()} title={formatTime(item.at)}>
+            {shortTime.format(item.at)}
+          </time>
+        ) : null;
+        return (
+          <li key={item.id}>
+            <button
+              type="button"
+              onClick={() => onOpen(item)}
+              className="grid w-full cursor-pointer grid-cols-1 items-center gap-x-4 gap-y-1.5 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-default/60 sm:grid-cols-[minmax(0,1fr)_auto_72px_48px]"
+            >
+              <span className="min-w-0">
+                <span className="line-clamp-2 text-sm font-medium sm:line-clamp-1" title={title}>
+                  {title}
+                </span>
+                <span className="block truncate text-xs text-muted">{view.why || view.label}</span>
+              </span>
+              <span className="flex items-center justify-between gap-3 sm:contents">
+                <span className="sm:justify-self-end">{guardianCell(item, false)}</span>
+                <span className="text-xs text-muted tabular-nums sm:hidden">
+                  {out && (
+                    <>
+                      <span className="sr-only">Dự kiến rời két </span>
+                      {amount} {out.symbol} ·{" "}
+                    </>
+                  )}
+                  {time}
+                </span>
+              </span>
+              <span
+                className="hidden text-right text-sm wrap-anywhere tabular-nums sm:block"
+                title={out ? `Dự kiến rời két: ${amount} ${out.symbol}` : undefined}
+              >
+                {out && <span className="sr-only">Dự kiến rời két </span>}
+                {amount}
+                {unit ? ` ${unit}` : null}
+                {out?.symbol === "USDC" && <span className="sr-only"> USDC</span>}
+              </span>
+              <span className="hidden text-right text-xs text-muted tabular-nums sm:block">{time}</span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -139,7 +289,7 @@ function ReviewForm({ checkId, vault }: { checkId: string; vault: string }) {
     onError: (e) => toast.danger("Chưa lưu được đánh giá", { description: errorText(e) }),
   });
   return (
-    <section className="flex flex-col gap-3" aria-labelledby="review-h">
+    <section className="flex flex-col gap-3 border-t border-separator pt-4" aria-labelledby="review-h">
       <h3 id="review-h" className="text-sm font-semibold">
         Đánh giá của bạn
       </h3>
@@ -185,6 +335,33 @@ function ReviewForm({ checkId, vault }: { checkId: string; vault: string }) {
   );
 }
 
+/** One numbered stop of the journey, stacked: the number carries the stop's tone. */
+function Stop({ n, label, tone, children }: { n: number; label: string; tone: Tone; children: ReactNode }) {
+  return (
+    <li className="grid grid-cols-[24px_minmax(0,1fr)] gap-3">
+      <span
+        aria-hidden="true"
+        className={`mt-0.5 grid size-6 place-items-center rounded-full text-xs font-semibold tabular-nums ${TONE_SOFT[tone]}`}
+      >
+        {n}
+      </span>
+      <div className="flex min-w-0 flex-col gap-2 pb-5">
+        <h3 className="text-xs font-medium text-muted">{label}</h3>
+        {children}
+      </div>
+    </li>
+  );
+}
+
+/** Where the owner goes to act on a rejection. A link to the rule, never a change made from here. */
+function fixFor(reason: string | undefined): { href: string; label: string; Icon: typeof Sliders } | null {
+  if (reason === "RecipientNotAllowed" || reason === "TargetNotAllowed")
+    return { href: "/quy-tac#nguoi-nhan", label: "Xem người nhận tin cậy", Icon: PersonPlus };
+  if (reason === "RiskTooHigh") return { href: "/quy-tac", label: "Xem mức rủi ro tối đa", Icon: Sliders };
+  if (reason === "DailyCapExceeded") return { href: "/quy-tac#han-muc", label: "Xem hạn mức", Icon: Sliders };
+  return null;
+}
+
 export function DetailBody({ item }: { item: ActivityItem }) {
   const { address: vault } = useSelectedVault();
   const policy = useVaultPolicy();
@@ -194,9 +371,55 @@ export function DetailBody({ item }: { item: ActivityItem }) {
   const findings = detail?.findings ?? [];
   const explanation = detail?.explanation ?? item.check?.explanation ?? null;
   const o = item.outcome;
+  const view = vaultView(item, detail, policy.data?.maxAgentRisk);
+  const money = detail ? moneyEffects(detail.diff) : [];
+  const happened = o.kind === "executed";
+  const fix = o.kind === "rejected" ? fixFor(o.reason) : null;
+  const guardianTone: Tone = item.risk === "HIGH" ? "bad" : item.risk === "LOW" ? "ok" : "neutral";
+  const conclusion =
+    o.kind === "rejected"
+      ? `Két đã từ chối: ${revertLabel(o.reason)}`
+      : o.kind === "executed"
+        ? "Két đã thực hiện giao dịch này"
+        : o.kind === "trial"
+          ? view.label
+          : view.label;
   return (
-    <div className="flex flex-col gap-6">
-      <Journey stops={stopsFor(item, detail, vault, policy.data?.maxAgentRisk)} />
+    <div className="flex flex-col gap-5">
+      <div className={`rounded-xl p-3 ${TONE_SOFT[view.tone]}`}>
+        <p className="flex items-start gap-2 text-sm font-semibold">
+          <view.Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          {conclusion}
+        </p>
+        {o.kind === "rejected" ? (
+          <p className="mt-1 text-sm">Tiền vẫn ở trong két. Không có gì bị chuyển đi.</p>
+        ) : o.kind === "trial" ? (
+          <p className="mt-1 text-sm">{view.why}</p>
+        ) : null}
+      </div>
+
+      {money.length ? (
+        <dl className="grid grid-cols-2 gap-3 text-sm">
+          {money.map((l) => (
+            <div key={l.symbol}>
+              <dt className="text-xs text-muted">
+                {l.raw < 0n
+                  ? happened
+                    ? "Rời két"
+                    : "Nếu chạy, rời két"
+                  : happened
+                    ? "Vào két"
+                    : "Nếu chạy, vào két"}
+              </dt>
+              <dd className="mt-0.5 font-medium tabular-nums">
+                {l.raw > 0n ? "+" : "−"}
+                {formatAmount(l.raw < 0n ? -l.raw : l.raw, l.decimals, 6)} {l.symbol}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
       {q.isPending && checkId ? <LoadingRows rows={2} label="Đang đọc kết quả kiểm tra" /> : null}
       {q.isError ? (
         <ErrorBox
@@ -205,33 +428,47 @@ export function DetailBody({ item }: { item: ActivityItem }) {
           onRetry={() => void q.refetch()}
         />
       ) : null}
-      {detail ? <Money detail={detail} /> : null}
 
-      {findings.length ? (
-        <section className="flex flex-col gap-2" aria-labelledby="reasons-h">
-          <h3 id="reasons-h" className="text-sm font-semibold">
-            Lý do
-          </h3>
-          <ul className="flex flex-col gap-2">
-            {findings.map((f, i) => (
-              <li key={`${f.ruleId}-${i}`} className="flex flex-wrap items-center gap-2 text-sm">
-                <RiskBadge risk={f.severity} />
-                <span>{findingLabel(f)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <ol aria-label="Hành trình giao dịch" className="flex flex-col">
+        <Stop n={1} label="Agent đề xuất" tone="neutral">
+          <p className="text-sm">
+            {proposalText(item, detail, vault)}
+            {item.attempt?.mode === "scripted-attack" ? (
+              <Chip size="sm" variant="secondary" className="ml-2 align-middle">
+                Tấn công mô phỏng
+              </Chip>
+            ) : null}
+          </p>
+        </Stop>
 
-      {explanation ? (
-        <section className="flex flex-col gap-2" aria-labelledby="explain-h">
-          <Tabs defaultSelectedKey="vi" className="gap-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 id="explain-h" className="text-sm font-semibold">
-                Giải thích
-              </h3>
+        <Stop n={2} label="Guardian kiểm tra" tone={guardianTone}>
+          <div>{guardianCell(item, true)}</div>
+          {findings.length ? (
+            <ul className="flex flex-col gap-2" aria-label="Lý do">
+              {findings.map((f, i) => (
+                <li key={`${f.ruleId}-${i}`} className="flex gap-2 text-sm">
+                  {f.severity === "HIGH" ? (
+                    <CircleXmark
+                      aria-hidden="true"
+                      className="mt-0.5 size-4 shrink-0 text-danger-soft-foreground"
+                    />
+                  ) : (
+                    <TriangleExclamation
+                      aria-hidden="true"
+                      className="mt-0.5 size-4 shrink-0 text-warning-soft-foreground"
+                    />
+                  )}
+                  <span>{findingLabel(f)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : item.risk ? (
+            <p className="text-sm text-muted">Không thấy dấu hiệu bất thường.</p>
+          ) : null}
+          {explanation ? (
+            <Tabs defaultSelectedKey="vi" className="gap-2">
               <Tabs.ListContainer>
-                <Tabs.List aria-label="Ngôn ngữ">
+                <Tabs.List aria-label="Ngôn ngữ của lời giải thích">
                   <Tabs.Tab id="vi" className="whitespace-nowrap">
                     Tiếng Việt
                     <Tabs.Indicator />
@@ -242,24 +479,47 @@ export function DetailBody({ item }: { item: ActivityItem }) {
                   </Tabs.Tab>
                 </Tabs.List>
               </Tabs.ListContainer>
-            </div>
-            <Tabs.Panel id="vi" className="p-0">
-              <p className="text-sm leading-6 whitespace-pre-line">{explanation.vi}</p>
-            </Tabs.Panel>
-            <Tabs.Panel id="en" className="p-0">
-              <p lang="en" className="text-sm leading-6 whitespace-pre-line">
-                {explanation.en}
+              <Tabs.Panel id="vi" className="p-0">
+                <p className="text-sm leading-6 whitespace-pre-line">{explanation.vi}</p>
+              </Tabs.Panel>
+              <Tabs.Panel id="en" className="p-0">
+                <p lang="en" className="text-sm leading-6 whitespace-pre-line">
+                  {explanation.en}
+                </p>
+              </Tabs.Panel>
+              <p className="text-xs text-muted">
+                {explanation.source === "llm" ? "Do AI viết từ kết quả chạy thử." : "Lấy từ mẫu cố định."} Mức
+                rủi ro chỉ do bộ luật quyết định.
               </p>
-            </Tabs.Panel>
-          </Tabs>
-          <p className="text-xs text-muted">
-            {explanation.source === "llm" ? "Do AI viết từ kết quả chạy thử." : "Lấy từ mẫu cố định."} Mức rủi
-            ro chỉ do bộ luật quyết định.
-          </p>
-        </section>
-      ) : null}
+            </Tabs>
+          ) : null}
+        </Stop>
 
-      {checkId && item.outcome.kind !== "trial" ? <Review checkId={checkId} /> : null}
+        <Stop
+          n={3}
+          label={o.kind === "trial" ? "Két quyết định (dự đoán)" : "Két quyết định"}
+          tone={view.tone}
+        >
+          <div>
+            <VaultResult view={view} />
+          </div>
+          {view.why ? <p className="text-sm">{view.why}.</p> : null}
+          {(o.kind === "executed" || o.kind === "rejected") && o.tx ? (
+            <TxLink hash={o.tx} label="Xem giao dịch" />
+          ) : null}
+          {fix ? (
+            <NextLink
+              href={fix.href}
+              className={buttonVariants({ variant: "outline", size: "sm", className: "self-start" })}
+            >
+              <fix.Icon aria-hidden="true" />
+              {fix.label}
+            </NextLink>
+          ) : null}
+        </Stop>
+      </ol>
+
+      {checkId && o.kind !== "trial" ? <Review checkId={checkId} /> : null}
 
       <TechDetails>
         <dl className="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-1">
@@ -344,15 +604,9 @@ export function ActivityDrawer({ item, onClose }: { item: ActivityItem | null; o
           <Drawer.CloseTrigger />
           {item ? (
             <>
-              <Drawer.Header className="flex flex-col items-start gap-2">
-                <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-                  {item.check ? (
-                    <span>{ENDPOINT_LABEL[item.check.endpoint] ?? item.check.endpoint}</span>
-                  ) : null}
-                  {item.at ? <span className="tabular-nums">{formatTime(item.at)}</span> : null}
-                  {item.risk ? <span className="sr-only">{RISK_TITLE[item.risk]}</span> : null}
-                </div>
-                <Drawer.Heading className="pr-8 text-lg font-semibold tracking-tight">
+              <Drawer.Header className="flex flex-col items-start gap-1">
+                {item.at ? <p className="text-xs text-muted tabular-nums">{formatTime(item.at)}</p> : null}
+                <Drawer.Heading className="pr-8 text-base font-semibold">
                   {headline(item, detail, vault)}
                 </Drawer.Heading>
               </Drawer.Header>
@@ -381,9 +635,18 @@ export function ActivityState({
   empty: boolean;
   emptyText: string;
 }) {
-  if (isPending) return <LoadingRows rows={4} label="Đang tải hoạt động" />;
+  if (isPending)
+    return (
+      <div className="p-3">
+        <LoadingRows rows={5} label="Đang tải hoạt động" />
+      </div>
+    );
   if (error && empty)
-    return <ErrorBox title="Không tải được hoạt động" detail={errorText(error)} onRetry={onRetry} />;
-  if (empty) return <p className="py-2 text-sm text-muted">{emptyText}</p>;
+    return (
+      <div className="p-3">
+        <ErrorBox title="Không tải được hoạt động" detail={errorText(error)} onRetry={onRetry} />
+      </div>
+    );
+  if (empty) return <p className="px-4 py-10 text-center text-sm text-muted">{emptyText}</p>;
   return null;
 }

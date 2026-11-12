@@ -2,7 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import { Providers } from "@/components/providers";
-import { DemoBanner, Sidebar, TopBar, VaultMain } from "@/components/shell";
+import { BottomNav, DemoBanner, PausedStrip, Sidebar, TopBar, VaultMain } from "@/components/shell";
+import { THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 // Inter as a variable font with the optical-size axis (globals.css turns it on); only 400/500/600 are used.
@@ -34,9 +35,6 @@ export const viewport: Viewport = {
   ],
 };
 
-// HeroUI switches palettes with the `dark` class (DESIGN.md). Follow the system setting before first paint.
-const THEME_SCRIPT = `(()=>{try{const m=matchMedia("(prefers-color-scheme: dark)");const a=()=>{const d=m.matches;document.documentElement.classList.toggle("dark",d);document.documentElement.dataset.theme=d?"dark":"light";document.documentElement.style.colorScheme=d?"dark":"light"};a();m.addEventListener("change",a)}catch{}})()`;
-
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="vi" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
@@ -51,14 +49,16 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           >
             Bỏ qua tới nội dung
           </a>
-          <DemoBanner />
           <div className="flex min-h-dvh">
             <Sidebar />
             <div className="flex min-w-0 flex-1 flex-col">
+              <DemoBanner />
               <TopBar />
+              <PausedStrip />
               <VaultMain>{children}</VaultMain>
             </div>
           </div>
+          <BottomNav />
         </Providers>
       </body>
     </html>
