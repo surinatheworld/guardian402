@@ -106,7 +106,7 @@ Giao diện Dashboard tại `http://localhost:3000` (HeroUI v3, tiếng Việt, 
 4. **Quy tắc chi tiêu (`/quy-tac`)**: hạn mức, người nhận tin cậy, ứng dụng được dùng, mức rủi ro tối đa, bộ quy tắc cho từng agent.
 5. **Agent (`/agent`)**: agent nào được chi tiêu từ két, khoá API, tạm ngưng hoặc gỡ quyền.
 
-_Khám phá không cần ví_: Nút **Explore Live Demo** cho phép BGK bấm thử ngay toàn bộ kịch bản mà không cần cài ví hay nạp gas trước.
+_Khám phá không cần ví_: Trang **Chạy thử** (`/chay-thu`) cho phép BGK bấm thử ngay toàn bộ kịch bản mà không cần cài ví hay nạp gas trước: "Chạy thử" mô phỏng miễn phí, "Chạy thật" để agent demo gửi giao dịch thật (qua URL công khai: tối đa 6 lần mỗi người và 24 lần cho mọi khách trong 10 phút).
 
 ---
 
@@ -118,7 +118,7 @@ _Khám phá không cần ví_: Nút **Explore Live Demo** cho phép BGK bấm th
 - [x] **4. x402 payment**: Thanh toán micropayment thật qua Facilitator, có bằng chứng settlement transaction on-chain.
 - [x] **5. Owner permissions**: Ví thường/Agent không thể thay đổi policy của Vault (166 tests Foundry xác nhận).
 - [x] **6. Explorer evidence**: BGK kiểm chứng độc lập mọi transaction hash trên Snowtrace/Routescan/Local Explorer.
-- [x] **7. Demo usability**: Không cần ví vẫn trải nghiệm được sản phẩm qua Explore Demo; không có nút bấm giả lập.
+- [x] **7. Demo usability**: Không cần ví vẫn trải nghiệm được sản phẩm qua trang Chạy thử; không có nút bấm giả lập.
 - [x] **8. Honest disclosure**: Minh bạch các thành phần demo, mock DEX/Oracle và giới hạn kỹ thuật của phiên bản V1.
 
 ---

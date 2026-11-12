@@ -210,7 +210,8 @@ cmd_start() {
   # Empty URLs (not unset: Next then ignores apps/dashboard/.env.local) = public endpoint. This host's browser
   # uses 127.0.0.1; a browser on another machine (tunnel) uses the dashboard's same-origin proxy /api/rpc,
   # /api/guardian, /api/agent-control (apps/dashboard: next.config.ts and src/app/api), which assumes the fork
-  # on :8545. From another machine /api/rpc is read-only and a scenario needs the demo vault's owner signed in.
+  # on :8545. From another machine /api/rpc is read-only and scenario runs are rate-limited
+  # (DEMO_SCENARIOS_PUBLIC=false: only the demo vault's signed-in owner).
   export NEXT_PUBLIC_NETWORK=local NEXT_PUBLIC_RPC_URL="" NEXT_PUBLIC_GUARDIAN_URL="" NEXT_PUBLIC_AGENT_URL=""
 
   log_info "[1/5] Anvil fork of Fuji on :8545"

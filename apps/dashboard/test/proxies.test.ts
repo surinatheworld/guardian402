@@ -2,7 +2,7 @@
 // and how the account routes see a request that came through such a tunnel (origin, client, limits).
 import { describe, expect, it } from "vitest";
 import { AccountError } from "../src/server/accounts";
-import { classifyControl, forwardControl } from "../src/server/agent-control";
+import { classifyControl, forwardControl, scenariosArePublic } from "../src/server/agent-control";
 import {
   assertSameOrigin,
   clientKey,
@@ -163,6 +163,11 @@ describe("/api/agent-control", () => {
     ]);
     expect(sent[0]?.init.headers).toEqual({ origin: "http://localhost:3000", "x-guardian402-demo": "1" });
     expect(sent[1]?.init.headers).toEqual({});
+  });
+
+  it("scenarios are public unless DEMO_SCENARIOS_PUBLIC turns that off", () => {
+    for (const v of [undefined, "", "true", "1", "yes"]) expect(scenariosArePublic(v)).toBe(true);
+    for (const v of ["false", "FALSE", " 0 ", "off", "no"]) expect(scenariosArePublic(v)).toBe(false);
   });
 
   it("answers 502 when the control API is not running", async () => {

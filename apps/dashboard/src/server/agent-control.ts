@@ -1,8 +1,9 @@
 // Same-origin proxy to the agent control API (apps/agent/src/control.ts, DEMO only) for a browser on another
 // machine. The control API trusts the dashboard's Origin header, which stops web pages but not a script: any
-// client can send that header through a public proxy. So the proxy itself decides who may start a scenario
-// (the signed-in owner of the demo vault, checked in the route) and only then adds the headers the control API
-// expects (docs/THREAT_MODEL.md, P16 finding D2). Nothing from the caller's request is forwarded.
+// client can send that header through a public proxy. So the proxy itself decides who may start a scenario and
+// how often (the route: visitors under a rate limit, or only the demo vault's signed-in owner), and only then
+// adds the headers the control API expects (docs/THREAT_MODEL.md, D2). Nothing from the caller's request is
+// forwarded.
 
 export const DEMO_HEADER = "x-guardian402-demo";
 
@@ -17,6 +18,14 @@ export function classifyControl(method: string, path: readonly string[]): Contro
   if (method === "POST" && path.length === 2 && path[0] === "scenario" && /^S[0-6]$/.test(path[1] ?? ""))
     return { kind: "scenario", id: path[1] as string };
   return null;
+}
+
+/**
+ * DEMO_SCENARIOS_PUBLIC: unset or anything but false/0/off/no = any visitor may start a scenario (rate-limited);
+ * `false` = only the signed-in owner of the demo vault.
+ */
+export function scenariosArePublic(value: string | undefined): boolean {
+  return !["false", "0", "off", "no"].includes((value ?? "").trim().toLowerCase());
 }
 
 export type ControlProxyDeps = {
