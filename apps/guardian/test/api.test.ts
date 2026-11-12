@@ -200,6 +200,16 @@ describe("free endpoints", () => {
     expect(list.checks[0].ruleIds).toBeInstanceOf(Array);
     expect(typeof list.checks[0].explanation.vi).toBe("string");
     expect(list.checks[0]).toHaveProperty("paymentTx", null);
+    // ?vault= lists one vault's checks only; anything but an address is a 400.
+    const mine = await json(await fetch(`${base}/v1/checks?limit=200&vault=${current.ctx.vault}`));
+    expect(mine.checks.length).toBeGreaterThanOrEqual(3);
+    for (const c of mine.checks) expect(c.vault).toBe(current.ctx.vault.toLowerCase());
+    const none = await json(
+      await fetch(`${base}/v1/checks?vault=0x000000000000000000000000000000000000dEaD`),
+    );
+    expect(none.checks).toEqual([]);
+    expect((await fetch(`${base}/v1/checks?vault=0x123`)).status).toBe(400);
+    expect((await fetch(`${base}/v1/checks?vault=a&vault=b`)).status).toBe(400);
     const high = list.checks.find((c: { risk: string }) => c.risk === "HIGH");
     expect(high.ruleIds.length).toBeGreaterThan(0);
     const one = await json(await fetch(`${base}/v1/checks/${list.checks[0].checkId}`));

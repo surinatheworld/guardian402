@@ -116,7 +116,7 @@ _Khám phá không cần ví_: Nút **Explore Live Demo** cho phép BGK bấm th
 - [x] **2. Safe transfer**: S0 chuyển 1.5 USDC thành công trên Fuji/Fork, có receipt và biến động số dư on-chain (+1.5 Treasury, -1.5 Vault).
 - [x] **3. Dynamic risk**: S4 chứng minh risk engine phát hiện trượt giá 30% và Vault từ chối vì `RiskTooHigh`.
 - [x] **4. x402 payment**: Thanh toán micropayment thật qua Facilitator, có bằng chứng settlement transaction on-chain.
-- [x] **5. Owner permissions**: Ví thường/Agent không thể thay đổi policy của Vault (146 tests Foundry xác nhận).
+- [x] **5. Owner permissions**: Ví thường/Agent không thể thay đổi policy của Vault (166 tests Foundry xác nhận).
 - [x] **6. Explorer evidence**: BGK kiểm chứng độc lập mọi transaction hash trên Snowtrace/Routescan/Local Explorer.
 - [x] **7. Demo usability**: Không cần ví vẫn trải nghiệm được sản phẩm qua Explore Demo; không có nút bấm giả lập.
 - [x] **8. Honest disclosure**: Minh bạch các thành phần demo, mock DEX/Oracle và giới hạn kỹ thuật của phiên bản V1.
