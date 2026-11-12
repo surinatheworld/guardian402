@@ -119,6 +119,7 @@ Available now:
 
 - `pnpm bench:guardian [runs]` — latency of the Guardian pipeline on the free DEMO endpoint `/v1/demo/check` with the S1 batch (default 10 runs; needs a Guardian with `DEMO_MODE=true` on `GUARDIAN_URL`)
 - `pnpm mcp` — bonus B2: the Guardian as a paid MCP server over stdio (`apps/guardian-mcp`): tools `check_transaction` (0.005 USDC) and `cosign_transaction` (0.01 USDC), paid over x402. Same env as the Guardian; refuses to start on the fork of a running Guardian API: start `FORK_PORT=8546 pnpm fork` and set `MCP_FORK_RPC_URL=http://127.0.0.1:8546`. History in `GUARDIAN_MCP_DB`
+- `pnpm mcp:agent` — the agent-side MCP server over stdio for an owner's AI agent: tools `get_rules`, `check_payment`, `pay` (Guardian approval + `executeBatch` in one step, nothing sent when blocked), `get_transaction`. Env `GUARDIAN_API_URL` (dashboard `/api/agent/v1`), `GUARDIAN_API_KEY` (`g402_…`), `AGENT_PK`; optional `CHAIN_RPC_URL`. Tests in `apps/guardian-mcp/test/agent-tools.test.ts`
 - `pnpm mcp:example [check|cosign]` — an agent (`AGENT_PK`) starts the MCP server, pays for one tool call on the S1 batch and prints the risk and the settlement link; refuses any payment above 0.02 USDC
 - `pnpm --filter @guardian402/guardian-mcp test` — MCP tool tests (payment asked, paid call settled, failures not charged)
 

@@ -152,26 +152,31 @@ export const chainPort: ChainPort = {
     ),
   vaultPolicy: (vault) =>
     withTimeout(
-      client
-        .readContract({ address: vault, abi: agentVaultAbi, functionName: "getPolicy" })
-        .then((p): OnChainPolicy => ({
-          agent: p.agent,
-          guardian: p.guardian,
-          paused: p.paused,
-          maxAgentRisk: p.maxAgentRisk,
-          tokens: p.tokens.map((t) => ({
-            token: t.token,
-            dailyCap: t.dailyCap,
-            maxApproval: t.maxApproval,
-            verdictThreshold: t.verdictThreshold,
-            spentToday: t.spentToday,
-          })),
-          nativeDailyCap: p.nativeDailyCap,
-          nativeVerdictThreshold: p.nativeVerdictThreshold,
-          nativeSpentToday: p.nativeSpentToday,
-          targets: p.targets.map((t) => ({ target: t.target, selectors: [...t.selectors] })),
-          recipients: [...p.recipients],
+      Promise.all([
+        client.readContract({ address: vault, abi: agentVaultAbi, functionName: "getPolicy" }),
+        // Vaults deployed before SPEC §4.9 have no getLimits().
+        client
+          .readContract({ address: vault, abi: agentVaultAbi, functionName: "getLimits" })
+          .catch(() => undefined),
+      ]).then(([p, limits]): OnChainPolicy => ({
+        agent: p.agent,
+        guardian: p.guardian,
+        paused: p.paused,
+        maxAgentRisk: p.maxAgentRisk,
+        tokens: p.tokens.map((t) => ({
+          token: t.token,
+          dailyCap: t.dailyCap,
+          maxApproval: t.maxApproval,
+          verdictThreshold: t.verdictThreshold,
+          spentToday: t.spentToday,
         })),
+        nativeDailyCap: p.nativeDailyCap,
+        nativeVerdictThreshold: p.nativeVerdictThreshold,
+        nativeSpentToday: p.nativeSpentToday,
+        targets: p.targets.map((t) => ({ target: t.target, selectors: [...t.selectors] })),
+        recipients: [...p.recipients],
+        ...(limits ? { limits: limits.map((l) => ({ ...l })) } : {}),
+      })),
       "chain",
     ),
   execution: (vault, hash) =>

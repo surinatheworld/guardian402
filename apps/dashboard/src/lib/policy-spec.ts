@@ -445,6 +445,8 @@ export type OnChainPolicy = {
   nativeSpentToday: bigint;
   targets: { target: Address; selectors: Hex[] }[];
   recipients: Address[];
+  /** AgentVault.getLimits() (SPEC §4.9); absent on vaults deployed before it. */
+  limits?: { token: Address; maxPerTx: bigint; budget: bigint; spentSinceReset: bigint }[];
 };
 
 export type PlannedKind =

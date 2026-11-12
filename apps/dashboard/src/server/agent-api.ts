@@ -16,6 +16,9 @@ import type { Db } from "./db";
 import type { Policies } from "./policies";
 import { sameAddress, type ChainPort, type GuardianPort } from "./ports";
 import type { VaultCtx } from "./workspace";
+import { knownName } from "@/lib/config";
+import type { OnChainPolicy } from "@/lib/policy-spec";
+import { guideline, vaultRules } from "./agent-rules";
 
 export const KEYS_PER_AGENT = 5;
 const KEY_PREFIX = "g402_";
@@ -173,68 +176,64 @@ export class AgentApi {
     };
   }
 
-  /** The agent's identity, its effective policy and whether the vault enforces it, and today's budget. */
+  /** The vault on chain, or null when the chain cannot be read right now. */
+  async #chain(vault: Address): Promise<OnChainPolicy | null> {
+    try {
+      return await this.#o.chain.vaultPolicy(vault);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Names the owner gave addresses (address book), then the deployment's known names. */
+  #nameOf(v: VaultCtx) {
+    const rows = this.#db.prepare("SELECT name, address FROM contacts WHERE vault_id = ?").all(v.id) as {
+      name: string;
+      address: string;
+    }[];
+    const book = new Map(rows.map((r) => [r.address.toLowerCase(), r.name]));
+    return (a: Address) => book.get(a.toLowerCase()) ?? knownName(a) ?? null;
+  }
+
+  /**
+   * The agent's identity and the rules it must follow, read from its vault on chain (the vault is the rule
+   * book, SPEC §4.9): numbers for code and `guideline` sentences for an LLM agent.
+   */
   async me(p: AgentPrincipal) {
-    const { assignment, enforcement, chain } = await this.#o.policies.forAgent(p.vault, p.agent.id);
-    const spent = (token: Address) => chain?.tokens.find((t) => sameAddress(t.token, token));
+    const chain = await this.#chain(p.vault.address);
+    const rules = chain ? vaultRules(chain, this.#nameOf(p.vault)) : null;
     return {
       agent: p.agent,
       vault: p.vault.address,
       chainId: 43113,
       isOnChainAgent: chain ? sameAddress(chain.agent, p.agent.address) : null,
       vaultPaused: chain ? chain.paused : null,
-      policy: assignment
-        ? {
-            id: assignment.policy.id,
-            name: assignment.policy.name,
-            version: assignment.version.version,
-            latestVersion: assignment.policy.latestVersion,
-            spec: assignment.version.spec,
-            summary: assignment.version.summary,
-          }
-        : null,
-      enforcement: enforcement
-        ? enforcement.state === "pending"
-          ? { state: "pending", ownerChangesNeeded: enforcement.plan.changes.length }
-          : { state: enforcement.state }
-        : { state: "no_policy" },
-      budget: assignment
-        ? [
-            ...assignment.version.spec.tokens.map((t) => ({
-              token: t.token,
-              dailyCap: t.dailyCap,
-              verdictThreshold: t.verdictThreshold,
-              spentToday: spent(t.token)?.spentToday.toString() ?? null,
-            })),
-            {
-              token: "native",
-              dailyCap: assignment.version.spec.native.dailyCap,
-              verdictThreshold: assignment.version.spec.native.verdictThreshold,
-              spentToday: chain ? chain.nativeSpentToday.toString() : null,
-            },
-          ]
-        : [],
-      note: "Ngân sách tính theo số dư vault giảm trong ngày UTC, chung cho cả vault. verdictThreshold chỉ áp dụng cho chuyển khoản thẳng tới người nhận; lô lệnh có gọi contract (hoặc chuyển tiền vào contract được phép gọi) mà làm vault chi tiền thì luôn cần verdict.",
+      rules,
+      guideline: rules
+        ? chain && !sameAddress(chain.agent, p.agent.address)
+          ? ["This wallet is not the agent of the vault: the vault rejects every payment it sends."]
+          : guideline(rules)
+        : ["The vault cannot be read right now. Try again in a few seconds."],
     };
   }
 
   /**
    * Validates a check/cosign request before it is forwarded to the Guardian (who charges for it over x402).
-   * `vault` defaults to the agent's vault and may not name another one. Co-signing needs the policy in force:
-   * a verdict is what lets the agent move more than its verdict thresholds.
+   * `vault` defaults to the agent's vault and may not name another one. Co-signing needs this wallet to be the
+   * vault's agent on chain: a verdict for anyone else could never be used.
    */
   async prepareCheck(p: AgentPrincipal, endpoint: "check" | "cosign", body: Record<string, unknown>) {
     if (p.agent.status !== "active")
       throw new AccountError(
         403,
         "agent_not_active",
-        `Agent đang ở trạng thái "${p.agent.status}": chủ vault đã tạm dừng hoặc ngừng dùng agent này.`,
+        `Agent đang ở trạng thái "${p.agent.status}": chủ két đã tạm dừng hoặc ngừng dùng agent này.`,
       );
     if (
       body.vault !== undefined &&
       !(typeof body.vault === "string" && sameAddress(body.vault, p.vault.address))
     )
-      throw new AccountError(403, "wrong_vault", "API key này chỉ dùng cho vault của agent.");
+      throw new AccountError(403, "wrong_vault", "API key này chỉ dùng cho két của agent.");
     const parsed = checkRequestSchema.safeParse({ chainId: 43113, ...body, vault: p.vault.address });
     if (!parsed.success)
       throw new AccountError(
@@ -242,17 +241,17 @@ export class AgentApi {
         "invalid_request",
         "Yêu cầu kiểm tra không hợp lệ (cần calls[] theo docs/API.md).",
       );
-    const { assignment, enforcement } = await this.#o.policies.forAgent(p.vault, p.agent.id);
-    if (!assignment)
-      throw new AccountError(409, "no_policy", "Agent chưa được gán policy: chủ vault cần gán policy trước.");
-    if (endpoint === "cosign" && enforcement?.state !== "active")
-      throw new AccountError(
-        409,
-        enforcement?.state === "unknown" ? "chain_unavailable" : "policy_not_active",
-        enforcement?.state === "unknown"
-          ? "Không đọc được vault để xác nhận policy đang hiệu lực. Thử lại sau."
-          : "Policy chưa có hiệu lực trên vault (chủ vault chưa ký đủ thay đổi): không cấp verdict.",
-      );
+    if (endpoint === "cosign") {
+      const chain = await this.#chain(p.vault.address);
+      if (!chain)
+        throw new AccountError(503, "chain_unavailable", "Không đọc được két lúc này. Thử lại sau.");
+      if (!sameAddress(chain.agent, p.agent.address))
+        throw new AccountError(
+          409,
+          "not_vault_agent",
+          "Ví này không phải agent của két: két sẽ từ chối mọi giao dịch nó gửi, nên Guardian không duyệt.",
+        );
+    }
     return parsed.data;
   }
 

@@ -131,19 +131,31 @@ For the agent's own software (any model or framework; an MCP server can adapt it
 no cookies, 120 requests per minute per key. A key identifies one agent of one vault and can never change a policy,
 a limit or a permission.
 
-| Method and path          | Rules                                                                                                                                                                                            |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GET me`                 | the agent, its vault, `isOnChainAgent`, `vaultPaused`, its policy (`spec`, `summary`, version), `enforcement.state` (`active`, `pending`, `unknown`, `no_policy`) and today's budget per asset   |
-| `POST check`             | `{calls, lang?}`; `vault` defaults to the agent's and may not name another (`403 wrong_vault`); `409 no_policy` without an assignment; forwarded to the Guardian's paid `/v1/check`              |
-| `POST cosign`            | the same, and `409 policy_not_active` unless the policy is in force on the vault; forwarded to `/v1/cosign`                                                                                      |
-| `GET checks/:checkId`    | a Guardian check of this vault (`404` for other vaults); the verdict comes without its signature (only the paid `cosign` response carries it), and a paid check appears once its payment settled |
-| `GET transactions/:hash` | `state`: `not_found`, `pending`, `reverted`, `executed` (the vault's `Executed` event: `checkId`, `withVerdict`, `nonce`) or `confirmed_without_execution`; plus `toVault` and `fromAgent`       |
+| Method and path          | Rules                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET me`                 | the agent, its vault, `isOnChainAgent`, `vaultPaused`, `rules` read from the vault on chain (per asset: daily cap and what is left today, `maxPerTx`, `budget` and `budgetLeft`, the approval threshold; allowed recipients and apps with the owner's names; `maxRisk`) and `guideline`: the same rules as plain English sentences for an LLM agent. The vault is the rule book; no off-chain policy is needed |
+| `POST check`             | `{calls, lang?}`; `vault` defaults to the agent's and may not name another (`403 wrong_vault`); forwarded to the Guardian's paid `/v1/check`                                                                                                                                                                                                                                                                   |
+| `POST cosign`            | the same, and `409 not_vault_agent` unless the key's agent is the vault's `agent()` on chain (`503 chain_unavailable` when the vault cannot be read); forwarded to `/v1/cosign`                                                                                                                                                                                                                                |
+| `GET checks/:checkId`    | a Guardian check of this vault (`404` for other vaults); the verdict comes without its signature (only the paid `cosign` response carries it), and a paid check appears once its payment settled                                                                                                                                                                                                               |
+| `GET transactions/:hash` | `state`: `not_found`, `pending`, `reverted`, `executed` (the vault's `Executed` event: `checkId`, `withVerdict`, `nonce`) or `confirmed_without_execution`; plus `toVault` and `fromAgent`                                                                                                                                                                                                                     |
 
 x402 passes through: without a payment, the Guardian's `402` and `PAYMENT-REQUIRED` reach the agent, whose x402
 client (`@x402/fetch` with the agent wallet) retries with `PAYMENT-SIGNATURE`; `PAYMENT-RESPONSE` comes back. The
 dashboard never holds or signs a payment and does not forward the API key to the Guardian. A `paused` or `retired`
 agent gets `403 agent_not_active`. `503` with `Retry-After` means the Guardian is busy or could not simulate the
 batch: nothing was scored, signed or charged; ask again after the given seconds.
+
+### Agent MCP server (`pnpm mcp:agent`)
+
+The same API as MCP tools, for an agent that speaks MCP. It runs next to the agent (stdio) with
+`GUARDIAN_API_URL` (this API's base URL), `GUARDIAN_API_KEY` and `AGENT_PK`; both keys stay in that process.
+
+| Tool              | What it does                                                                                                                                                                                                                       |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_rules`       | `GET me`: the guideline and the rules. Free                                                                                                                                                                                        |
+| `check_payment`   | `POST check` for `{to, amount, token}` (USDC or AVAX) or raw `calls`; nothing is sent. 0.005 USDC                                                                                                                                  |
+| `pay`             | `POST cosign`, then `AgentVault.executeBatch` from the agent wallet when the risk is within the owner's maximum and the vault's own simulation passes; otherwise `outcome: "blocked"` with the reasons and nothing sent. 0.01 USDC |
+| `get_transaction` | `GET transactions/:hash`. Free                                                                                                                                                                                                     |
 
 ### Alerts and notifications
 

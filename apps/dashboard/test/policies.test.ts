@@ -426,26 +426,43 @@ describe("agent API", () => {
     expect(p.vault.address).toBe(VAULT);
 
     const calls = [{ target: USDC, value: "0", data: "0x" }];
-    expect((await api.me(p)).enforcement).toEqual({ state: "no_policy" });
-    expect(await err(() => api.prepareCheck(p, "check", { calls }))).toBe("409 no_policy");
-
-    const pol = policies.create(userId, { name: "Thanh toán", spec: payments });
-    policies.assign(v, { agentId: agent.id, policyId: pol.id });
+    // The vault is the rule book: a check needs no off-chain policy; co-signing needs the on-chain agent.
+    expect((await api.me(p)).isOnChainAgent).toBe(false);
+    expect((await api.me(p)).guideline[0]).toMatch(/not the agent of the vault/);
     expect(await err(() => api.prepareCheck(p, "check", { calls }))).toBe("ok");
     expect(await api.prepareCheck(p, "check", { calls })).toMatchObject({ chainId: CHAIN, vault: VAULT });
     expect(await err(() => api.prepareCheck(p, "check", { calls, vault: addr() }))).toBe("403 wrong_vault");
     expect(await err(() => api.prepareCheck(p, "check", { calls: [] }))).toBe("400 invalid_request");
-    expect(await err(() => api.prepareCheck(p, "cosign", { calls }))).toBe("409 policy_not_active");
+    expect(await err(() => api.prepareCheck(p, "cosign", { calls }))).toBe("409 not_vault_agent");
 
-    chain.state = applied(payments, agentAddr);
+    chain.state = {
+      ...applied(payments, agentAddr),
+      limits: [
+        {
+          token: USDC,
+          maxPerTx: BigInt(usdc(5)),
+          budget: BigInt(usdc(50)),
+          spentSinceReset: BigInt(usdc(20)),
+        },
+      ],
+    };
     expect(await err(() => api.prepareCheck(p, "cosign", { calls }))).toBe("ok");
     const me = await api.me(p);
-    expect(me).toMatchObject({
-      isOnChainAgent: true,
-      policy: { name: "Thanh toán", version: 1 },
-      enforcement: { state: "active" },
+    expect(me).toMatchObject({ isOnChainAgent: true, vaultPaused: false });
+    expect(me.rules?.tokens[0]).toMatchObject({
+      token: USDC,
+      dailyCap: usdc(100),
+      spentToday: "0",
+      maxPerTx: usdc(5),
+      budgetLeft: usdc(30),
     });
-    expect(me.budget[0]).toMatchObject({ token: USDC, dailyCap: usdc(100), spentToday: "0" });
+    const text = me.guideline.join(" ");
+    expect(text).toContain("at most 5 USDC per transaction");
+    expect(text).toContain("30 USDC left of a total budget of 50 USDC");
+
+    chain.down = true;
+    expect(await err(() => api.prepareCheck(p, "cosign", { calls }))).toBe("503 chain_unavailable");
+    chain.down = false;
 
     // Pausing the agent in the registry stops the API (not the vault: that needs revoke_agent).
     // Each request authenticates again, so it sees the new status.

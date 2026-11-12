@@ -42,7 +42,8 @@
     "bench:guardian": "tsx scripts/bench-guardian.ts",
     "mcp": "pnpm --filter @guardian402/guardian-mcp start",
     "mcp:example": "pnpm --filter @guardian402/guardian-mcp example",
-    "deploy-factory:fuji": "node scripts/contracts.mjs deploy-factory fuji"
+    "deploy-factory:fuji": "node scripts/contracts.mjs deploy-factory fuji",
+    "mcp:agent": "pnpm --silent --filter @guardian402/guardian-mcp agent"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
