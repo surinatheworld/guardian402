@@ -1,73 +1,97 @@
 "use client";
-// Tổng quan: is my money fine? The answer first (one sentence and today's count), then three figures in one
-// strip (balance and withdrawing it, today's spending against the limit, the agent), what was blocked lately,
-// and the rules in force. The whole feed lives on Hoạt động.
+// Tổng quan: the vault at a glance. The vault and its state, the money actions (deposit, withdraw, agent fees),
+// what is left to set up, then three figures — balance, today against the daily cap, the total budget — and
+// the latest activity next to the agent. The full feed lives on Hoạt động; the rules on Quy tắc.
 import {
   ArrowDownToLine,
   ArrowRight,
+  ArrowRotateLeft,
+  ArrowUpFromLine,
   CircleCheckFill,
   CircleDashed,
-  CloudSlash,
   Cpu,
-  Cubes3,
+  Thunderbolt,
   Lock,
-  Persons,
-  Shield,
   ShieldCheck,
   Sliders,
-  Speedometer,
 } from "@gravity-ui/icons";
 import { Button, buttonVariants } from "@heroui/react/button";
+import { Card } from "@heroui/react/card";
+import { Chip } from "@heroui/react/chip";
 import { Description } from "@heroui/react/description";
 import { Label } from "@heroui/react/label";
 import { Meter } from "@heroui/react/meter";
+import { Modal } from "@heroui/react/modal";
 import { NumberField } from "@heroui/react/number-field";
-import { Tooltip } from "@heroui/react/tooltip";
+import { Skeleton } from "@heroui/react/skeleton";
 import NextLink from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import type { Address } from "viem";
 import { useWriteContract } from "wagmi";
 import { avalancheFuji } from "wagmi/chains";
 import { agentVaultAbi } from "@guardian402/shared";
 import { ActivityDrawer, ActivityRows, ActivityState } from "@/components/activity-view";
 import { EditModal } from "@/components/edit-modal";
+import { AgentFeeForm, DepositForm } from "@/components/fund";
 import { useOwnerAction } from "@/components/owner-action";
-import { AddressLink, Card, ErrorBox } from "@/components/ui";
+import { AddressLink, ErrorBox } from "@/components/ui";
 import { useOwnerGate } from "@/components/wallet";
-import { matchesFilter, type ActivityItem } from "@/lib/activity";
+import type { ActivityItem } from "@/lib/activity";
 import { useActivity } from "@/lib/activity-hooks";
-import { deployment, tokenMeta } from "@/lib/config";
+import { AGENT_FEE_AVAX, AGENT_FEE_USDC, useBalances } from "@/lib/balances";
+import { deployment } from "@/lib/config";
 import { formatAmount, fromUnits, toUnits, ZERO_ADDRESS } from "@/lib/format";
-import { RISK_BY_CODE, RISK_LABEL } from "@/lib/labels";
-import { useVaultPolicy } from "@/lib/vault";
+import { useMe } from "@/lib/account";
+import { useVaultLimits, useVaultPolicy } from "@/lib/vault";
 import { useSelectedVault } from "@/lib/vault-context";
+import { useAgentKeys, useAgents } from "@/lib/workspace";
 
 type Policy = NonNullable<ReturnType<typeof useVaultPolicy>["data"]>;
-
-const sameDay = (ms: number) => new Date(ms).toDateString() === new Date().toDateString();
-const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const isUsdc = (t: { token: string }) => t.token.toLowerCase() === deployment.usdc.toLowerCase();
+const usdc = (raw: bigint, digits = 2) => formatAmount(raw, 6, digits);
+const pct = (part: bigint, whole: bigint) =>
+  whole > 0n ? Number(((part > whole ? whole : part) * 1000n) / whole) / 10 : 0;
 
 export default function Overview() {
-  const { address: vault } = useSelectedVault();
+  const { address: vault, viewingDemo } = useSelectedVault();
+  const me = useMe();
   const policy = useVaultPolicy();
+  const limits = useVaultLimits();
   const p = policy.data;
-  const activity = useActivity(200);
-  const [open, setOpen] = useState<ActivityItem | null>(null);
-  const today = activity.items.filter((i) => i.at && sameDay(i.at));
-  const blockedToday = today.filter((i) => matchesFilter(i, "rejected")).length;
-  const ranToday = today.filter((i) => matchesFilter(i, "executed")).length;
-  const blocked = activity.items.filter((i) => matchesFilter(i, "rejected")).slice(0, 5);
+  const [modal, setModal] = useState<"deposit" | "fee" | null>(null);
+  const label = viewingDemo
+    ? "Két demo"
+    : (me.data?.vaults.find((v) => v.address.toLowerCase() === vault.toLowerCase())?.label ?? "Két của tôi");
+  const agent = p && p.agent !== ZERO_ADDRESS ? p.agent : undefined;
 
   return (
     <>
-      <Status
-        failed={policy.isError}
-        loading={policy.isPending}
-        paused={p?.paused === true}
-        empty={!activity.isPending && activity.items.length === 0}
-        blockedToday={blockedToday}
-        ranToday={ranToday}
-      />
+      <header className="flex flex-col gap-4 pt-4">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 className="text-title">{label}</h1>
+          {p ? (
+            p.paused ? (
+              <Chip color="danger" variant="soft">
+                <Lock aria-hidden="true" className="size-3.5" />
+                <Chip.Label>Đã khoá</Chip.Label>
+              </Chip>
+            ) : (
+              <Chip color="success" variant="soft">
+                <ShieldCheck aria-hidden="true" className="size-3.5" />
+                <Chip.Label>Đang bảo vệ</Chip.Label>
+              </Chip>
+            )
+          ) : null}
+          <span className="text-sm text-muted">
+            <AddressLink address={vault} name="" />
+          </span>
+        </div>
+        {viewingDemo ? null : (
+          <QuickActions p={p} vault={vault} onModal={setModal} hasAgent={Boolean(agent)} />
+        )}
+      </header>
+
+      {!viewingDemo && p ? <Setup vault={vault} p={p} onModal={setModal} /> : null}
 
       {policy.isError ? (
         <ErrorBox
@@ -76,185 +100,151 @@ export default function Overview() {
           onRetry={() => void policy.refetch()}
         />
       ) : (
-        <section
-          aria-label="Số liệu của két"
-          className="grid grid-cols-1 divide-y divide-separator rounded-2xl bg-surface shadow-surface md:grid-cols-3 md:divide-x md:divide-y-0"
-        >
-          <Balance vault={vault} p={p} />
-          <Today p={p} />
-          <AgentCell p={p} />
+        <section aria-label="Số liệu của két" className="grid gap-4 md:grid-cols-3">
+          <BalanceCard p={p} />
+          <TodayCard p={p} limits={limits.data} />
+          <BudgetCard vault={vault} p={p} limits={limits.data} unsupported={limits.unsupported} />
         </section>
       )}
 
-      {p ? <GettingStarted p={p} /> : null}
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <section className="min-w-0 rounded-2xl bg-surface p-2 shadow-surface">
-          <div className="flex min-h-8 items-center justify-between gap-3 px-3 pt-2">
-            <h2 className="text-base font-semibold">Bị chặn gần đây</h2>
-            {blocked.length ? (
-              <NextLink
-                href="/hoat-dong?xem=rejected"
-                className="inline-flex h-8 items-center gap-1 text-sm font-medium text-accent"
-              >
-                Xem tất cả
-                <ArrowRight aria-hidden="true" className="size-4" />
-              </NextLink>
-            ) : null}
-          </div>
-          <ActivityState
-            isPending={activity.isPending}
-            error={activity.checksError ?? activity.eventsError}
-            onRetry={activity.refetch}
-            empty={blocked.length === 0}
-            emptyText="Chưa có giao dịch nào bị chặn. Khi agent gửi giao dịch sai luật, nó hiện ở đây kèm lý do."
-          />
-          {blocked.length ? (
-            <div className="mt-1">
-              <ActivityRows items={blocked} label="Bị chặn gần đây" onOpen={setOpen} />
-            </div>
-          ) : null}
-        </section>
-        {p ? <Rules p={p} /> : null}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <RecentActivity />
+        <AgentCard vault={vault} agent={agent} viewingDemo={viewingDemo} onFee={() => setModal("fee")} />
       </div>
 
-      <ActivityDrawer item={open} onClose={() => setOpen(null)} />
+      <MoneyModal
+        open={modal === "deposit"}
+        onClose={() => setModal(null)}
+        title="Nạp tiền vào két"
+        lead="Chuyển USDC từ ví của bạn vào két. Agent chỉ tiêu được tiền trong két, theo quy tắc của két."
+      >
+        <DepositForm vault={vault} />
+      </MoneyModal>
+      {agent ? (
+        <MoneyModal
+          open={modal === "fee"}
+          onClose={() => setModal(null)}
+          title="Gửi phí cho agent"
+          lead="Agent tự trả phí mạng (AVAX) và phí Guardian (USDC) từ ví riêng của nó, không lấy từ két."
+        >
+          <AgentFeeForm agent={agent} />
+        </MoneyModal>
+      ) : null}
     </>
   );
 }
 
-/** The answer first: is the money fine? One sentence, what happened today, and the way to the blocked ones. */
-function Status(s: {
-  failed: boolean;
-  loading: boolean;
-  paused: boolean;
-  empty: boolean;
-  blockedToday: number;
-  ranToday: number;
+function MoneyModal({
+  open,
+  onClose,
+  title,
+  lead,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  lead: string;
+  children: ReactNode;
 }) {
-  const waiting = s.failed || s.loading;
-  const Icon = s.failed ? CloudSlash : s.paused ? Lock : ShieldCheck;
-  const sentence = s.failed
-    ? "Chưa đọc được két."
-    : s.loading
-      ? "Đang đọc két…"
-      : s.paused
-        ? "Két đang khoá. Tiền vẫn nguyên trong két."
-        : s.empty
-          ? "Két đang được bảo vệ. Chưa có giao dịch nào."
-          : "Tiền trong két an toàn.";
-  const sub = waiting
-    ? null
-    : s.blockedToday + s.ranToday > 0
-      ? `Hôm nay Guardian và két đã chặn ${s.blockedToday} giao dịch, cho chạy ${s.ranToday}.`
-      : s.empty
-        ? "Thử một kịch bản ở trang Chạy thử để xem Guardian và két xử lý ra sao."
-        : "Hôm nay agent chưa gửi giao dịch nào.";
-  const tile = waiting
-    ? "bg-default text-muted"
-    : s.paused
-      ? "bg-danger-soft text-danger-soft-foreground"
-      : "bg-success-soft text-success-soft-foreground";
   return (
-    <header className="flex flex-wrap items-center justify-between gap-4">
-      <div className="flex min-w-0 items-start gap-3">
-        <span
-          aria-hidden="true"
-          className={`mt-0.5 grid size-10 shrink-0 place-items-center rounded-xl ${tile}`}
-        >
-          <Icon className="size-5" />
-        </span>
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight">{sentence}</h1>
-          {sub ? <p className="mt-1 text-sm text-muted">{sub}</p> : null}
-        </div>
-      </div>
-      {waiting ? null : s.blockedToday > 0 ? (
-        <NextLink href="/hoat-dong?xem=rejected" className={buttonVariants({ variant: "primary" })}>
-          Xem {s.blockedToday} giao dịch bị chặn
-          <ArrowRight aria-hidden="true" />
-        </NextLink>
-      ) : s.empty ? (
-        <NextLink href="/chay-thu" className={buttonVariants({ variant: "primary" })}>
-          Chạy thử một giao dịch
-          <ArrowRight aria-hidden="true" />
-        </NextLink>
-      ) : null}
-    </header>
+    <Modal.Backdrop isOpen={open} onOpenChange={(o) => !o && onClose()}>
+      <Modal.Container>
+        <Modal.Dialog className="sm:max-w-lg">
+          <Modal.CloseTrigger />
+          <Modal.Header className="flex flex-col gap-1">
+            <Modal.Heading className="text-heading">{title}</Modal.Heading>
+            <p className="text-sm text-muted">{lead}</p>
+          </Modal.Header>
+          <Modal.Body className="pb-2">{children}</Modal.Body>
+          <Modal.Footer>
+            <Button slot="close" variant="tertiary">
+              Đóng
+            </Button>
+          </Modal.Footer>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
   );
 }
 
-function Balance({ vault, p }: { vault: `0x${string}`; p: Policy | undefined }) {
-  const usdc = p?.tokens.find(isUsdc);
+// ------------------------------------------------------------------ actions
+
+function QuickActions({
+  p,
+  vault,
+  hasAgent,
+  onModal,
+}: {
+  p: Policy | undefined;
+  vault: Address;
+  hasAgent: boolean;
+  onModal: (m: "deposit" | "fee") => void;
+}) {
   const gate = useOwnerGate(p?.owner);
   const owner = useOwnerAction();
   const { writeContractAsync } = useWriteContract();
-  const [editing, setEditing] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
   const [amount, setAmount] = useState(0);
-  const balance = usdc?.balance ?? 0n;
+  const balance = p?.tokens.find(isUsdc)?.balance ?? 0n;
   const tooMuch = toUnits(amount, 6) > balance;
-  const withdraw = (
-    <Button
-      variant="outline"
-      size="sm"
-      isDisabled={!gate.ok || balance === 0n}
-      onPress={() => {
-        setAmount(fromUnits(balance, 6));
-        setEditing(true);
-      }}
-    >
-      <ArrowDownToLine aria-hidden="true" />
-      Rút về ví chủ
-    </Button>
-  );
-
   return (
-    <div className="flex min-w-0 flex-col p-5">
-      <h2 className="text-sm text-muted">Số dư trong két</h2>
-      <p className="mt-1 text-2xl font-semibold tracking-tight wrap-anywhere tabular-nums sm:text-3xl">
-        {usdc ? formatAmount(usdc.balance, 6, 2) : "—"}
-        <span className="text-base font-medium text-muted"> USDC</span>
-      </p>
-      <div className="mt-3 self-start">
-        {!gate.ok && gate.reason !== "loading" ? (
-          <Tooltip delay={200}>
-            <Tooltip.Trigger>
-              <span tabIndex={0} aria-label={`Rút về ví chủ: ${gate.message}`}>
-                {withdraw}
-              </span>
-            </Tooltip.Trigger>
-            <Tooltip.Content className="max-w-64 text-sm">{gate.message}</Tooltip.Content>
-          </Tooltip>
-        ) : (
-          withdraw
-        )}
-      </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <Button variant="primary" onPress={() => onModal("deposit")}>
+        <ArrowDownToLine aria-hidden="true" />
+        Nạp tiền
+      </Button>
+      <Button
+        variant="secondary"
+        isDisabled={!gate.ok || balance === 0n}
+        onPress={() => {
+          setAmount(fromUnits(balance, 6));
+          setWithdrawing(true);
+        }}
+      >
+        <ArrowUpFromLine aria-hidden="true" />
+        Rút tiền
+      </Button>
+      {hasAgent ? (
+        <Button variant="secondary" onPress={() => onModal("fee")}>
+          <Thunderbolt aria-hidden="true" />
+          Gửi phí cho agent
+        </Button>
+      ) : null}
+      <NextLink href="/quy-tac" className={buttonVariants({ variant: "secondary" })}>
+        <Sliders aria-hidden="true" />
+        Sửa quy tắc
+      </NextLink>
+      {!gate.ok && gate.reason === "wrong-wallet" ? (
+        <span className="text-sm text-muted">{gate.message}</span>
+      ) : null}
       <EditModal
-        isOpen={editing}
-        onOpenChange={setEditing}
-        title="Rút USDC về ví chủ"
+        isOpen={withdrawing}
+        onOpenChange={setWithdrawing}
+        title="Rút USDC về ví của bạn"
         isSubmitDisabled={amount <= 0 || tooMuch}
         onSubmit={() => {
-          setEditing(false);
+          setWithdrawing(false);
           if (!p) return;
           const raw = toUnits(amount, 6);
           owner.request({
-            title: "Rút USDC về ví chủ",
+            title: "Rút USDC về ví của bạn",
             summary: (
               <>
-                Chuyển {formatAmount(raw, 6, 6)} USDC từ két về ví chủ <AddressLink address={p.owner} />.
+                Chuyển {usdc(raw, 6)} USDC từ két về ví chủ <AddressLink address={p.owner} />. Rút được cả khi
+                két đang khoá.
               </>
             ),
             changes: [
               {
                 label: "Số dư két",
-                before: `${formatAmount(balance, 6, 6)} USDC`,
-                after: `${formatAmount(balance - raw, 6, 6)} USDC`,
+                before: `${usdc(balance, 6)} USDC`,
+                after: `${usdc(balance - raw, 6)} USDC`,
               },
             ],
             call: `AgentVault.withdraw(USDC, ${p.owner}, ${raw})`,
             confirmLabel: "Ký và rút",
-            successTitle: "Đã rút về ví chủ",
+            successTitle: "Đã rút về ví của bạn",
             send: () =>
               writeContractAsync({
                 address: vault,
@@ -271,18 +261,18 @@ function Balance({ vault, p }: { vault: `0x${string}`; p: Policy | undefined }) 
           onChange={setAmount}
           minValue={0}
           maxValue={fromUnits(balance, 6)}
-          step={0.5}
+          step={1}
           formatOptions={{ maximumFractionDigits: 6 }}
           isInvalid={tooMuch}
           autoFocus
         >
-          <Label>Số tiền (USDC)</Label>
+          <Label>Số USDC</Label>
           <NumberField.Group>
             <NumberField.DecrementButton />
             <NumberField.Input className="tabular-nums" />
             <NumberField.IncrementButton />
           </NumberField.Group>
-          <Description>Có trong két: {formatAmount(balance, 6, 6)} USDC</Description>
+          <Description>Trong két có {usdc(balance, 6)} USDC.</Description>
         </NumberField>
       </EditModal>
       {owner.dialog}
@@ -290,136 +280,351 @@ function Balance({ vault, p }: { vault: `0x${string}`; p: Policy | undefined }) 
   );
 }
 
-function Today({ p }: { p: Policy | undefined }) {
-  const usdc = p?.tokens.find(isUsdc);
-  const m = tokenMeta(deployment.usdc);
-  const percent =
-    usdc && usdc.dailyCap > 0n
-      ? Number(
-          ((usdc.spentToday > usdc.dailyCap ? usdc.dailyCap : usdc.spentToday) * 1000n) / usdc.dailyCap,
-        ) / 10
-      : 0;
-  const left = usdc ? (usdc.dailyCap > usdc.spentToday ? usdc.dailyCap - usdc.spentToday : 0n) : 0n;
-  return (
-    <div className="flex min-w-0 flex-col p-5">
-      <h2 className="text-sm text-muted">Agent đã tiêu hôm nay</h2>
-      {usdc ? (
-        <>
-          <p className="mt-1 text-2xl font-semibold tracking-tight wrap-anywhere tabular-nums">
-            {formatAmount(usdc.spentToday, m.decimals, 2)}
-            <span className="text-sm font-medium text-muted">
-              {" "}
-              / {formatAmount(usdc.dailyCap, m.decimals, 2)} USDC
-            </span>
-          </p>
-          <Meter
-            aria-label="Hạn mức mỗi ngày đã dùng"
-            valueLabel={`${String(percent).replace(".", ",")}%`}
-            value={percent}
-            size="sm"
-            color={percent >= 90 ? "danger" : percent >= 70 ? "warning" : "accent"}
-            className="mt-2 w-full"
-          >
-            <Meter.Track>
-              <Meter.Fill />
-            </Meter.Track>
-          </Meter>
-          <p className="mt-2 text-sm text-muted tabular-nums">Còn {formatAmount(left, m.decimals, 2)} USDC</p>
-        </>
-      ) : (
-        <p className="mt-1 text-sm text-muted">{p ? "Két chưa đặt hạn mức USDC." : "Đang đọc két…"}</p>
-      )}
-    </div>
-  );
-}
+// ------------------------------------------------------------------ setup checklist
 
-function AgentCell({ p }: { p: Policy | undefined }) {
-  const usdc = p?.tokens.find(isUsdc);
-  const m = tokenMeta(deployment.usdc);
-  return (
-    <div className="flex min-w-0 flex-col p-5">
-      <h2 className="text-sm text-muted">Agent đang có quyền</h2>
-      <p className="mt-1 flex items-center gap-2 text-sm font-medium">
-        <Cpu aria-hidden="true" className="size-4 shrink-0 text-muted" />
-        {p?.agent === ZERO_ADDRESS ? "Chưa có" : p ? <AddressLink address={p.agent} /> : "—"}
-      </p>
-      <dl className="mt-3 flex flex-col gap-1.5 text-sm">
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted">Cần Guardian duyệt từ</dt>
-          <dd className="font-medium tabular-nums">
-            {usdc ? `${formatAmount(usdc.verdictThreshold, m.decimals, 2)} USDC` : "—"}
-          </dd>
-        </div>
-      </dl>
-    </div>
-  );
-}
-
-/** The rules in force, as four figures, and the way to change them. */
-function Rules({ p }: { p: Policy }) {
-  const usdc = p.tokens.find(isUsdc);
-  const rows: [typeof Speedometer, string, string][] = [
-    [Speedometer, "Hạn mức mỗi ngày", usdc ? `${formatAmount(usdc.dailyCap, 6, 2)} USDC` : "Chưa đặt"],
-    [Persons, "Người nhận tin cậy", String(p.recipients.length)],
-    [Cubes3, "Ứng dụng được dùng", String(p.targets.length)],
-    [Shield, "Rủi ro tối đa", capital(RISK_LABEL[RISK_BY_CODE[p.maxAgentRisk] ?? "LOW"])],
+function Setup({
+  vault,
+  p,
+  onModal,
+}: {
+  vault: Address;
+  p: Policy;
+  onModal: (m: "deposit" | "fee") => void;
+}) {
+  const agents = useAgents(vault);
+  const agent = agents.data?.agents.find((a) => a.isOnChainAgent);
+  const keys = useAgentKeys(vault, agent?.id ?? 0);
+  const agentBalances = useBalances(p.agent !== ZERO_ADDRESS ? p.agent : undefined);
+  const funded = (p.tokens.find(isUsdc)?.balance ?? 0n) > 0n;
+  const fees =
+    agentBalances.avax !== undefined &&
+    agentBalances.usdc !== undefined &&
+    agentBalances.avax >= AGENT_FEE_AVAX / 2n &&
+    agentBalances.usdc >= AGENT_FEE_USDC / 2n;
+  const connected = (keys.data?.keys ?? []).some((k) => k.lastUsedAt !== null);
+  if (agents.isPending || (agent && keys.isPending) || agentBalances.isPending) return null;
+  const steps: { done: boolean; title: string; text: string; action: ReactNode }[] = [
+    {
+      done: funded,
+      title: "Nạp tiền vào két",
+      text: "Agent chỉ tiêu được tiền trong két.",
+      action: (
+        <Button size="sm" variant="primary" onPress={() => onModal("deposit")}>
+          Nạp tiền
+        </Button>
+      ),
+    },
+    {
+      done: fees,
+      title: "Gửi phí cho agent",
+      text: "AVAX trả phí mạng và USDC trả phí Guardian, vào ví riêng của agent.",
+      action: (
+        <Button size="sm" variant="primary" onPress={() => onModal("fee")}>
+          Gửi phí
+        </Button>
+      ),
+    },
+    {
+      done: connected,
+      title: "Kết nối agent",
+      text: "Gắn khoá API và MCP vào agent. Xong khi agent gọi Guardian lần đầu.",
+      action: (
+        <NextLink href="/agent" className={buttonVariants({ size: "sm", variant: "primary" })}>
+          Mở hướng dẫn
+        </NextLink>
+      ),
+    },
   ];
+  const left = steps.filter((s) => !s.done).length;
+  if (left === 0) return null;
+  const nextIndex = steps.findIndex((s) => !s.done);
   return (
-    <section className="flex flex-col gap-3 self-start rounded-2xl bg-surface p-5 shadow-surface">
-      <h2 className="flex min-h-8 items-center text-base font-semibold">Luật đang áp dụng</h2>
-      <ul className="flex flex-col gap-2.5 text-sm">
-        {rows.map(([Icon, label, value]) => (
-          <li key={label} className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-muted">
-              <Icon aria-hidden="true" className="size-4 shrink-0" />
-              {label}
-            </span>
-            <span className="font-medium tabular-nums">{value}</span>
-          </li>
-        ))}
-      </ul>
-      <NextLink
-        href="/quy-tac"
-        className={buttonVariants({ variant: "outline", size: "sm", className: "self-start" })}
+    <Card className="p-2">
+      <Card.Header className="flex flex-row flex-wrap items-baseline justify-between gap-2">
+        <Card.Title className="text-heading">Còn {left} bước để agent chi tiêu được</Card.Title>
+        <span className="text-sm text-muted tabular-nums">
+          {steps.length - left}/{steps.length} xong
+        </span>
+      </Card.Header>
+      <Card.Content>
+        <ol className="flex flex-col divide-y divide-separator">
+          {steps.map((s, i) => (
+            <li
+              key={s.title}
+              className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-1 last:pb-1"
+            >
+              {s.done ? (
+                <CircleCheckFill aria-hidden="true" className="size-5 shrink-0 text-success" />
+              ) : (
+                <CircleDashed aria-hidden="true" className="size-5 shrink-0 text-muted" />
+              )}
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className={`text-sm font-medium ${s.done ? "text-muted line-through" : ""}`}>
+                  {s.title}
+                </span>
+                {s.done ? null : <span className="text-sm text-muted">{s.text}</span>}
+              </div>
+              {!s.done && i === nextIndex ? s.action : null}
+            </li>
+          ))}
+        </ol>
+      </Card.Content>
+    </Card>
+  );
+}
+
+// ------------------------------------------------------------------ figures
+
+function Figure({ label, children, foot }: { label: string; children: ReactNode; foot?: ReactNode }) {
+  return (
+    <Card className="min-w-0 p-2">
+      <Card.Header>
+        <Card.Description className="text-sm font-medium">{label}</Card.Description>
+      </Card.Header>
+      <Card.Content className="flex flex-col gap-3">{children}</Card.Content>
+      {foot ? <Card.Footer className="text-sm text-muted">{foot}</Card.Footer> : null}
+    </Card>
+  );
+}
+
+const Amount = ({ value, unit = "USDC" }: { value: string; unit?: string }) => (
+  <p className="text-display tabular-nums wrap-anywhere">
+    {value}
+    <span className="ml-1.5 text-base font-medium tracking-normal text-muted">{unit}</span>
+  </p>
+);
+
+function BalanceCard({ p }: { p: Policy | undefined }) {
+  const t = p?.tokens.find(isUsdc);
+  return (
+    <Figure label="Số dư trong két" foot={p ? "Chỉ bạn rút được, kể cả khi két đang khoá." : null}>
+      {!p ? <Skeleton className="h-11 w-40 rounded-lg" /> : <Amount value={t ? usdc(t.balance) : "0"} />}
+    </Figure>
+  );
+}
+
+type Limits = ReturnType<typeof useVaultLimits>["data"];
+const limitsOf = (l: Limits) => l?.find((x) => x.token.toLowerCase() === deployment.usdc.toLowerCase());
+
+function TodayCard({ p, limits }: { p: Policy | undefined; limits: Limits }) {
+  const t = p?.tokens.find(isUsdc);
+  const perTx = limitsOf(limits)?.maxPerTx ?? 0n;
+  if (!p) return <Figure label="Hôm nay">{<Skeleton className="h-11 w-40 rounded-lg" />}</Figure>;
+  if (!t || t.dailyCap === 0n)
+    return (
+      <Figure label="Hôm nay">
+        <p className="text-sm text-muted">Két chưa cho agent tiêu USDC.</p>
+      </Figure>
+    );
+  const value = pct(t.spentToday, t.dailyCap);
+  return (
+    <Figure
+      label="Agent đã tiêu hôm nay"
+      foot={perTx > 0n ? `Tối đa ${usdc(perTx)} USDC mỗi giao dịch.` : "Không giới hạn mỗi giao dịch."}
+    >
+      <Amount value={usdc(t.spentToday)} unit={`/ ${usdc(t.dailyCap)} USDC`} />
+      <Meter
+        aria-label="Hạn mức hôm nay đã dùng"
+        value={value}
+        size="sm"
+        color={value >= 90 ? "danger" : value >= 70 ? "warning" : "accent"}
       >
-        <Sliders aria-hidden="true" />
-        Sửa quy tắc
-      </NextLink>
-    </section>
+        <Meter.Track>
+          <Meter.Fill />
+        </Meter.Track>
+      </Meter>
+    </Figure>
   );
 }
 
-/** The first three things a new owner does. Shown only until all three are done. */
-function GettingStarted({ p }: { p: Policy }) {
-  const usdc = p.tokens.find(isUsdc);
-  const steps = [
-    { done: (usdc?.balance ?? 0n) > 0n, label: "Nạp USDC vào két", href: null },
-    { done: (usdc?.dailyCap ?? 0n) > 0n, label: "Đặt quy tắc chi tiêu", href: "/quy-tac" },
-    { done: p.agent !== ZERO_ADDRESS, label: "Kết nối agent", href: "/agent" },
-  ];
-  if (steps.every((s) => s.done)) return null;
+function BudgetCard({
+  vault,
+  p,
+  limits,
+  unsupported,
+}: {
+  vault: Address;
+  p: Policy | undefined;
+  limits: Limits;
+  unsupported: boolean;
+}) {
+  const l = limitsOf(limits);
+  const gate = useOwnerGate(p?.owner);
+  const owner = useOwnerAction();
+  const { writeContractAsync } = useWriteContract();
+  if (unsupported)
+    return (
+      <Figure label="Tổng ngân sách">
+        <p className="text-sm text-muted">
+          Két này tạo trước khi có ngân sách tổng, nên chỉ giới hạn theo ngày.
+        </p>
+      </Figure>
+    );
+  if (!p || !limits)
+    return <Figure label="Tổng ngân sách">{<Skeleton className="h-11 w-40 rounded-lg" />}</Figure>;
+  if (!l || l.budget === 0n)
+    return (
+      <Figure label="Tổng ngân sách" foot="Đặt ở trang Quy tắc nếu muốn agent dừng sau một tổng nhất định.">
+        <p className="text-heading">Không giới hạn</p>
+      </Figure>
+    );
+  const used = pct(l.spentSinceReset, l.budget);
+  const left = l.budget > l.spentSinceReset ? l.budget - l.spentSinceReset : 0n;
+  const reset = () =>
+    owner.request({
+      title: "Làm mới ngân sách",
+      summary: `Agent được tiêu lại tối đa ${usdc(l.budget)} USDC tính từ bây giờ. Hạn mức ngày và mỗi giao dịch giữ nguyên.`,
+      changes: [{ label: "Đã dùng", before: `${usdc(l.spentSinceReset)} USDC`, after: "0 USDC" }],
+      call: `AgentVault.resetBudget(${deployment.usdc})`,
+      confirmLabel: "Ký và làm mới",
+      successTitle: "Đã làm mới ngân sách",
+      send: () =>
+        writeContractAsync({
+          address: vault,
+          abi: agentVaultAbi,
+          functionName: "resetBudget",
+          args: [deployment.usdc],
+          chainId: avalancheFuji.id,
+        }),
+    });
   return (
-    <Card title="Bắt đầu" description="Ba việc để agent chi tiêu an toàn từ két này">
-      <ol className="flex flex-col gap-2">
-        {steps.map((s) => (
-          <li key={s.label} className="flex items-center gap-3 text-sm">
-            {s.done ? (
-              <CircleCheckFill aria-hidden="true" className="size-4 text-success" />
-            ) : (
-              <CircleDashed aria-hidden="true" className="size-4 text-muted" />
-            )}
-            <span className={s.done ? "text-muted line-through" : "font-medium"}>{s.label}</span>
-            {!s.done && s.href ? (
-              <NextLink href={s.href} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-                Làm ngay
-              </NextLink>
-            ) : null}
-            {!s.done && !s.href ? (
-              <span className="text-xs text-muted">Gửi USDC tới địa chỉ két ở thanh bên</span>
-            ) : null}
-          </li>
-        ))}
-      </ol>
+    <Figure
+      label="Ngân sách còn lại"
+      foot={
+        left === 0n ? (
+          <span className="text-danger">Agent đã dùng hết và đang dừng chi.</span>
+        ) : (
+          `Đã dùng ${usdc(l.spentSinceReset)} / ${usdc(l.budget)} USDC.`
+        )
+      }
+    >
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <Amount value={usdc(left)} />
+        {gate.ok && l.spentSinceReset > 0n ? (
+          <Button size="sm" variant={left === 0n ? "primary" : "ghost"} onPress={reset}>
+            <ArrowRotateLeft aria-hidden="true" />
+            Làm mới
+          </Button>
+        ) : null}
+      </div>
+      <Meter
+        aria-label="Ngân sách đã dùng"
+        value={used}
+        size="sm"
+        color={used >= 90 ? "danger" : used >= 70 ? "warning" : "accent"}
+      >
+        <Meter.Track>
+          <Meter.Fill />
+        </Meter.Track>
+      </Meter>
+      {owner.dialog}
+    </Figure>
+  );
+}
+
+// ------------------------------------------------------------------ activity and agent
+
+function RecentActivity() {
+  const activity = useActivity(50);
+  const [open, setOpen] = useState<ActivityItem | null>(null);
+  const items = activity.items.slice(0, 6);
+  return (
+    <Card className="min-w-0 p-2">
+      <Card.Header className="flex flex-row items-center justify-between gap-3">
+        <Card.Title className="text-heading">Hoạt động gần đây</Card.Title>
+        {items.length ? (
+          <NextLink
+            href="/hoat-dong"
+            className="inline-flex h-8 items-center gap-1 text-sm font-medium text-accent"
+          >
+            Xem tất cả
+            <ArrowRight aria-hidden="true" className="size-4" />
+          </NextLink>
+        ) : null}
+      </Card.Header>
+      <Card.Content>
+        <ActivityState
+          isPending={activity.isPending}
+          error={activity.checksError ?? activity.eventsError}
+          onRetry={activity.refetch}
+          empty={items.length === 0}
+          emptyText="Chưa có giao dịch nào. Khi agent trả tiền, mỗi lần đều hiện ở đây: Guardian chấm gì, két quyết định ra sao."
+        />
+        {items.length ? <ActivityRows items={items} label="Hoạt động gần đây" onOpen={setOpen} /> : null}
+      </Card.Content>
+      <ActivityDrawer item={open} onClose={() => setOpen(null)} />
+    </Card>
+  );
+}
+
+function AgentCard({
+  vault,
+  agent,
+  viewingDemo,
+  onFee,
+}: {
+  vault: Address;
+  agent: Address | undefined;
+  viewingDemo: boolean;
+  onFee: () => void;
+}) {
+  const agents = useAgents(viewingDemo ? "" : vault);
+  const name = agents.data?.agents.find((a) => a.isOnChainAgent)?.name;
+  const b = useBalances(agent);
+  const lowGas = b.avax !== undefined && b.avax < AGENT_FEE_AVAX / 5n;
+  const lowFee = b.usdc !== undefined && b.usdc < AGENT_FEE_USDC / 5n;
+  return (
+    <Card className="min-w-0 self-start p-2">
+      <Card.Header className="flex flex-row items-center gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-default text-foreground">
+          <Cpu aria-hidden="true" className="size-5" />
+        </span>
+        <div className="flex min-w-0 flex-col">
+          <Card.Title className="text-heading truncate">
+            {agent ? (name ?? "Agent") : "Chưa có agent"}
+          </Card.Title>
+          {agent ? (
+            <span className="text-sm text-muted">
+              <AddressLink address={agent} />
+            </span>
+          ) : null}
+        </div>
+      </Card.Header>
+      {agent ? (
+        <Card.Content className="flex flex-col gap-3">
+          <dl className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex flex-col gap-0.5 rounded-xl bg-surface-secondary p-3">
+              <dt className="text-muted">Phí mạng</dt>
+              <dd className={`font-semibold tabular-nums ${lowGas ? "text-danger" : ""}`}>
+                {b.avax === undefined ? "…" : `${formatAmount(b.avax, 18, 3)} AVAX`}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-0.5 rounded-xl bg-surface-secondary p-3">
+              <dt className="text-muted">Phí Guardian</dt>
+              <dd className={`font-semibold tabular-nums ${lowFee ? "text-danger" : ""}`}>
+                {b.usdc === undefined ? "…" : `${formatAmount(b.usdc, 6, 2)} USDC`}
+              </dd>
+            </div>
+          </dl>
+          {lowGas || lowFee ? (
+            <p className="text-sm text-danger">Ví agent sắp hết phí: agent sẽ không gửi được giao dịch.</p>
+          ) : null}
+        </Card.Content>
+      ) : null}
+      {viewingDemo ? null : (
+        <Card.Footer className="flex flex-wrap gap-2">
+          {agent ? (
+            <Button size="sm" variant="secondary" onPress={onFee}>
+              <Thunderbolt aria-hidden="true" />
+              Gửi phí
+            </Button>
+          ) : null}
+          <NextLink href="/agent" className={buttonVariants({ size: "sm", variant: "ghost" })}>
+            {agent ? "Khoá API và MCP" : "Thêm agent"}
+            <ArrowRight aria-hidden="true" />
+          </NextLink>
+        </Card.Footer>
+      )}
     </Card>
   );
 }

@@ -197,6 +197,8 @@ export const useAgents = (vault: string) =>
   useQuery({
     queryKey: wsKey(vault, "agents"),
     queryFn: () => wsApi<{ onChainAgent: Address | null; agents: Agent[] }>(vault, "agents"),
+    // "" = not a linked vault (the demo vault): nothing to ask.
+    enabled: Boolean(vault),
   });
 export const useContacts = (vault: string, enabled = true) =>
   useQuery({
@@ -240,6 +242,7 @@ export const useAgentKeys = (vault: string, agentId: number) =>
   useQuery({
     queryKey: [...wsKey(vault, "keys"), agentId],
     queryFn: () => wsApi<{ keys: ApiKey[] }>(vault, `agents/${agentId}/keys`),
+    enabled: Boolean(vault) && agentId > 0,
   });
 export const useWorkspaceChecks = (vault: string) =>
   useQuery({

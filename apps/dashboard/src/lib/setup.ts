@@ -1,0 +1,158 @@
+// The vault a new owner creates in /bat-dau, as a draft the steps fill in, and the AgentVault.Config it becomes
+// (SPEC §4.10). Pure: no React, no chain. Amounts in the draft are whole USDC; the config is in base units.
+import { getAddress, isAddress, parseUnits, type Address } from "viem";
+
+export type Recipient = { name: string; address: string };
+
+export type SetupDraft = {
+  vaultLabel: string;
+  agentName: string;
+  agentAddress: string;
+  recipients: Recipient[];
+  /** Whole USDC. */
+  dailyCap: number;
+  /** Whole USDC; 0 = no per-transaction cap. */
+  maxPerTx: number;
+  /** Whole USDC; 0 = no total budget. */
+  budget: number;
+  /** 0 = only LOW risk, 1 = up to MEDIUM. */
+  maxRisk: 0 | 1;
+};
+
+export const DEFAULT_DRAFT: SetupDraft = {
+  vaultLabel: "Két của agent",
+  agentName: "Agent của tôi",
+  agentAddress: "",
+  recipients: [{ name: "", address: "" }],
+  dailyCap: 20,
+  maxPerTx: 5,
+  budget: 100,
+  maxRisk: 0,
+};
+
+const USDC_DECIMALS = 6;
+const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+export type AgentCheck = { ok: true; address: Address } | { ok: false; message: string };
+
+/** The agent wallet: a valid address that is not the owner's own wallet or the zero address. */
+export function checkAgent(address: string, ownerWallets: readonly string[]): AgentCheck {
+  const a = address.trim();
+  if (!a) return { ok: false, message: "Nhập địa chỉ ví của agent, hoặc tạo một ví mới." };
+  if (!isAddress(a)) return { ok: false, message: "Địa chỉ không hợp lệ: cần 0x và 40 ký tự 0–9, a–f." };
+  if (/^0x0{40}$/i.test(a)) return { ok: false, message: "Không dùng địa chỉ 0x000…000." };
+  if (ownerWallets.some((w) => same(w, a)))
+    return {
+      ok: false,
+      message: "Đây là ví của bạn. Agent cần một ví riêng để khoá của bạn không nằm trong agent.",
+    };
+  return { ok: true, address: getAddress(a) };
+}
+
+export type RecipientIssue = { index: number; field: "name" | "address"; message: string };
+
+/** Problems with the recipient list; empty when it can go on chain. Blank rows are ignored. */
+/** Paying the owner's own wallet back is allowed; paying the agent itself is not useful and is refused. */
+export function recipientIssues(list: readonly Recipient[], agent: string) {
+  const issues: RecipientIssue[] = [];
+  const seen = new Set<string>();
+  let filled = 0;
+  list.forEach((r, index) => {
+    const address = r.address.trim();
+    if (!address && !r.name.trim()) return;
+    filled++;
+    if (!r.name.trim())
+      issues.push({ index, field: "name", message: "Đặt tên để sau này nhận ra người nhận." });
+    if (!isAddress(address)) {
+      issues.push({ index, field: "address", message: "Địa chỉ không hợp lệ." });
+      return;
+    }
+    if (seen.has(address.toLowerCase()))
+      issues.push({ index, field: "address", message: "Địa chỉ này đã có ở trên." });
+    if (agent && same(address, agent))
+      issues.push({
+        index,
+        field: "address",
+        message: "Đây là ví của agent: agent không cần tự trả cho mình.",
+      });
+    seen.add(address.toLowerCase());
+  });
+  if (filled === 0)
+    issues.push({
+      index: 0,
+      field: "address",
+      message: "Cần ít nhất một người nhận: agent chỉ trả được cho họ.",
+    });
+  return issues;
+}
+
+export const filledRecipients = (list: readonly Recipient[]) =>
+  list
+    .filter((r) => r.address.trim() && isAddress(r.address.trim()))
+    .map((r) => ({ name: r.name.trim(), address: getAddress(r.address.trim()) }));
+
+export type LimitIssue = { field: "dailyCap" | "maxPerTx" | "budget"; message: string };
+
+export function limitIssues(d: Pick<SetupDraft, "dailyCap" | "maxPerTx" | "budget">): LimitIssue[] {
+  const out: LimitIssue[] = [];
+  const bad = (n: number) => !Number.isFinite(n) || n < 0;
+  if (bad(d.dailyCap) || d.dailyCap === 0)
+    out.push({
+      field: "dailyCap",
+      message: "Hạn mức ngày phải lớn hơn 0, nếu không agent không chi được gì.",
+    });
+  if (bad(d.maxPerTx)) out.push({ field: "maxPerTx", message: "Không được âm." });
+  else if (d.maxPerTx > d.dailyCap && d.dailyCap > 0)
+    out.push({ field: "maxPerTx", message: "Lớn hơn hạn mức ngày thì không có tác dụng." });
+  if (bad(d.budget)) out.push({ field: "budget", message: "Không được âm." });
+  else if (d.budget > 0 && d.budget < d.dailyCap)
+    out.push({ field: "budget", message: "Nhỏ hơn hạn mức ngày: agent sẽ dùng hết trong ngày đầu." });
+  return out;
+}
+
+const usdc = (n: number) => parseUnits(String(n), USDC_DECIMALS);
+
+/** AgentVault.Config for VaultFactory.createVault (viem argument shape). */
+export function vaultConfig(d: SetupDraft, usdcAddress: Address) {
+  return {
+    maxAgentRisk: d.maxRisk,
+    tokens: [
+      {
+        token: usdcAddress,
+        dailyCap: usdc(d.dailyCap),
+        // Payments only: no approvals until the owner allows an app (Quy tắc → Ứng dụng).
+        maxApproval: 0n,
+        // Every payment needs the Guardian's approval: the agent MCP `pay` always asks for it.
+        verdictThreshold: 0n,
+        maxPerTx: usdc(d.maxPerTx),
+        budget: usdc(d.budget),
+      },
+    ],
+    // AVAX is for the agent's gas only; the vault's own AVAX is not the agent's to spend.
+    nativeDailyCap: 0n,
+    nativeVerdictThreshold: 0n,
+    nativeMaxPerTx: 0n,
+    nativeBudget: 0n,
+    targets: [],
+    recipients: filledRecipients(d.recipients).map((r) => r.address),
+  } as const;
+}
+
+const n = (x: number) => x.toLocaleString("vi-VN", { maximumFractionDigits: 6 });
+
+/** The rules in words, one sentence each, as the owner reviews them before signing. */
+export function rulesInWords(d: SetupDraft): string[] {
+  const who = filledRecipients(d.recipients).map((r) => r.name || r.address);
+  return [
+    who.length === 0
+      ? "Chưa có người nhận nào, nên agent chưa trả được cho ai."
+      : `Chỉ trả tiền cho ${who.length === 1 ? who[0] : `${who.length} người nhận: ${who.join(", ")}`}.`,
+    `Tối đa ${n(d.dailyCap)} USDC mỗi ngày${d.maxPerTx > 0 ? `, ${n(d.maxPerTx)} USDC mỗi giao dịch` : ""}.`,
+    d.budget > 0
+      ? `Tổng cộng tối đa ${n(d.budget)} USDC; hết thì agent dừng cho tới khi bạn làm mới.`
+      : "Không giới hạn tổng, chỉ giới hạn theo ngày.",
+    d.maxRisk === 0
+      ? "Mọi khoản chi phải được Guardian chấm rủi ro thấp."
+      : "Mọi khoản chi phải được Guardian chấm rủi ro thấp hoặc trung bình.",
+  ];
+}

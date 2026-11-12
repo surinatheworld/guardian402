@@ -1,8 +1,8 @@
 "use client";
-// Quy tắc chi tiêu: what the agent may spend, on what and to whom, read from the vault on chain. Each change is
-// reviewed (before → after) and signed in the owner's wallet. Named rule sets per agent (the workspace policy
-// library and builder) and changes still waiting for a signature follow below.
-import { Plus, TrashBin } from "@gravity-ui/icons";
+// Quy tắc chi tiêu: what the agent may spend, to whom and at what risk, read from the vault on chain (the vault is
+// the rule book). Each change is reviewed (before → after) and signed in the owner's wallet. The questions are
+// the ones /bat-dau asked when the vault was created; per-asset thresholds and apps sit under "Nâng cao".
+import { ArrowRotateLeft, Plus, TrashBin } from "@gravity-ui/icons";
 import { Button } from "@heroui/react/button";
 import { Checkbox } from "@heroui/react/checkbox";
 import { Description } from "@heroui/react/description";
@@ -11,10 +11,8 @@ import { NumberField } from "@heroui/react/number-field";
 import { Radio } from "@heroui/react/radio";
 import { RadioGroup } from "@heroui/react/radio-group";
 import { Table } from "@heroui/react/table";
-import { buttonVariants } from "@heroui/react/button";
-import NextLink from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Meter } from "@heroui/react/meter";
+import { useState, type ReactNode } from "react";
 import { getAddress, isAddress, type Address } from "viem";
 import { useWriteContract } from "wagmi";
 import { avalancheFuji } from "wagmi/chains";
@@ -22,16 +20,14 @@ import { agentVaultAbi } from "@guardian402/shared";
 import { EditModal } from "@/components/edit-modal";
 import { TextInput } from "@/components/fields";
 import { useOwnerAction } from "@/components/owner-action";
-import { AddressLink, Card, Empty, ErrorBox, LoadingRows, Notice, PageHeader } from "@/components/ui";
+import { AddressLink, Card, Empty, ErrorBox, Expand, LoadingRows, Notice } from "@/components/ui";
 import { OwnerGateNotice, useOwnerGate, type OwnerGate } from "@/components/wallet";
-import { PoliciesTab } from "@/components/workspace/policies";
-import { PendingChanges } from "@/components/workspace/policy";
 import { accountApi, AccountApiError, useMe } from "@/lib/account";
 import { deployment, knownName, tokenMeta } from "@/lib/config";
 import { formatAmount, fromUnits, shortHex, toUnits } from "@/lib/format";
 import { MAX_RISK_LABEL, PAGE, RISK_BY_CODE } from "@/lib/labels";
 import { looksLike } from "@/lib/lookalike";
-import { useVaultPolicy } from "@/lib/vault";
+import { useVaultLimits, useVaultPolicy } from "@/lib/vault";
 import { useSelectedVault } from "@/lib/vault-context";
 import { useContacts, useInvalidate, wsPath } from "@/lib/workspace";
 
@@ -39,41 +35,25 @@ type Policy = NonNullable<ReturnType<typeof useVaultPolicy>["data"]>;
 type Owner = ReturnType<typeof useOwnerAction>;
 
 export default function RulesPage() {
-  const { address: vault } = useSelectedVault();
+  const { address: vault, viewingDemo } = useSelectedVault();
   const policy = useVaultPolicy();
+  const limits = useVaultLimits();
   const p = policy.data;
   const gate = useOwnerGate(p?.owner);
   const owner = useOwnerAction();
   const me = useMe();
-  const linked = me.data?.vaults.find((v) => v.address.toLowerCase() === vault.toLowerCase());
-  const [builder, setBuilder] = useState(false);
-  const router = useRouter();
-  const [initialAgent, setInitialAgent] = useState<number>();
-  useEffect(() => {
-    const a = Number(new URLSearchParams(window.location.search).get("agent"));
-    if (Number.isSafeInteger(a) && a > 0) setInitialAgent(a);
-  }, []);
-
-  // The rule-set builder takes the whole page while it is open.
-  const ruleSets = linked ? (
-    <section id="bo-quy-tac" className="scroll-mt-24">
-      <PoliciesTab
-        key={initialAgent ?? "none"}
-        vault={linked.address}
-        vaultLabel={linked.label ?? "Két của tôi"}
-        ownerWallet={linked.ownerWallet}
-        initialAgent={initialAgent}
-        onBuilderChange={setBuilder}
-        onOpenAgents={() => router.push("/agent")}
-      />
-    </section>
-  ) : null;
-  if (builder) return ruleSets;
+  const linked =
+    !viewingDemo && Boolean(me.data?.vaults.some((v) => v.address.toLowerCase() === vault.toLowerCase()));
 
   return (
     <>
-      <PageHeader title={PAGE.rules} />
-      <OwnerGateNotice gate={gate} />
+      <header className="flex flex-col gap-1 pt-4">
+        <h1 className="text-title">{PAGE.rules}</h1>
+        <p className="text-base text-muted">
+          Két kiểm tra các quy tắc này trên blockchain trước mỗi khoản chi. Mỗi thay đổi bạn ký trong ví.
+        </p>
+      </header>
+      {viewingDemo ? null : <OwnerGateNotice gate={gate} />}
       {policy.isPending ? <LoadingRows rows={4} label="Đang đọc két trên chain" /> : null}
       {policy.isError ? (
         <ErrorBox
@@ -84,46 +64,266 @@ export default function RulesPage() {
       ) : null}
       {p ? (
         <>
-          <Limits p={p} vault={vault} gate={gate} owner={owner} />
+          <SpendLimits
+            p={p}
+            vault={vault}
+            gate={gate}
+            owner={owner}
+            limits={limits.data}
+            unsupported={limits.unsupported}
+          />
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Recipients p={p} vault={vault} gate={gate} owner={owner} linked={Boolean(linked)} />
+            <Recipients p={p} vault={vault} gate={gate} owner={owner} linked={linked} />
+            <MaxRisk p={p} vault={vault} gate={gate} owner={owner} />
+          </div>
+          <Expand label="Nâng cao: ngưỡng duyệt, quyền rút cho ứng dụng, AVAX">
             <div className="flex flex-col gap-4">
-              <MaxRisk p={p} vault={vault} gate={gate} owner={owner} />
+              <Limits p={p} vault={vault} gate={gate} owner={owner} />
               <Apps p={p} vault={vault} gate={gate} owner={owner} />
             </div>
-          </div>
+          </Expand>
         </>
       ) : null}
-
-      {linked ? (
-        <section id="cho-ky" className="scroll-mt-24">
-          <PendingChanges vault={linked.address} ownerWallet={linked.ownerWallet} />
-        </section>
-      ) : null}
-      {ruleSets ?? (
-        <Card
-          title="Bộ quy tắc cho agent"
-          description="Lưu quy tắc thành bộ có tên, thử trước rồi gán cho từng agent"
-        >
-          <Empty
-            action={
-              <NextLink href="/tai-khoan" className={buttonVariants({ variant: "secondary", size: "sm" })}>
-                {me.data ? "Liên kết két này" : "Đăng nhập"}
-              </NextLink>
-            }
-          >
-            {me.data
-              ? "Liên kết két này với tài khoản để lưu bộ quy tắc và gán cho agent."
-              : "Đăng nhập bằng ví chủ két để lưu bộ quy tắc và gán cho agent."}
-          </Empty>
-        </Card>
-      )}
       {owner.dialog}
     </>
   );
 }
 
 type SectionProps = { p: Policy; vault: Address; gate: OwnerGate; owner: Owner };
+
+// ------------------------------------------------------------------ how much (USDC)
+
+type LimitsData = ReturnType<typeof useVaultLimits>["data"];
+
+function Tile({
+  label,
+  value,
+  sub,
+  action,
+  meter,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  action?: ReactNode;
+  meter?: number;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-2 rounded-2xl bg-surface-secondary p-4">
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-sm font-medium text-muted">{label}</span>
+        {action}
+      </div>
+      <span className="text-heading tabular-nums">{value}</span>
+      {meter !== undefined ? (
+        <Meter
+          aria-label={`${label}: đã dùng`}
+          value={meter}
+          size="sm"
+          color={meter >= 90 ? "danger" : "accent"}
+        >
+          <Meter.Track>
+            <Meter.Fill />
+          </Meter.Track>
+        </Meter>
+      ) : null}
+      <span className="text-xs text-muted tabular-nums">{sub}</span>
+    </div>
+  );
+}
+
+function SpendLimits({
+  p,
+  vault,
+  gate,
+  owner,
+  limits,
+  unsupported,
+}: SectionProps & { limits: LimitsData; unsupported: boolean }) {
+  const { writeContractAsync } = useWriteContract();
+  const t = p.tokens.find((x) => x.token.toLowerCase() === deployment.usdc.toLowerCase());
+  const l = limits?.find((x) => x.token.toLowerCase() === deployment.usdc.toLowerCase());
+  const [editDaily, setEditDaily] = useState(false);
+  const [editLimits, setEditLimits] = useState(false);
+  const [daily, setDaily] = useState(0);
+  const [perTx, setPerTx] = useState(0);
+  const [budget, setBudget] = useState(0);
+  const u = (v: bigint) => `${formatAmount(v, 6, 2)} USDC`;
+  const pct = (a: bigint, b: bigint) => (b > 0n ? Number(((a > b ? b : a) * 1000n) / b) / 10 : 0);
+  if (!t)
+    return (
+      <Card title="Agent được tiêu bao nhiêu?">
+        <Empty>Két chưa cho agent tiêu USDC.</Empty>
+      </Card>
+    );
+  const edit = (onPress: () => void, label: string) =>
+    gate.ok ? (
+      <Button size="sm" variant="ghost" className="-mt-1 -mr-2" aria-label={label} onPress={onPress}>
+        Sửa
+      </Button>
+    ) : null;
+  const left = l && l.budget > l.spentSinceReset ? l.budget - l.spentSinceReset : 0n;
+  return (
+    <Card
+      title="Agent được tiêu bao nhiêu?"
+      description="Tính bằng USDC. Vượt bất kỳ mức nào, két từ chối cả giao dịch."
+    >
+      <div id="han-muc" className="grid scroll-mt-24 gap-3 md:grid-cols-3">
+        <Tile
+          label="Mỗi ngày"
+          value={u(t.dailyCap)}
+          meter={pct(t.spentToday, t.dailyCap)}
+          sub={`Hôm nay đã tiêu ${u(t.spentToday)} · làm mới lúc 07:00`}
+          action={edit(() => {
+            setDaily(fromUnits(t.dailyCap, 6));
+            setEditDaily(true);
+          }, "Sửa hạn mức mỗi ngày")}
+        />
+        {unsupported ? (
+          <div className="flex flex-col justify-center rounded-2xl bg-surface-secondary p-4 text-sm text-muted md:col-span-2">
+            Két này tạo trước khi có hạn mức mỗi giao dịch và tổng ngân sách. Tạo két mới để dùng hai mức này.
+          </div>
+        ) : (
+          <>
+            <Tile
+              label="Mỗi giao dịch"
+              value={l && l.maxPerTx > 0n ? u(l.maxPerTx) : "Không giới hạn"}
+              sub="Một lần chi không quá mức này."
+              action={edit(() => {
+                setPerTx(fromUnits(l?.maxPerTx ?? 0n, 6));
+                setBudget(fromUnits(l?.budget ?? 0n, 6));
+                setEditLimits(true);
+              }, "Sửa hạn mức mỗi giao dịch và tổng")}
+            />
+            <Tile
+              label="Tổng cộng"
+              value={l && l.budget > 0n ? u(l.budget) : "Không giới hạn"}
+              {...(l && l.budget > 0n ? { meter: pct(l.spentSinceReset, l.budget) } : {})}
+              sub={
+                l && l.budget > 0n
+                  ? left === 0n
+                    ? "Đã dùng hết: agent đang dừng chi."
+                    : `Còn ${u(left)} · đã dùng ${u(l.spentSinceReset)}`
+                  : "Chỉ giới hạn theo ngày."
+              }
+              action={
+                gate.ok && l && l.budget > 0n && l.spentSinceReset > 0n ? (
+                  <Button
+                    size="sm"
+                    variant={left === 0n ? "primary" : "ghost"}
+                    className="-mt-1 -mr-2"
+                    onPress={() =>
+                      owner.request({
+                        title: "Làm mới tổng ngân sách",
+                        summary: `Agent được tiêu lại tối đa ${u(l.budget)} tính từ bây giờ.`,
+                        changes: [{ label: "Đã dùng", before: u(l.spentSinceReset), after: "0 USDC" }],
+                        call: `AgentVault.resetBudget(${deployment.usdc})`,
+                        confirmLabel: "Ký và làm mới",
+                        successTitle: "Đã làm mới tổng ngân sách",
+                        send: () =>
+                          writeContractAsync({
+                            address: vault,
+                            abi: agentVaultAbi,
+                            functionName: "resetBudget",
+                            args: [deployment.usdc],
+                            chainId: avalancheFuji.id,
+                          }),
+                      })
+                    }
+                  >
+                    <ArrowRotateLeft aria-hidden="true" />
+                    Làm mới
+                  </Button>
+                ) : null
+              }
+            />
+          </>
+        )}
+      </div>
+      <EditModal
+        isOpen={editDaily}
+        onOpenChange={setEditDaily}
+        title="Hạn mức mỗi ngày"
+        isSubmitDisabled={daily <= 0}
+        onSubmit={() => {
+          setEditDaily(false);
+          const next = toUnits(daily, 6);
+          if (next === t.dailyCap) return;
+          owner.request({
+            title: "Đổi hạn mức mỗi ngày",
+            summary: `Agent được tiêu tối đa ${u(next)} mỗi ngày.`,
+            changes: [{ label: "Mỗi ngày", before: u(t.dailyCap), after: u(next) }],
+            call: `AgentVault.setTokenPolicy(USDC, true, ${next}, ${t.maxApproval}, ${t.verdictThreshold})`,
+            confirmLabel: "Ký và áp dụng",
+            successTitle: "Đã đổi hạn mức mỗi ngày",
+            send: () =>
+              writeContractAsync({
+                address: vault,
+                abi: agentVaultAbi,
+                functionName: "setTokenPolicy",
+                args: [t.token, true, next, t.maxApproval, t.verdictThreshold],
+                chainId: avalancheFuji.id,
+              }),
+          });
+        }}
+      >
+        <AmountField label="Tiêu tối đa mỗi ngày" unit="USDC" value={daily} onChange={setDaily} />
+      </EditModal>
+      <EditModal
+        isOpen={editLimits}
+        onOpenChange={setEditLimits}
+        title="Mỗi giao dịch và tổng cộng"
+        onSubmit={() => {
+          setEditLimits(false);
+          const nextTx = toUnits(perTx, 6);
+          const nextBudget = toUnits(budget, 6);
+          owner.request({
+            title: "Đổi hạn mức mỗi giao dịch và tổng",
+            summary: "Lưu ý: đặt lại tổng ngân sách sẽ đếm lại từ 0 kể từ lúc ký.",
+            changes: [
+              {
+                label: "Mỗi giao dịch",
+                before: l && l.maxPerTx > 0n ? u(l.maxPerTx) : "Không giới hạn",
+                after: nextTx > 0n ? u(nextTx) : "Không giới hạn",
+              },
+              {
+                label: "Tổng cộng",
+                before: l && l.budget > 0n ? u(l.budget) : "Không giới hạn",
+                after: nextBudget > 0n ? u(nextBudget) : "Không giới hạn",
+              },
+            ],
+            call: `AgentVault.setLimits(${deployment.usdc}, ${nextTx}, ${nextBudget})`,
+            confirmLabel: "Ký và áp dụng",
+            successTitle: "Đã đổi hạn mức",
+            send: () =>
+              writeContractAsync({
+                address: vault,
+                abi: agentVaultAbi,
+                functionName: "setLimits",
+                args: [deployment.usdc, nextTx, nextBudget],
+                chainId: avalancheFuji.id,
+              }),
+          });
+        }}
+      >
+        <AmountField
+          label="Mỗi giao dịch"
+          unit="USDC"
+          value={perTx}
+          onChange={setPerTx}
+          description="0 = không giới hạn."
+        />
+        <AmountField
+          label="Tổng cộng"
+          unit="USDC"
+          value={budget}
+          onChange={setBudget}
+          description="0 = không giới hạn. Hết thì agent dừng tới khi bạn làm mới."
+        />
+      </EditModal>
+    </Card>
+  );
+}
 
 // ------------------------------------------------------------------ daily limits
 
@@ -227,7 +427,10 @@ function Limits({ p, vault, gate, owner }: SectionProps) {
   };
 
   return (
-    <Card title="Hạn mức chi tiêu" description="Đặt lại lúc 07:00 mỗi ngày (00:00 UTC)">
+    <Card
+      title="Theo từng tài sản"
+      description="Hạn mức ngày, ngưỡng cần Guardian duyệt và quyền rút cho ứng dụng."
+    >
       <Table id="han-muc">
         <Table.ScrollContainer>
           <Table.Content aria-label="Hạn mức chi tiêu theo tài sản" className="min-w-[36rem] tabular-nums">
@@ -342,8 +545,8 @@ function MaxRisk({ p, vault, gate, owner }: SectionProps) {
   const current = RISK_BY_CODE[p.maxAgentRisk] ?? "LOW";
   return (
     <Card
-      title="Mức rủi ro tối đa"
-      description="Giao dịch cần Guardian duyệt chỉ chạy khi rủi ro không vượt mức này"
+      title="Guardian được duyệt tới mức rủi ro nào?"
+      description="Két từ chối khoản chi rủi ro cao hơn, kể cả khi Guardian đã ký."
       actions={
         <Button
           size="sm"
@@ -502,8 +705,8 @@ function Recipients({ p, vault, gate, owner, linked }: SectionProps & { linked: 
 
   return (
     <Card
-      title="Người nhận tin cậy"
-      description="Agent chỉ chuyển tiền được tới các địa chỉ này"
+      title="Agent được trả tiền cho ai?"
+      description="Địa chỉ ngoài danh sách này luôn bị két từ chối."
       actions={
         <Button
           size="sm"
@@ -518,7 +721,7 @@ function Recipients({ p, vault, gate, owner, linked }: SectionProps & { linked: 
           }}
         >
           <Plus aria-hidden="true" />
-          Thêm
+          Thêm người nhận
         </Button>
       }
     >

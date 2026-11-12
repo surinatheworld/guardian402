@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import { Providers } from "@/components/providers";
-import { BottomNav, DemoBanner, PausedStrip, Sidebar, TopBar, VaultMain } from "@/components/shell";
+import { AppFrame } from "@/components/shell";
 import { THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -22,7 +22,8 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Guardian402",
-  description: "Tường lửa giao dịch và đồng ký cho ví AI agent trên Avalanche Fuji.",
+  description:
+    "Két cho AI agent: agent tự chi tiêu, trong quy tắc bạn đặt, mỗi giao dịch được Guardian kiểm tra trước.",
 };
 
 export const viewport: Viewport = {
@@ -49,16 +50,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           >
             Bỏ qua tới nội dung
           </a>
-          <div className="flex min-h-dvh">
-            <Sidebar />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <DemoBanner />
-              <TopBar />
-              <PausedStrip />
-              <VaultMain>{children}</VaultMain>
-            </div>
-          </div>
-          <BottomNav />
+          <AppFrame>{children}</AppFrame>
         </Providers>
       </body>
     </html>

@@ -37,10 +37,10 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 pt-4">
       <div className="flex min-w-0 flex-col gap-1">
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        {children ? <div className="text-sm text-muted">{children}</div> : null}
+        <h1 className="text-title">{title}</h1>
+        {children ? <div className="text-base text-muted">{children}</div> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </header>
@@ -64,13 +64,11 @@ export function Card({
   variant?: "default" | "secondary" | "tertiary" | "transparent";
 }) {
   return (
-    <HeroCard variant={variant ?? "default"} className={`min-w-0 ${className}`}>
+    <HeroCard variant={variant ?? "default"} className={`min-w-0 p-2 ${className}`}>
       {title || actions ? (
         <HeroCard.Header className="flex flex-row flex-wrap items-start justify-between gap-x-4 gap-y-2">
           <div className="flex min-w-0 flex-col gap-0.5">
-            {title ? (
-              <HeroCard.Title className="text-base font-semibold tracking-tight">{title}</HeroCard.Title>
-            ) : null}
+            {title ? <HeroCard.Title className="text-heading">{title}</HeroCard.Title> : null}
             {description ? (
               <HeroCard.Description className="text-sm text-muted">{description}</HeroCard.Description>
             ) : null}

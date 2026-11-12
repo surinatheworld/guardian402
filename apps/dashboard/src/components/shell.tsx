@@ -1,15 +1,20 @@
 "use client";
-// The app frame: sidebar (vault switcher + five destinations; a bottom bar on a phone), DEMO strip, top bar
-// (protection status, the emergency lock, notifications, wallet, account), the paused strip and the main column.
+// The app frame. Pages inside the app get the sidebar (vault switcher + destinations; a bottom bar on a phone),
+// the DEMO strip, the top bar (protection status and the emergency lock, notifications, wallet, account) and
+// the paused strip. Sign-in and vault creation get a focused frame with no navigation: there is nothing to
+// navigate to yet. The frame also routes: signed out → /dang-nhap; signed in without a vault → /bat-dau.
 import {
+  ArrowRightFromSquare,
   Bell,
   CircleInfo,
   Cpu,
+  Eye,
   House,
   Lock,
   LockOpen,
   Person,
   Play,
+  Plus,
   Pulse,
   ShieldCheck,
   Sliders,
@@ -21,16 +26,16 @@ import { Button, buttonVariants } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Dropdown } from "@heroui/react/dropdown";
 import { Label } from "@heroui/react/label";
-import { ListBox } from "@heroui/react/list-box";
 import { Popover } from "@heroui/react/popover";
-import { Select } from "@heroui/react/select";
+import { Separator } from "@heroui/react/separator";
 import { Skeleton } from "@heroui/react/skeleton";
+import { Spinner } from "@heroui/react/spinner";
 import { toast } from "@heroui/react/toast";
 import { Tooltip } from "@heroui/react/tooltip";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import NextLink from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useWriteContract } from "wagmi";
 import { avalancheFuji } from "wagmi/chains";
 import { agentVaultAbi } from "@guardian402/shared";
@@ -50,13 +55,43 @@ import { useOwnerGate, WalletMenu } from "./wallet";
 export const NAV = [
   { href: "/", label: PAGE.home, icon: House },
   { href: "/hoat-dong", label: PAGE.activity, icon: Pulse },
-  { href: "/chay-thu", label: PAGE.trial, icon: Play },
-  { href: "/quy-tac", label: "Quy tắc", icon: Sliders },
+  { href: "/quy-tac", label: PAGE.rules, icon: Sliders },
   { href: "/agent", label: PAGE.agents, icon: Cpu },
 ] as const;
+const DEMO_NAV = { href: "/chay-thu", label: PAGE.trial, icon: Play } as const;
+
+/** Routes without the app navigation: sign-in and the guided vault creation. */
+const FOCUS_ROUTES = ["/dang-nhap", "/bat-dau"];
+/** Routes anyone may open signed out. */
+const PUBLIC_ROUTES = ["/dang-nhap", "/ve-guardian"];
+/** Routes a signed-in user without a vault may open (everything else sends them to /bat-dau). */
+const NO_VAULT_ROUTES = ["/bat-dau", "/tai-khoan", "/ve-guardian", "/chay-thu"];
 
 const activeHref = (pathname: string) =>
-  NAV.find((n) => (n.href === "/" ? pathname === "/" : pathname.startsWith(n.href)))?.href ?? "";
+  [...NAV, DEMO_NAV].find((n) => (n.href === "/" ? pathname === "/" : pathname.startsWith(n.href)))?.href ??
+  "";
+
+// ------------------------------------------------------------------ pieces
+
+export function Brand({ size = "md" }: { size?: "md" | "lg" }) {
+  return (
+    <NextLink
+      href="/"
+      aria-label="Guardian402, về Tổng quan"
+      className="flex items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-focus"
+    >
+      <span
+        aria-hidden="true"
+        className={`grid shrink-0 place-items-center rounded-lg bg-brand text-white ${size === "lg" ? "size-10" : "size-8"}`}
+      >
+        <ShieldCheck className={size === "lg" ? "size-5" : "size-4"} />
+      </span>
+      <span className={`font-semibold tracking-tight ${size === "lg" ? "text-xl" : "text-base"}`}>
+        Guardian402
+      </span>
+    </NextLink>
+  );
+}
 
 export function DemoBanner() {
   const guardian = useGuardianHealth();
@@ -79,9 +114,10 @@ export function DemoBanner() {
         </Button>
         <Popover.Content placement="bottom start" className="max-w-72">
           <Popover.Dialog>
-            <Popover.Heading>Thông tin mô phỏng</Popover.Heading>
+            <Popover.Heading>Phần mô phỏng</Popover.Heading>
             <p className="text-sm text-muted">
-              Oracle, pool, kịch bản tấn công và địa chỉ nhái (khớp 3+3 ký tự) là mô phỏng.
+              Bảng giá, sàn swap, kịch bản tấn công và địa chỉ nhái (khớp 3+3 ký tự) là mô phỏng. Két, hạn
+              mức, chữ ký của Guardian và phí x402 là thật trên mạng thử.
             </p>
           </Popover.Dialog>
         </Popover.Content>
@@ -93,91 +129,104 @@ export function DemoBanner() {
   );
 }
 
-function Brand() {
+/** The vault switcher: your vaults, the demo vault, and "Tạo két mới". */
+function VaultSwitcher() {
+  const { address, viewingDemo, setVault, setViewingDemo } = useSelectedVault();
+  const me = useMe();
+  const router = useRouter();
+  const vaults = me.data?.vaults ?? [];
+  const current = vaults.find((v) => v.address.toLowerCase() === address.toLowerCase());
+  const title = viewingDemo ? "Két demo" : (current?.label ?? "Két của tôi");
   return (
-    <NextLink href="/" className="flex h-8 items-center text-lg font-semibold tracking-tight">
-      guardian<span className="text-accent">402</span>
-    </NextLink>
-  );
-}
-
-/**
- * The one vault switcher. Signed out or with no linked vault, it shows the demo vault. `onlyWhenMany`: on a
- * phone it opens the page only when there is a choice to make.
- */
-function VaultSwitcher({ onlyWhenMany = false }: { onlyWhenMany?: boolean }) {
-  const { address, setVault } = useSelectedVault();
-  const vaults = useMe().data?.vaults ?? [];
-  if (vaults.length < 2) {
-    if (onlyWhenMany) return null;
-    const v = vaults[0];
-    return (
-      <div className="flex h-14 min-w-0 items-center gap-3 rounded-xl border border-border bg-surface px-3">
-        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-default text-muted">
+    <Dropdown>
+      <Button
+        variant="ghost"
+        aria-label={`Két đang xem: ${title}. Đổi két`}
+        className="h-auto w-full justify-start gap-3 rounded-xl px-2 py-2"
+      >
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-surface text-muted shadow-surface">
           <Vault aria-hidden="true" className="size-4" />
         </span>
-        <span className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-medium">{v?.label ?? (v ? "Két của tôi" : "Két demo")}</span>
-          <span className="font-mono text-xs text-muted" title={address}>
-            {shortHex(address)}
-          </span>
+        <span className="flex min-w-0 flex-col items-start">
+          <span className="max-w-full truncate text-sm font-medium">{title}</span>
+          <span className="font-mono text-xs text-muted">{shortHex(address)}</span>
         </span>
-      </div>
-    );
-  }
-  return (
-    <Select
-      aria-label="Két đang xem"
-      className="min-w-0"
-      value={address}
-      onChange={(key) => key !== null && setVault(String(key))}
-    >
-      <Select.Trigger>
-        <Select.Value className="min-w-0 truncate" />
-        <Select.Indicator />
-      </Select.Trigger>
-      <Select.Popover>
-        <ListBox>
+      </Button>
+      <Dropdown.Popover placement="bottom start" className="min-w-64">
+        <Dropdown.Menu
+          aria-label="Chọn két"
+          onAction={(key) => {
+            const k = String(key);
+            if (k === "new") router.push("/bat-dau");
+            else if (k === "demo") {
+              setViewingDemo(true);
+              router.push("/");
+            } else {
+              setVault(k);
+              router.push("/");
+            }
+          }}
+        >
           {vaults.map((v) => (
-            <ListBox.Item key={v.address} id={v.address} textValue={v.label ?? v.address}>
+            <Dropdown.Item key={v.address} id={v.address} textValue={v.label ?? v.address}>
               <div className="flex min-w-0 flex-col">
-                <Label>{v.label ?? "Két"}</Label>
+                <Label>{v.label ?? "Két của tôi"}</Label>
                 <span className="font-mono text-xs text-muted">{shortHex(v.address)}</span>
               </div>
-              <ListBox.ItemIndicator />
-            </ListBox.Item>
+            </Dropdown.Item>
           ))}
-        </ListBox>
-      </Select.Popover>
-    </Select>
+          <Dropdown.Item id="demo" textValue="Két demo">
+            <Eye aria-hidden="true" className="size-4 text-muted" />
+            <div className="flex min-w-0 flex-col">
+              <Label>Két demo</Label>
+              <span className="text-xs text-muted">Chỉ xem, dữ liệu mạng thử</span>
+            </div>
+          </Dropdown.Item>
+          {me.data ? (
+            <Dropdown.Item id="new" textValue="Tạo két mới">
+              <Plus aria-hidden="true" className="size-4 text-muted" />
+              <Label>Tạo két mới</Label>
+            </Dropdown.Item>
+          ) : null}
+        </Dropdown.Menu>
+      </Dropdown.Popover>
+    </Dropdown>
   );
 }
 
 const NAV_ITEM =
-  "flex h-10 items-center gap-2.5 rounded-xl px-3 text-sm font-medium text-muted transition-colors hover:bg-default hover:text-foreground aria-[current=page]:bg-accent-soft aria-[current=page]:text-accent-soft-foreground";
+  "flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium text-muted transition-colors hover:bg-default hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus aria-[current=page]:bg-surface aria-[current=page]:text-foreground aria-[current=page]:shadow-surface";
 
-export function Sidebar() {
-  const pathname = usePathname();
-  const active = activeHref(pathname);
+function NavLink({ href, label, icon: Icon }: { href: string; label: string; icon: typeof House }) {
+  const active = activeHref(usePathname());
   return (
-    <aside className="sticky top-0 hidden h-dvh w-62 shrink-0 flex-col gap-4 border-r border-separator bg-surface p-3 lg:flex">
-      <div className="px-2 pt-1">
+    <NextLink href={href} aria-current={active === href ? "page" : undefined} className={NAV_ITEM}>
+      <Icon aria-hidden="true" className="size-4 shrink-0" />
+      {label}
+    </NextLink>
+  );
+}
+
+function Sidebar() {
+  const pathname = usePathname();
+  const agent = useAgentHealth();
+  return (
+    <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-5 px-3 py-4 lg:flex">
+      <div className="px-2">
         <Brand />
       </div>
       <VaultSwitcher />
       <nav aria-label="Trang chính" className="flex flex-col gap-1">
-        {NAV.map(({ href, label, icon: Icon }) => (
-          <NextLink
-            key={href}
-            href={href}
-            aria-current={active === href ? "page" : undefined}
-            className={NAV_ITEM}
-          >
-            <Icon aria-hidden="true" className="size-4 shrink-0" />
-            {label}
-          </NextLink>
+        {NAV.map((n) => (
+          <NavLink key={n.href} {...n} />
         ))}
       </nav>
+      {agent.isSuccess ? (
+        <nav aria-label="Demo" className="flex flex-col gap-1">
+          <span className="px-3 pb-1 text-xs font-medium text-muted">Demo</span>
+          <NavLink {...DEMO_NAV} />
+        </nav>
+      ) : null}
       <div className="mt-auto flex flex-col gap-1">
         <NextLink
           href="/ve-guardian"
@@ -187,21 +236,21 @@ export function Sidebar() {
           <CircleInfo aria-hidden="true" className="size-4 shrink-0" />
           {PAGE.about}
         </NextLink>
-        <p className="px-3 text-xs text-muted">
-          {NETWORK === "fuji" ? "Mạng thử Fuji" : "Fork của Fuji · DEMO"}
+        <p className="px-3 pt-1 text-xs text-muted">
+          {NETWORK === "fuji" ? "Avalanche Fuji · mạng thử" : "Fork của Fuji · DEMO"}
         </p>
       </div>
     </aside>
   );
 }
 
-/** The five destinations as a bottom bar below the sidebar breakpoint: reachable with a thumb, no menu to open. */
-export function BottomNav() {
+/** The destinations as a bottom bar below the sidebar breakpoint: reachable with a thumb, no menu to open. */
+function BottomNav() {
   const active = activeHref(usePathname());
   return (
     <nav
       aria-label="Trang chính"
-      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-separator bg-surface px-1 pt-1 pb-[max(8px,env(safe-area-inset-bottom,0px))] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-separator bg-surface px-1 pt-1 pb-[max(8px,env(safe-area-inset-bottom,0px))] lg:hidden"
     >
       {NAV.map(({ href, label, icon: Icon }) => (
         <NextLink
@@ -219,18 +268,18 @@ export function BottomNav() {
 }
 
 /** Across every page while the vault is paused: what it means, and that the money is still there. */
-export function PausedStrip() {
+function PausedStrip() {
   const policy = useVaultPolicy();
   if (!policy.data?.paused) return null;
   return (
     <div
       role="status"
-      className="flex items-center gap-2 border-b border-separator bg-danger-soft px-4 py-2 text-sm text-danger-soft-foreground sm:px-6"
+      className="flex items-center gap-2 bg-danger-soft px-4 py-2 text-sm text-danger-soft-foreground sm:px-6"
     >
       <Lock aria-hidden="true" className="size-4 shrink-0" />
       <p className="min-w-0">
-        <strong className="font-semibold">Két đang khoá.</strong> Agent không chi tiêu được; chủ két vẫn rút
-        được tiền.
+        <strong className="font-semibold">Két đang khoá.</strong> Agent không chi tiêu được; bạn vẫn rút được
+        tiền.
       </p>
     </div>
   );
@@ -238,7 +287,7 @@ export function PausedStrip() {
 
 /** "Đang bảo vệ", and the one emergency lock of the app (it becomes "Mở khoá két" while paused). */
 function ProtectionControl() {
-  const { address: vault } = useSelectedVault();
+  const { address: vault, viewingDemo } = useSelectedVault();
   const policy = useVaultPolicy();
   const p = policy.data;
   const gate = useOwnerGate(p?.owner);
@@ -246,23 +295,19 @@ function ProtectionControl() {
   const owner = useOwnerAction();
   if (policy.isPending) return <Skeleton className="h-8 w-32 rounded-full" />;
   if (!p) return null;
+  const send = (functionName: "pause" | "unpause") => () =>
+    writeContractAsync({ address: vault, abi: agentVaultAbi, functionName, chainId: avalancheFuji.id });
   const toggle = () =>
     owner.request(
       p.paused
         ? {
             title: "Mở khoá két",
-            summary: "Agent được chi tiêu trở lại, vẫn trong hạn mức và danh sách tin cậy.",
+            summary: "Agent được chi tiêu trở lại, vẫn trong hạn mức và danh sách người nhận.",
             changes: [{ label: "Trạng thái", before: "Đã khoá", after: "Đang bảo vệ" }],
             call: "AgentVault.unpause()",
             confirmLabel: "Ký và mở khoá",
             successTitle: "Đã mở khoá két",
-            send: () =>
-              writeContractAsync({
-                address: vault,
-                abi: agentVaultAbi,
-                functionName: "unpause",
-                chainId: avalancheFuji.id,
-              }),
+            send: send("unpause"),
           }
         : {
             title: "Khoá khẩn cấp",
@@ -273,13 +318,7 @@ function ProtectionControl() {
             confirmLabel: "Ký và khoá két",
             successTitle: "Đã khoá két",
             danger: true,
-            send: () =>
-              writeContractAsync({
-                address: vault,
-                abi: agentVaultAbi,
-                functionName: "pause",
-                chainId: avalancheFuji.id,
-              }),
+            send: send("pause"),
           },
     );
   const label = p.paused ? "Mở khoá két" : "Khoá khẩn cấp";
@@ -298,13 +337,7 @@ function ProtectionControl() {
   );
   return (
     <div className="flex items-center gap-2">
-      {p.paused ? null : (
-        <Chip size="sm" variant="soft" color="success" className="hidden sm:inline-flex">
-          <ShieldCheck aria-hidden="true" className="size-3.5" />
-          <Chip.Label>Đang bảo vệ</Chip.Label>
-        </Chip>
-      )}
-      {gate.ok ? (
+      {viewingDemo ? null : gate.ok ? (
         button
       ) : (
         <Tooltip delay={200}>
@@ -322,10 +355,10 @@ function ProtectionControl() {
 }
 
 function NotificationBell() {
-  const { address: vault } = useSelectedVault();
+  const { address: vault, viewingDemo } = useSelectedVault();
   const me = useMe();
   const linked = me.data?.vaults.some((v) => v.address.toLowerCase() === vault.toLowerCase()) ?? false;
-  if (!linked) return null;
+  if (!linked || viewingDemo) return null;
   return <LinkedBell vault={vault} />;
 }
 
@@ -386,11 +419,8 @@ function LinkedBell({ vault }: { vault: string }) {
               ))}
             </ul>
           )}
-          <NextLink
-            href="/hoat-dong#canh-bao"
-            className={buttonVariants({ variant: "secondary", size: "sm" })}
-          >
-            Xem hoạt động và cài đặt cảnh báo
+          <NextLink href="/hoat-dong" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+            Xem hoạt động
           </NextLink>
         </Popover.Dialog>
       </Popover.Content>
@@ -402,27 +432,22 @@ function AccountMenu() {
   const me = useMe();
   const router = useRouter();
   const qc = useQueryClient();
+  const { setViewingDemo } = useSelectedVault();
   const logout = useMutation({
     mutationFn: () => accountApi("/api/auth/logout", "POST"),
     onSuccess: async () => {
+      setViewingDemo(false);
       await qc.invalidateQueries({ queryKey: ME_KEY });
       toast("Đã đăng xuất");
-      router.push("/");
+      router.push("/dang-nhap");
     },
   });
   if (me.isPending) return <Skeleton className="size-8 rounded-full" />;
   if (!me.data)
     return (
-      <NextLink
-        href="/tai-khoan"
-        aria-label="Đăng nhập"
-        className={buttonVariants({ variant: "ghost", size: "sm", isIconOnly: true })}
-      >
-        <Avatar size="sm" aria-hidden="true">
-          <Avatar.Fallback>
-            <Person className="size-4" />
-          </Avatar.Fallback>
-        </Avatar>
+      <NextLink href="/dang-nhap" className={buttonVariants({ variant: "primary", size: "sm" })}>
+        <Person aria-hidden="true" />
+        Đăng nhập
       </NextLink>
     );
   const u = me.data.user;
@@ -453,6 +478,7 @@ function AccountMenu() {
             <Label>{PAGE.about}</Label>
           </Dropdown.Item>
           <Dropdown.Item id="logout" textValue="Đăng xuất" variant="danger">
+            <ArrowRightFromSquare aria-hidden="true" className="size-4" />
             <Label>Đăng xuất</Label>
           </Dropdown.Item>
         </Dropdown.Menu>
@@ -461,53 +487,139 @@ function AccountMenu() {
   );
 }
 
-export function TopBar() {
+/** While the demo vault is shown: say so, and the way out. */
+function DemoViewChip() {
+  const { viewingDemo, demoChosen, setViewingDemo } = useSelectedVault();
+  const me = useMe();
+  const router = useRouter();
+  if (!viewingDemo) return null;
   return (
-    <header className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 border-b border-separator bg-background/90 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
+    <div className="flex items-center gap-2">
+      <Chip size="sm" variant="soft" color="warning">
+        <Eye aria-hidden="true" className="size-3.5" />
+        <Chip.Label>Két demo · chỉ xem</Chip.Label>
+      </Chip>
+      {demoChosen ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          onPress={() => {
+            setViewingDemo(false);
+            router.push(me.data ? "/" : "/dang-nhap");
+          }}
+        >
+          Thoát
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function TopBar() {
+  return (
+    <header className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 bg-background/85 px-4 py-2 backdrop-blur sm:px-6">
       <div className="flex min-w-0 items-center lg:hidden">
         <Brand />
       </div>
+      <DemoViewChip />
       <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
         <ProtectionControl />
         <NotificationBell />
         <WalletMenu />
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <ThemeToggle />
-          <AccountMenu />
-        </div>
+        <Separator orientation="vertical" className="mx-1 hidden h-5 sm:block" />
+        <ThemeToggle />
+        <AccountMenu />
       </div>
     </header>
   );
 }
 
-/** The main column. Switching vaults remounts the page so drafts and results of the other vault are dropped. */
-export function VaultMain({ children }: { children: ReactNode }) {
-  const { address, ready } = useSelectedVault();
-  const me = useMe();
-  const pathname = usePathname();
-  const accountFree = pathname === "/tai-khoan" || pathname === "/ve-guardian" || pathname === "/chay-thu";
+// ------------------------------------------------------------------ frames
+
+function FullPageLoading() {
   return (
-    <main
-      key={address}
-      id="noi-dung"
-      className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 p-4 pb-24 sm:p-6 sm:pb-24 lg:pb-6"
-    >
-      {/* Below the sidebar breakpoint the vault switcher opens the page, and only when there is a choice. */}
-      <div className="empty:hidden lg:hidden">
-        <VaultSwitcher onlyWhenMany />
-      </div>
-      {me.isPending || !ready ? (
-        <Loading label="Đang tải…" />
-      ) : me.isError && !accountFree ? (
+    <div role="status" className="grid min-h-dvh place-items-center">
+      <span className="flex items-center gap-2 text-sm text-muted">
+        <Spinner size="sm" color="current" />
+        Đang tải…
+      </span>
+    </div>
+  );
+}
+
+/** Where the visitor may be, given the session and the vaults; null = stay. */
+function redirectFor(
+  pathname: string,
+  signedIn: boolean,
+  hasOwnVault: boolean,
+  demoChosen: boolean,
+): string | null {
+  if (!signedIn && !demoChosen && !PUBLIC_ROUTES.includes(pathname))
+    return `/dang-nhap${pathname === "/" ? "" : `?quay-lai=${encodeURIComponent(pathname)}`}`;
+  if (signedIn && !hasOwnVault && !demoChosen && !NO_VAULT_ROUTES.includes(pathname)) return "/bat-dau";
+  if (signedIn && pathname === "/dang-nhap") return "/";
+  return null;
+}
+
+export function AppFrame({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const me = useMe();
+  const { address, ready, hasOwnVault, demoChosen } = useSelectedVault();
+  const settled = ready && !me.isPending && !me.isError;
+  const target = settled ? redirectFor(pathname, Boolean(me.data), hasOwnVault, demoChosen) : null;
+  useEffect(() => {
+    if (target) router.replace(target);
+  }, [target, router]);
+
+  if (me.isError)
+    return (
+      <div className="mx-auto max-w-lg p-6">
         <ErrorBox
           title="Không đọc được tài khoản"
-          detail="Không xác định được két đang chọn. Hãy thử lại."
+          detail="Máy chủ của dashboard chưa trả lời. Hãy thử lại."
           onRetry={() => void me.refetch()}
         />
-      ) : (
-        children
-      )}
-    </main>
+      </div>
+    );
+  if (!settled || target) return <FullPageLoading />;
+
+  if (FOCUS_ROUTES.includes(pathname))
+    return (
+      <div className="flex min-h-dvh flex-col">
+        <DemoBanner />
+        <header className="flex min-h-16 items-center gap-3 px-4 sm:px-8">
+          <Brand />
+          <div className="ml-auto flex items-center gap-2">
+            {pathname === "/bat-dau" ? <WalletMenu /> : null}
+            <ThemeToggle />
+            {me.data ? <AccountMenu /> : null}
+          </div>
+        </header>
+        <main id="noi-dung" className="flex w-full flex-1 flex-col px-4 pb-16 sm:px-8">
+          {children}
+        </main>
+      </div>
+    );
+
+  return (
+    <div className="flex min-h-dvh">
+      <Sidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <DemoBanner />
+        <TopBar />
+        <PausedStrip />
+        {/* Switching vaults remounts the page so drafts and results of the other vault are dropped. */}
+        <main
+          key={address}
+          id="noi-dung"
+          className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-4 pt-2 pb-24 sm:px-8 lg:pb-12"
+        >
+          {children}
+        </main>
+      </div>
+      <BottomNav />
+    </div>
   );
 }
 

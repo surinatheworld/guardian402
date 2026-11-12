@@ -2,37 +2,63 @@
 @import "@heroui/styles";
 
 /*
- * Guardian402 uses the HeroUI default theme as it ships (DESIGN.md): colours, radii, shadows and the dark
- * palette come from @heroui/styles. The wireframe's grayscale is applied at the document level.
+ * Guardian402 uses the HeroUI default theme (DESIGN.md) with one brand change: the accent is Avalanche red.
+ * Brand red #E84142 (brandpalettes.com/avalanche-colors) is 3.99:1 under white text, so the accent that carries
+ * text (primary buttons, links, focus) is one step deeper, #D13438 (4.93:1). #E84142 itself stays for the logo
+ * mark only (`--brand`). Everything else — surfaces, radii, shadows, status colours, dark palette — is HeroUI's.
  */
 @theme inline {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --color-brand: var(--brand);
+
+  /*
+   * Type scale (Inter, 400/500/600 only). Display sizes are set tight like Inter Display (Vercel, Linear and
+   * Stripe dashboards use -0.02em to -0.03em at these sizes); body text keeps Inter's own spacing.
+   *   display  money figures that answer the page's question (balance)
+   *   title    page title, one per page
+   *   heading  card and section titles
+   */
+  --text-display: 2.5rem;
+  --text-display--line-height: 1.1;
+  --text-display--letter-spacing: -0.03em;
+  --text-display--font-weight: 600;
+  --text-title: 1.75rem;
+  --text-title--line-height: 1.2;
+  --text-title--letter-spacing: -0.022em;
+  --text-title--font-weight: 600;
+  --text-heading: 1.0625rem;
+  --text-heading--line-height: 1.4;
+  --text-heading--letter-spacing: -0.011em;
+  --text-heading--font-weight: 600;
+}
+
+:root {
+  --brand: oklch(0.6221 0.2038 25.1);
+  --accent: oklch(0.5697 0.1934 24.68);
+  --accent-foreground: oklch(0.9911 0 0);
 }
 
 /*
- * Three tokens are one step darker than HeroUI ships them, hue unchanged, so text reaches 4.5:1 (P16 design
- * pass): white on the accent (primary button) was 3.6:1, accent text on white 3.7:1, muted text on the page
- * 4.4:1. The dark palette keeps HeroUI's values, which already pass.
+ * Two tokens one step darker than HeroUI ships them, hue unchanged, so small text reaches 4.5:1 on the page
+ * background (P16 design pass). The dark palette keeps HeroUI's values, which already pass.
  */
 :root:not(.dark),
 .light,
 .default,
 [data-theme="light"],
 [data-theme="default"] {
-  --accent: oklch(0.53 0.2 255);
   --muted: oklch(0.5 0.014 286);
   --success-soft-foreground: oklch(0.42 0.11 151);
 }
 
 @layer base {
   html {
-    /* The approved wireframe presents the whole dashboard, including overlays, in grayscale. */
-    filter: grayscale(1);
     /* Inter's optical-size axis: tighter letterforms at display sizes, more open text at 12–14px. */
     font-optical-sizing: auto;
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
   body {
     /* cv11: single-storey a; ss03: rounded quotes. Both keep Vietnamese diacritics unchanged. */
@@ -44,7 +70,6 @@
   h3,
   h4 {
     text-wrap: balance;
-    line-height: 1.25;
   }
   p,
   li,
@@ -64,4 +89,19 @@
       transition-duration: 0.01ms !important;
     }
   }
+}
+
+/* A step of a guided flow entering: a short rise, so the eye follows the new content (transitions.dev). */
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@utility animate-step-in {
+  animation: step-in 220ms cubic-bezier(0.215, 0.61, 0.355, 1) both;
 }
