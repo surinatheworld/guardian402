@@ -18,6 +18,7 @@ import { loadKnownContracts } from "./rules/index.ts";
 import { createSigner } from "./sign/index.ts";
 import { Simulator } from "./sim/index.ts";
 import { Store } from "./store.ts";
+import { withRetry } from "./retry.ts";
 import { createResourceServer } from "./x402.ts";
 
 export type GuardianCore = {
@@ -122,7 +123,21 @@ export function createGuardianCore(env: Env, log: Logger): GuardianCore {
     pipeline,
     resourceServer,
     start: async () => {
-      await simulator.ensureForkHealthy(deployment.vault);
+      // ~4 minutes in all (2, 4, 8, 16, 30, 30… s) before giving up.
+      await withRetry(() => simulator.ensureForkHealthy(deployment.vault), {
+        attempts: 12,
+        delayMs: 2_000,
+        maxDelayMs: 30_000,
+        onRetry: (error, attempt, delayMs) =>
+          log.warn(
+            {
+              attempt,
+              retryInMs: delayMs,
+              err: error instanceof Error ? error.message.split("\n")[0] : String(error),
+            },
+            "fork not ready at startup; retrying",
+          ),
+      });
       simulator.start();
       warmUp();
     },
