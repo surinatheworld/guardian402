@@ -153,7 +153,7 @@ export function WebAgentTry({ vault, initialKey }: { vault: Address; initialKey?
           Thêm người nhận ở trang Quy tắc chi tiêu để agent có chỗ trả tiền.
         </Notice>
       ) : null}
-      {keyMatches && token && token.balance === 0n ? (
+      {token && token.balance === 0n ? (
         <Notice status="warning" title="Két chưa có tiền">
           Nạp USDC vào két trước để agent có tiền chi.
         </Notice>
@@ -175,7 +175,7 @@ export function WebAgentTry({ vault, initialKey }: { vault: Address; initialKey?
           onPress={() => void run("ok")}
         >
           <Play aria-hidden="true" />
-          {amounts && recipient
+          {amounts && amounts.ok > 0n && recipient
             ? `Trả ${usdc(amounts.ok)} USDC cho ${recipient.name}`
             : "Trả thử một khoản nhỏ"}
         </Button>
