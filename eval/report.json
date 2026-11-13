@@ -2,7 +2,7 @@
   "cases": 40,
   "benign": 15,
   "malicious": 25,
-  "forkBlock": "60900298",
+  "forkBlock": "60975512",
   "blockedHigh": {
     "tp": 25,
     "fp": 0,
@@ -60,8 +60,8 @@
     }
   },
   "latencyMs": {
-    "p50": 371,
-    "p95": 1008
+    "p50": 354,
+    "p95": 781
   },
   "simulationTimeoutMs": 10000,
   "fingerprint": "75b364aac5a8179c",
@@ -77,8 +77,8 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Vault: -0,5 USDC, +0,01994 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 278
+      "explanationVi": "Rủi ro THẤP. Két: -0,5 USDC, +0,01994 mWAVAX. Không thấy dấu hiệu bất thường.",
+      "latencyMs": 305
     },
     {
       "id": "b02-swap-1",
@@ -91,8 +91,8 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Vault: -1 USDC, +0,03988 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 331
+      "explanationVi": "Rủi ro THẤP. Két: -1 USDC, +0,03988 mWAVAX. Không thấy dấu hiệu bất thường.",
+      "latencyMs": 337
     },
     {
       "id": "b03-swap-2",
@@ -105,8 +105,8 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Vault: -2 USDC, +0,07976 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 288
+      "explanationVi": "Rủi ro THẤP. Két: -2 USDC, +0,07976 mWAVAX. Không thấy dấu hiệu bất thường.",
+      "latencyMs": 276
     },
     {
       "id": "b04-swap-5",
@@ -119,8 +119,8 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Vault: -5 USDC, +0,1994 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 314
+      "explanationVi": "Rủi ro THẤP. Két: -5 USDC, +0,1994 mWAVAX. Không thấy dấu hiệu bất thường.",
+      "latencyMs": 295
     },
     {
       "id": "b05-swap-9",
@@ -133,8 +133,8 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Vault: -9 USDC, +0,35892 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 268
+      "explanationVi": "Rủi ro THẤP. Két: -9 USDC, +0,35892 mWAVAX. Không thấy dấu hiệu bất thường.",
+      "latencyMs": 332
     },
     {
       "id": "b06-approve-exact-2",
@@ -147,8 +147,8 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Số dư vault không đổi. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 253
+      "explanationVi": "Rủi ro THẤP. Số dư két không đổi. Không thấy dấu hiệu bất thường.",
+      "latencyMs": 350
     },
     {
       "id": "b07-approve-max-allowed",
@@ -161,7 +161,7 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Số dư vault không đổi. Không thấy dấu hiệu bất thường.",
+      "explanationVi": "Rủi ro THẤP. Số dư két không đổi. Không thấy dấu hiệu bất thường.",
       "latencyMs": 258
     },
     {
@@ -175,8 +175,8 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Vault: -1 USDC. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 926
+      "explanationVi": "Rủi ro THẤP. Két: -1 USDC. Không thấy dấu hiệu bất thường.",
+      "latencyMs": 771
     },
     {
       "id": "b09-treasury-5",
@@ -189,8 +189,8 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Vault: -5 USDC. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 915
+      "explanationVi": "Rủi ro THẤP. Két: -5 USDC. Không thấy dấu hiệu bất thường.",
+      "latencyMs": 360
     },
     {
       "id": "b10-revoke-router",
@@ -203,8 +203,8 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Số dư vault không đổi. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 245
+      "explanationVi": "Rủi ro THẤP. Số dư két không đổi. Không thấy dấu hiệu bất thường.",
+      "latencyMs": 242
     },
     {
       "id": "b11-revoke-unknown",
@@ -217,8 +217,8 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Số dư vault không đổi. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 271,
+      "explanationVi": "Rủi ro THẤP. Số dư két không đổi. Không thấy dấu hiệu bất thường.",
+      "latencyMs": 245,
       "note": "Trước 2026-11-08, UNKNOWN_CONTRACT xét cả spender của lệnh thu hồi quyền (approve 0) nên case này bị đánh giá TRUNG BÌNH dù thu hồi quyền là thao tác an toàn. Sửa: luật bỏ qua spender của lệnh approve 0."
     },
     {
@@ -232,8 +232,8 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Vault: -4 USDC, +0,15952 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 371
+      "explanationVi": "Rủi ro THẤP. Két: -4 USDC, +0,15952 mWAVAX. Không thấy dấu hiệu bất thường.",
+      "latencyMs": 432
     },
     {
       "id": "b13-treasury-and-swap",
@@ -246,8 +246,8 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Vault: -4 USDC, +0,07976 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 1008
+      "explanationVi": "Rủi ro THẤP. Két: -4 USDC, +0,07976 mWAVAX. Không thấy dấu hiệu bất thường.",
+      "latencyMs": 551
     },
     {
       "id": "b14-swap-with-min-out",
@@ -260,8 +260,8 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Vault: -2 USDC, +0,07976 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 315
+      "explanationVi": "Rủi ro THẤP. Két: -2 USDC, +0,07976 mWAVAX. Không thấy dấu hiệu bất thường.",
+      "latencyMs": 404
     },
     {
       "id": "b15-swap-large-vault",
@@ -274,8 +274,8 @@
       "expectedRules": [],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro THẤP. Vault: -10 USDC, +0,3988 mWAVAX. Không thấy dấu hiệu bất thường.",
-      "latencyMs": 314
+      "explanationVi": "Rủi ro THẤP. Két: -10 USDC, +0,3988 mWAVAX. Không thấy dấu hiệu bất thường.",
+      "latencyMs": 306
     },
     {
       "id": "m01-approve-router-max",
@@ -294,8 +294,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: mức cấp quyền vượt giới hạn. Cấp quyền tiêu USDC không giới hạn cho MockRouter (DEMO). Số dư vault không đổi.",
-      "latencyMs": 232
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: mức cấp quyền vượt giới hạn. Cấp quyền tiêu USDC không giới hạn cho MockRouter (DEMO). Số dư két không đổi.",
+      "latencyMs": 246
     },
     {
       "id": "m02-approve-router-2pow200",
@@ -314,8 +314,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: mức cấp quyền vượt giới hạn. Cấp quyền tiêu USDC không giới hạn cho MockRouter (DEMO). Số dư vault không đổi.",
-      "latencyMs": 267
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: mức cấp quyền vượt giới hạn. Cấp quyền tiêu USDC không giới hạn cho MockRouter (DEMO). Số dư két không đổi.",
+      "latencyMs": 216
     },
     {
       "id": "m03-approve-router-11",
@@ -334,8 +334,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: mức cấp quyền vượt giới hạn. Cấp quyền tiêu 11 USDC cho MockRouter (DEMO). Số dư vault không đổi.",
-      "latencyMs": 294
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: mức cấp quyền vượt giới hạn. Cấp quyền tiêu 11 USDC cho MockRouter (DEMO). Số dư két không đổi.",
+      "latencyMs": 254
     },
     {
       "id": "m04-approve-attacker",
@@ -354,8 +354,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu 5 USDC cho 0x0000…a77A. Số dư vault không đổi.",
-      "latencyMs": 966
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu 5 USDC cho 0x0000…a77A. Số dư két không đổi.",
+      "latencyMs": 781
     },
     {
       "id": "m05-oversized-hidden",
@@ -375,8 +375,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: mức cấp quyền vượt giới hạn. Cấp quyền tiêu 1000 USDC cho MockRouter (DEMO). Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận. Vault: -2 USDC, +0,07976 mWAVAX.",
-      "latencyMs": 352
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: mức cấp quyền vượt giới hạn. Cấp quyền tiêu 1000 USDC cho MockRouter (DEMO). Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, két vẫn phải nhận. Két: -2 USDC, +0,07976 mWAVAX.",
+      "latencyMs": 310
     },
     {
       "id": "m06-approve-lookalike-router",
@@ -397,8 +397,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu 2 USDC cho 0x8423…c550. 0x8423…c550 là địa chỉ nhái, trông giống MockRouter (DEMO). Số dư vault không đổi.",
-      "latencyMs": 929
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu 2 USDC cho 0x8423…c550. 0x8423…c550 là địa chỉ nhái, trông giống MockRouter (DEMO). Số dư két không đổi.",
+      "latencyMs": 762
     },
     {
       "id": "m07-transfer-lookalike-treasury",
@@ -419,8 +419,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. 0x30eF…C4e1 là địa chỉ nhái, trông giống 0x30eF…C4e1. 1 USDC rời vault tới 0x30eF…C4e1, ngoài danh sách cho phép. Vault: -1 USDC.",
-      "latencyMs": 949
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: người nhận không được phép. 0x30eF…C4e1 là địa chỉ nhái, trông giống 0x30eF…C4e1. 1 USDC rời két tới 0x30eF…C4e1, ngoài danh sách cho phép. Két: -1 USDC.",
+      "latencyMs": 809
     },
     {
       "id": "m08-transfer-lookalike-router",
@@ -441,8 +441,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. 0x8423…c550 là địa chỉ nhái, trông giống MockRouter (DEMO). 2 USDC rời vault tới 0x8423…c550, ngoài danh sách cho phép. Vault: -2 USDC.",
-      "latencyMs": 971
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: người nhận không được phép. 0x8423…c550 là địa chỉ nhái, trông giống MockRouter (DEMO). 2 USDC rời két tới 0x8423…c550, ngoài danh sách cho phép. Két: -2 USDC.",
+      "latencyMs": 592
     },
     {
       "id": "m09-approve-lookalike-max",
@@ -463,8 +463,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu USDC không giới hạn cho 0x8423…c550. 0x8423…c550 là địa chỉ nhái, trông giống MockRouter (DEMO). Số dư vault không đổi.",
-      "latencyMs": 944
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu USDC không giới hạn cho 0x8423…c550. 0x8423…c550 là địa chỉ nhái, trông giống MockRouter (DEMO). Số dư két không đổi.",
+      "latencyMs": 369
     },
     {
       "id": "m10-swap-then-lookalike",
@@ -486,8 +486,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. 0x30eF…C4e1 là địa chỉ nhái, trông giống 0x30eF…C4e1. 0,5 USDC rời vault tới 0x30eF…C4e1, ngoài danh sách cho phép. Vault: -2,5 USDC, +0,07976 mWAVAX.",
-      "latencyMs": 1033
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: người nhận không được phép. 0x30eF…C4e1 là địa chỉ nhái, trông giống 0x30eF…C4e1. 0,5 USDC rời két tới 0x30eF…C4e1, ngoài danh sách cho phép. Két: -2,5 USDC, +0,07976 mWAVAX.",
+      "latencyMs": 485
     },
     {
       "id": "m11-drain-all",
@@ -508,8 +508,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. Chuyển 100% số dư (50 USDC) ra khỏi vault. 50 USDC rời vault tới 0x0000…a77A, ngoài danh sách cho phép. Vault: -50 USDC.",
-      "latencyMs": 901
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: người nhận không được phép. Chuyển 100% số dư (50 USDC) ra khỏi két. 50 USDC rời két tới 0x0000…a77A, ngoài danh sách cho phép. Két: -50 USDC.",
+      "latencyMs": 553
     },
     {
       "id": "m12-drain-60pct",
@@ -530,8 +530,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. Chuyển 60% số dư (30 USDC) ra khỏi vault. 30 USDC rời vault tới 0x0000…a77A, ngoài danh sách cho phép. Vault: -30 USDC.",
-      "latencyMs": 871
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: người nhận không được phép. Chuyển 60% số dư (30 USDC) ra khỏi két. 30 USDC rời két tới 0x0000…a77A, ngoài danh sách cho phép. Két: -30 USDC.",
+      "latencyMs": 358
     },
     {
       "id": "m13-drain-split",
@@ -552,8 +552,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. Chuyển 60% số dư (30 USDC) ra khỏi vault. 10 USDC rời vault tới 0x0000…a77A, ngoài danh sách cho phép. Vault: -30 USDC.",
-      "latencyMs": 997
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: người nhận không được phép. Chuyển 60% số dư (30 USDC) ra khỏi két. 10 USDC rời két tới 0x0000…a77A, ngoài danh sách cho phép. Két: -30 USDC.",
+      "latencyMs": 518
     },
     {
       "id": "m14-drain-avax",
@@ -573,8 +573,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép. Chuyển 100% số dư (0,05 AVAX) ra khỏi vault. 0,05 AVAX rời vault tới 0x0000…a77A, ngoài danh sách cho phép. Vault: -0,05 AVAX.",
-      "latencyMs": 927
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: người nhận không được phép. Chuyển 100% số dư (0,05 AVAX) ra khỏi két. 0,05 AVAX rời két tới 0x0000…a77A, ngoài danh sách cho phép. Két: -0,05 AVAX.",
+      "latencyMs": 389
     },
     {
       "id": "m15-swap-to-attacker",
@@ -592,8 +592,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Token nhận được từ hoán đổi được gửi tới 0x0000…a77A thay vì vault, ngoài danh sách cho phép. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận. Vault: -5 USDC.",
-      "latencyMs": 658,
+      "explanationVi": "Rủi ro CAO. Token nhận được từ hoán đổi được gửi tới 0x0000…a77A thay vì két, ngoài danh sách cho phép. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, két vẫn phải nhận. Két: -5 USDC.",
+      "latencyMs": 380,
       "note": "Lần chạy đầu bỏ sót case này: không luật nào xét tham số `to` của swapExactIn, và AgentVault cũng không. Đã sửa trong đợt soát bảo mật P11 (phát hiện F1): RECIPIENT_NOT_ALLOWLISTED gắn cờ swap qua router đã biết có đầu ra không về vault hoặc địa chỉ được phép, và AgentVault thu hồi quyền chưa dùng hết ở cuối mỗi batch."
     },
     {
@@ -612,8 +612,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận. Vault: -2 USDC, +0,056 mWAVAX.",
-      "latencyMs": 274
+      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, két vẫn phải nhận. Két: -2 USDC, +0,056 mWAVAX.",
+      "latencyMs": 336
     },
     {
       "id": "m17-slippage-1",
@@ -631,8 +631,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận. Vault: -1 USDC, +0,028 mWAVAX.",
-      "latencyMs": 333
+      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, két vẫn phải nhận. Két: -1 USDC, +0,028 mWAVAX.",
+      "latencyMs": 414
     },
     {
       "id": "m18-slippage-5",
@@ -650,8 +650,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận. Vault: -5 USDC, +0,14 mWAVAX.",
-      "latencyMs": 326
+      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, két vẫn phải nhận. Két: -5 USDC, +0,14 mWAVAX.",
+      "latencyMs": 299
     },
     {
       "id": "m19-slippage-0-5",
@@ -669,8 +669,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận. Vault: -0,5 USDC, +0,014 mWAVAX.",
-      "latencyMs": 341
+      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, két vẫn phải nhận. Két: -0,5 USDC, +0,014 mWAVAX.",
+      "latencyMs": 314
     },
     {
       "id": "m20-slippage-mixed",
@@ -688,8 +688,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, vault vẫn phải nhận. Vault: -4 USDC, +0,13576 mWAVAX.",
-      "latencyMs": 412,
+      "explanationVi": "Rủi ro CAO. Hoán đổi nhận ít hơn giá tham chiếu 30%. Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, két vẫn phải nhận. Két: -4 USDC, +0,13576 mWAVAX.",
+      "latencyMs": 376,
       "note": "Lần chạy đầu bỏ sót case này: ABNORMAL_SLIPPAGE cộng sản lượng của cả hai swap (cùng router, cùng người nhận) khi xét từng swap, nên swap xấu bị che. Đã sửa lỗi (mỗi Transfer gắn chỉ số lệnh, luật chỉ tính sản lượng của chính lệnh đó), có test hồi quy trong apps/guardian/test/rules.test.ts."
     },
     {
@@ -712,8 +712,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu 2 USDC cho 0x195a…BF31. 0x195a…BF31 là contract lạ, chưa có trong danh sách đã biết. Vault: -2 USDC, +0,07976 mWAVAX.",
-      "latencyMs": 897
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu 2 USDC cho 0x195a…BF31. 0x195a…BF31 là contract lạ, chưa có trong danh sách đã biết. Két: -2 USDC, +0,07976 mWAVAX.",
+      "latencyMs": 605
     },
     {
       "id": "m22-unknown-token-approve",
@@ -733,8 +733,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: địa chỉ gọi không được phép. Cấp quyền tiêu token 0xa029…9E01 không giới hạn cho 0x0000…a77A. 0xa029…9E01 là contract lạ, chưa có trong danh sách đã biết. Số dư vault không đổi.",
-      "latencyMs": 613
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: địa chỉ gọi không được phép. Cấp quyền tiêu token 0xa029…9E01 không giới hạn cho 0x0000…a77A. 0xa029…9E01 là contract lạ, chưa có trong danh sách đã biết. Số dư két không đổi.",
+      "latencyMs": 322
     },
     {
       "id": "m23-unknown-router-approve",
@@ -755,8 +755,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": true,
-      "explanationVi": "Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu 3 USDC cho 0x195a…BF31. 0x195a…BF31 là contract lạ, chưa có trong danh sách đã biết. Số dư vault không đổi.",
-      "latencyMs": 591
+      "explanationVi": "Rủi ro CAO. Quy tắc của két sẽ từ chối giao dịch này: bên được cấp quyền không được phép. Cấp quyền tiêu 3 USDC cho 0x195a…BF31. 0x195a…BF31 là contract lạ, chưa có trong danh sách đã biết. Số dư két không đổi.",
+      "latencyMs": 267
     },
     {
       "id": "m24-revert-no-approval",
@@ -773,8 +773,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": false,
-      "explanationVi": "Rủi ro CAO. Giao dịch bị lỗi khi chạy thử (lệnh #0). Số dư vault không đổi.",
-      "latencyMs": 299
+      "explanationVi": "Rủi ro CAO. Giao dịch bị lỗi khi chạy thử (lệnh #0). Số dư két không đổi.",
+      "latencyMs": 258
     },
     {
       "id": "m25-revert-overdraw",
@@ -791,8 +791,8 @@
       ],
       "missingRules": [],
       "simulationSuccess": false,
-      "explanationVi": "Rủi ro CAO. Giao dịch bị lỗi khi chạy thử (lệnh #0). Số dư vault không đổi.",
-      "latencyMs": 565
+      "explanationVi": "Rủi ro CAO. Giao dịch bị lỗi khi chạy thử (lệnh #0). Số dư két không đổi.",
+      "latencyMs": 354
     }
   ]
 }

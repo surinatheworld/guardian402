@@ -21,6 +21,10 @@ function readLocal(): Deployment {
   );
 }
 
+/** The tests spend up to this much USDC of the vault on the fork. */
+const TEST_USDC = 10_000_000n;
+
+/** Deployed with an agent; the vault's USDC is topped up on the fork if short (see setupFork). */
 async function isSeeded(client: PublicClient, a: Deployment): Promise<boolean> {
   if (!(await client.getCode({ address: a.vault }))) return false;
   const [usdc, agent] = await Promise.all([
@@ -39,7 +43,16 @@ async function isSeeded(client: PublicClient, a: Deployment): Promise<boolean> {
       functionName: "agent",
     }),
   ]);
-  return usdc >= 10_000_000n && agent !== "0x0000000000000000000000000000000000000000";
+  if (agent === "0x0000000000000000000000000000000000000000") return false;
+  // The seeded Fuji vault runs low on real test USDC (faucet-limited): fund it on the fork only, instead of
+  // redeploying, which rewrote the tracked local.json and left the known-contracts config pointing elsewhere.
+  if (usdc < TEST_USDC) {
+    await client.request({
+      method: "anvil_dealERC20",
+      params: [a.vault, a.usdc, `0x${TEST_USDC.toString(16)}`],
+    } as never);
+  }
+  return true;
 }
 
 export async function setupFork(): Promise<ForkEnv> {

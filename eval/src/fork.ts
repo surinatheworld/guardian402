@@ -112,6 +112,17 @@ export async function setUpFork(forkRpcUrl: string, upstreamRpcUrl = FUJI_RPC_UR
     owner,
     EVAL.agent,
     privateKeyToAccount(EVAL.guardian).address,
+    // Empty Config (SPEC §4.10): the policy is set below with the owner setters, as the seed script does.
+    {
+      maxAgentRisk: 0,
+      tokens: [],
+      nativeDailyCap: 0n,
+      nativeVerdictThreshold: 0n,
+      nativeMaxPerTx: 0n,
+      nativeBudget: 0n,
+      targets: [],
+      recipients: [],
+    },
   ]);
   const mWAVAX = await deploy(deployer, "MockERC20", ["Mock Wrapped AVAX", "mWAVAX", 18, owner]);
   const oracle = await deploy(deployer, "MockOracle", [owner, SEED.oraclePrice]);
