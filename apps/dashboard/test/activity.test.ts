@@ -9,6 +9,7 @@ import {
   summarizeDiff,
 } from "../src/lib/activity";
 import type { ExecutedEvent } from "../src/lib/events";
+import type { ActivityItem } from "../src/lib/activity";
 import type { Attempt, CheckListRow } from "../src/lib/types";
 
 const VAULT = "0x6a8ccc880238df1f4309d1b04edfbd6017a4cf3c";
@@ -128,7 +129,7 @@ describe("buildActivity", () => {
       reason: "RecipientNotAllowed",
       tx: "0xab",
     });
-    expect(byId.get(hex(3))?.outcome.kind).toBe("trial");
+    expect(byId.has(hex(3))).toBe(false); // a free trial check is not the vault's history
     expect(byId.get(hex(4))?.outcome.kind).toBe("check-only");
     expect(byId.get(hex(5))?.outcome.kind).toBe("not-seen");
     // An execution below the verdict threshold has no check: it is its own item.
@@ -162,6 +163,15 @@ describe("buildActivity", () => {
     expect(items[0]?.outcome).toEqual({ kind: "rejected", reason: "RiskTooHigh", tx: undefined });
   });
 
+  it("leaves free trial checks out: anyone can run one on any vault", () => {
+    const items = buildActivity({
+      checks: [check(1, { risk: "LOW" }), check(2, { risk: "HIGH", endpoint: "demo" })],
+      executions: [],
+      attempts: [],
+    });
+    expect(items.map((i) => i.check?.endpoint)).toEqual(["cosign"]);
+  });
+
   it("never shows a verdict as an execution", () => {
     const [item] = buildActivity({ checks: [check(7, { risk: "LOW" })], executions: [], attempts: [] });
     expect(item?.outcome.kind).not.toBe("executed");
@@ -169,11 +179,7 @@ describe("buildActivity", () => {
 
   it("filters and flags what needs attention", () => {
     const high = buildActivity({ checks: [check(1, { risk: "HIGH" })], executions: [], attempts: [] })[0];
-    const trial = buildActivity({
-      checks: [check(2, { risk: "HIGH", endpoint: "demo" })],
-      executions: [],
-      attempts: [],
-    })[0];
+    const trial: ActivityItem = { id: "t", at: 0, risk: "HIGH", outcome: { kind: "trial" } };
     const rejected = itemFromAttempt(attempt({ vault: [{ status: "reverted", revert: "Paused" }] }));
     expect(high && matchesFilter(high, "high")).toBe(true);
     expect(high && matchesFilter(high, "executed")).toBe(false);

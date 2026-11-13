@@ -32,6 +32,12 @@ export const AGENT_URL = (
   process.env.NEXT_PUBLIC_AGENT_URL || (isRemoteBrowser ? "/api/agent-control" : "http://127.0.0.1:4403")
 ).replace(/\/$/, "");
 
+/**
+ * `NEXT_PUBLIC_AGENT_CONTROL=off`: this deployment runs no agent control API (a hosted dashboard whose Guardian
+ * does not sign for the demo vault). The dashboard then never calls it, and the trial page only simulates.
+ */
+export const AGENT_CONTROL_ENABLED = process.env.NEXT_PUBLIC_AGENT_CONTROL !== "off";
+
 export type TokenMeta = { symbol: string; decimals: number };
 const tokens: Record<string, TokenMeta> = {
   [deployment.usdc.toLowerCase()]: { symbol: USDC_FUJI.symbol, decimals: USDC_FUJI.decimals },

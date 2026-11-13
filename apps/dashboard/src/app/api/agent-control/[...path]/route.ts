@@ -38,6 +38,9 @@ function ownsDemoVault(userId: string): boolean {
 
 function forward(req: Request, ctx: Context) {
   return handle(async () => {
+    // A deployment without the agent control API answers at once instead of a 502 from a missing upstream.
+    if (process.env.NEXT_PUBLIC_AGENT_CONTROL === "off")
+      return Response.json({ error: "agent control is off on this deployment" }, { status: 404 });
     const { path } = await ctx.params;
     const r = classifyControl(req.method, path);
     if (!r) return Response.json({ error: "not found" }, { status: 404 });

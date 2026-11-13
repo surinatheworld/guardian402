@@ -28,7 +28,7 @@ import { AddressLink, Card, ErrorBox, Notice, PageHeader, TechDetails } from "@/
 import { itemFromAttempt, type ActivityItem } from "@/lib/activity";
 import { errorText, getJson, HttpError, useAgentHealth, useGuardianHealth } from "@/lib/api";
 import { describeCall, parseCalls, transferCall, type CallJson, type Parsed } from "@/lib/check-calls";
-import { AGENT_URL, deployment, GUARDIAN_URL, NETWORK, tokenMeta } from "@/lib/config";
+import { AGENT_CONTROL_ENABLED, AGENT_URL, deployment, GUARDIAN_URL, NETWORK, tokenMeta } from "@/lib/config";
 import { PAGE } from "@/lib/labels";
 import { SCENARIOS, type Scenario } from "@/lib/scenarios";
 import type { Attempt } from "@/lib/types";
@@ -69,13 +69,15 @@ export default function TrialPage() {
 
   const demoOff = health.data ? !health.data.demoMode : false;
   const isDemoVault = vault.toLowerCase() === deployment.vault.toLowerCase();
-  const liveReason = !agent.isSuccess
-    ? "Agent demo chưa chạy (pnpm dev:agent)."
-    : agent.data.busy
-      ? "Agent demo đang chạy một kịch bản khác."
-      : scenario.needsOwner && agent.data.network === "fuji"
-        ? "Kịch bản này cần khoá chủ két ở phía agent; trên Fuji chủ két là ví của trưởng nhóm."
-        : null;
+  const liveReason = !AGENT_CONTROL_ENABLED
+    ? "Chạy thật chỉ có khi chạy Guardian402 trên máy của bạn. Ở đây bạn mô phỏng được mọi kịch bản."
+    : !agent.isSuccess
+      ? "Agent demo chưa chạy (pnpm dev:agent)."
+      : agent.data.busy
+        ? "Agent demo đang chạy một kịch bản khác."
+        : scenario.needsOwner && agent.data.network === "fuji"
+          ? "Kịch bản này cần khoá chủ két ở phía agent; trên Fuji chủ két là ví của trưởng nhóm."
+          : null;
   const canLive = source === "kich-ban" && scenario.live && liveReason === null;
   const canSimulate = source !== "kich-ban" || Boolean(scenario.preset);
   const effectiveMode: RunMode = mode === "live" && canLive ? "live" : canSimulate ? "simulate" : "live";

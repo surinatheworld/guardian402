@@ -799,8 +799,9 @@ export class Workspace {
     if (checkRules.length) {
       let checks: GuardianCheck[] = [];
       try {
-        checks = (await this.#o.guardian.recentChecks(200, v.address)).filter((c) =>
-          sameAddress(c.vault, v.address),
+        // Free trial checks accept any vault address from anyone: they never raise the owner's alerts.
+        checks = (await this.#o.guardian.recentChecks(200, v.address)).filter(
+          (c) => sameAddress(c.vault, v.address) && c.endpoint !== "demo",
         );
       } catch {
         guardianOk = false;
@@ -910,7 +911,7 @@ export class Workspace {
   /** The vault's recent Guardian checks with the owner's review of each. */
   async listChecks(v: VaultCtx, limit = 50) {
     const checks = (await this.#o.guardian.recentChecks(200, v.address))
-      .filter((c) => sameAddress(c.vault, v.address))
+      .filter((c) => sameAddress(c.vault, v.address) && c.endpoint !== "demo")
       .slice(0, Math.min(200, Math.max(1, limit)));
     const reviews = new Map(
       (

@@ -341,6 +341,7 @@ describe("alerts", () => {
       check(2),
       check(3, { risk: "MEDIUM", score: 40, ruleIds: ["ABNORMAL_SLIPPAGE"] }),
       check(4, { vault: addr().toLowerCase() }), // another vault
+      check(5, { endpoint: "demo" }), // a free trial check: anyone can run one on any vault
     );
     expect(await ws.syncAlerts(v)).toEqual({ created: 2, guardian: true, chain: true });
     expect(await ws.syncAlerts(v)).toMatchObject({ created: 0 }); // idempotent

@@ -2,7 +2,7 @@
 // Browser-side reads of the Guardian API and the agent control API, through TanStack Query.
 import { useQuery } from "@tanstack/react-query";
 import { useSelectedVault } from "./vault-context";
-import { AGENT_URL, GUARDIAN_URL } from "./config";
+import { AGENT_CONTROL_ENABLED, AGENT_URL, GUARDIAN_URL } from "./config";
 import type { AgentHealth, Attempt, CheckListRow, GuardianHealth, Stats } from "./types";
 
 export class HttpError extends Error {
@@ -61,6 +61,7 @@ export const useAgentHealth = () =>
     queryFn: () => getJson<AgentHealth>(`${AGENT_URL}/health`),
     refetchInterval: 10_000,
     retry: false,
+    enabled: AGENT_CONTROL_ENABLED,
   });
 
 export const useAttempts = (enabled: boolean) =>

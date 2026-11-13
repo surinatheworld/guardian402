@@ -96,32 +96,33 @@ export function buildActivity(input: {
     if (a.guardian?.checkId) attemptByCheck.set(a.guardian.checkId.toLowerCase(), a);
 
   const used = new Set<string>();
-  const items: ActivityItem[] = input.checks.map((c) => {
-    const key = c.checkId.toLowerCase();
-    const execution = execByCheck.get(key);
-    const attempt = attemptByCheck.get(key);
-    if (execution) used.add(execution.txHash.toLowerCase());
-    if (attempt) used.add(`attempt:${attempt.at}`);
-    const outcome: Outcome =
-      c.endpoint === "demo"
-        ? { kind: "trial" }
-        : execution
-          ? { kind: "executed", tx: execution.txHash }
-          : attempt
-            ? attemptOutcome(attempt, input.network)
-            : c.endpoint === "check"
-              ? { kind: "check-only" }
-              : { kind: "not-seen" };
-    return {
-      id: c.checkId,
-      at: c.createdAt,
-      check: c,
-      ...(execution ? { execution } : {}),
-      ...(attempt ? { attempt } : {}),
-      risk: c.risk,
-      outcome,
-    };
-  });
+  // Free trial checks (/v1/demo/check) take any vault address from anyone, so they are not the vault's history:
+  // they show only on the trial page that ran them (SPEC §16, 2026-11-13).
+  const items: ActivityItem[] = input.checks
+    .filter((c) => c.endpoint !== "demo")
+    .map((c) => {
+      const key = c.checkId.toLowerCase();
+      const execution = execByCheck.get(key);
+      const attempt = attemptByCheck.get(key);
+      if (execution) used.add(execution.txHash.toLowerCase());
+      if (attempt) used.add(`attempt:${attempt.at}`);
+      const outcome: Outcome = execution
+        ? { kind: "executed", tx: execution.txHash }
+        : attempt
+          ? attemptOutcome(attempt, input.network)
+          : c.endpoint === "check"
+            ? { kind: "check-only" }
+            : { kind: "not-seen" };
+      return {
+        id: c.checkId,
+        at: c.createdAt,
+        check: c,
+        ...(execution ? { execution } : {}),
+        ...(attempt ? { attempt } : {}),
+        risk: c.risk,
+        outcome,
+      };
+    });
 
   for (const e of input.executions) {
     if (used.has(e.txHash.toLowerCase())) continue;
