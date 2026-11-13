@@ -5,7 +5,6 @@ const CHANGE_EVENT = "guardian402-theme-change";
 
 // Run before the first paint so a saved theme also applies on a hard refresh.
 export const THEME_SCRIPT = `(() => {
-  const system = window.matchMedia("(prefers-color-scheme: dark)");
   const root = document.documentElement;
 
   function readPreference() {
@@ -20,15 +19,13 @@ export const THEME_SCRIPT = `(() => {
   let preference = readPreference();
 
   function applyTheme() {
-    const theme = preference ?? (system.matches ? "dark" : "light");
+    const theme = preference ?? "dark";
     root.classList.toggle("dark", theme === "dark");
     root.dataset.theme = theme;
     root.style.colorScheme = theme;
   }
 
   applyTheme();
-  system.addEventListener("change", applyTheme);
-
   window.addEventListener("storage", (event) => {
     if (event.key === "${STORAGE_KEY}" || event.key === null) {
       preference = readPreference();
