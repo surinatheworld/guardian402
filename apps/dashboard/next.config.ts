@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import type { NextConfig } from "next";
 
 // Pages read Fuji, the Guardian API or the agent control API from the browser (docs/SPEC.md §11). The only
@@ -8,7 +9,22 @@ import type { NextConfig } from "next";
 // same-origin paths and the dashboard forwards them to the services on its own host (src/lib/config.ts).
 // The agent control API lives under /api/agent-control: /api/agent/v1/* is the dashboard's own agent REST
 // API, and a route there would capture its dynamic routes (checks/:checkId, transactions/:hash).
+// Static chunks are cached as immutable. Over a flaky link (a public tunnel) a browser can keep a truncated chunk
+// under its content-hash name and stay stuck on "Đang tải…" across later deploys of the same chunk. The deployment
+// id goes into every asset URL (?dpl=…), so each deploy fetches fresh copies.
+function deploymentId(): string | undefined {
+  if (process.env.NEXT_DEPLOYMENT_ID) return process.env.NEXT_DEPLOYMENT_ID;
+  try {
+    return execSync("git rev-parse --short HEAD", { stdio: ["ignore", "pipe", "ignore"] })
+      .toString()
+      .trim();
+  } catch {
+    return undefined;
+  }
+}
+
 const config: NextConfig = {
+  deploymentId: deploymentId(),
   allowedDevOrigins: (process.env.DASHBOARD_DEV_ORIGINS ?? "")
     .split(",")
     .map((origin) => origin.trim())
