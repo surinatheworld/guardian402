@@ -14,7 +14,7 @@ import { getAddress, isAddress, type Address } from "viem";
 import { useWriteContract } from "wagmi";
 import { avalancheFuji } from "wagmi/chains";
 import { agentVaultAbi } from "@guardian402/shared";
-import { ApiKeyReveal, McpSetup } from "@/components/connect-agent";
+import { McpSetup } from "@/components/connect-agent";
 import { EditModal } from "@/components/edit-modal";
 import { TextInput, useConfirm } from "@/components/fields";
 import { errorOf } from "@/components/form";
@@ -357,7 +357,6 @@ function Connect({ vault, agent }: { vault: Address; agent: Agent }) {
         }
       >
         {create.isError ? <p className="text-sm text-danger">{errorOf(create.error)}</p> : null}
-        {fresh ? <ApiKeyReveal apiKey={fresh} /> : null}
         {q.isPending ? (
           <LoadingRows rows={1} />
         ) : active.length === 0 && !fresh ? (
@@ -405,7 +404,7 @@ function Connect({ vault, agent }: { vault: Address; agent: Agent }) {
           </ul>
         )}
         <div className="border-t border-separator pt-4">
-          <McpSetup apiKey={fresh} />
+          <McpSetup apiKey={fresh} newKeyHint='bấm "Tạo khoá mới"' />
         </div>
         {confirm.dialog}
       </Section>

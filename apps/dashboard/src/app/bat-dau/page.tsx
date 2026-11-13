@@ -21,7 +21,7 @@ import { parseEventLogs, type Address, type Hex } from "viem";
 import { useWriteContract } from "wagmi";
 import { avalancheFuji } from "wagmi/chains";
 import { vaultFactoryAbi } from "@guardian402/shared";
-import { ApiKeyReveal, McpSetup } from "@/components/connect-agent";
+import { McpSetup } from "@/components/connect-agent";
 import { AgentFeeForm, DepositForm } from "@/components/fund";
 import { errorOf } from "@/components/form";
 import {
@@ -528,7 +528,6 @@ export default function SetupPage() {
           }
         >
           <div className="flex flex-col gap-6">
-            {created.apiKey ? <ApiKeyReveal apiKey={created.apiKey} /> : null}
             <McpSetup apiKey={created.apiKey ?? null} agentPk={generatedPk} />
           </div>
         </StepCard>

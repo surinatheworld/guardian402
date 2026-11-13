@@ -49,25 +49,6 @@ export function CodeBlock({ code, copyLabel = "Chép" }: { code: string; copyLab
   );
 }
 
-/** A new key, shown in full once: the server keeps only its hash. */
-export function ApiKeyReveal({ apiKey }: { apiKey: string }) {
-  return (
-    <div className="flex flex-col gap-3 rounded-xl border border-warning/40 bg-warning-soft/40 p-4">
-      <div className="flex items-start gap-2 text-sm">
-        <TriangleExclamation aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
-        <p>
-          <span className="font-semibold">Chép khoá API ngay.</span> Khoá chỉ hiện một lần; mất thì tạo khoá
-          mới ở trang Agent.
-        </p>
-      </div>
-      <code className="rounded-lg bg-surface px-3 py-2 font-mono text-sm break-all">{apiKey}</code>
-      <div>
-        <CopyButton value={apiKey} label="Chép khoá" />
-      </div>
-    </div>
-  );
-}
-
 const useOrigin = () =>
   useSyncExternalStore(
     () => () => {},
@@ -85,6 +66,7 @@ function ConnectionRow({
   display,
   copyLabel,
   empty,
+  warning,
 }: {
   label: string;
   hint: ReactNode;
@@ -92,6 +74,8 @@ function ConnectionRow({
   display?: string | undefined;
   copyLabel: string;
   empty?: ReactNode;
+  /** Shown with the value, e.g. a secret this page will not show again. */
+  warning?: ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -103,6 +87,12 @@ function ConnectionRow({
         ) : (
           <span className="mt-1 text-xs text-foreground">{empty}</span>
         )}
+        {value && warning ? (
+          <span className="mt-1 flex items-start gap-1.5 text-xs font-medium text-warning">
+            <TriangleExclamation aria-hidden="true" className="mt-px size-3.5 shrink-0" />
+            {warning}
+          </span>
+        ) : null}
       </div>
       {value ? (
         <div className="shrink-0">
@@ -137,7 +127,16 @@ const REST_STEPS: [string, string][] = [
  * How to connect an agent: the values it needs, then MCP (any client) or the REST API. Secrets are filled in
  * only when this page has them right now (a fresh API key, an agent key generated in this browser).
  */
-export function McpSetup({ apiKey, agentPk }: { apiKey?: string | null; agentPk?: string | null }) {
+export function McpSetup({
+  apiKey,
+  agentPk,
+  newKeyHint = "tạo khoá mới ở trang Agent",
+}: {
+  apiKey?: string | null;
+  agentPk?: string | null;
+  /** How to get another API key from where this is shown. */
+  newKeyHint?: string;
+}) {
   const origin = useOrigin();
   const info = useQuery({
     queryKey: ["setup-info"],
@@ -186,9 +185,9 @@ export function McpSetup({ apiKey, agentPk }: { apiKey?: string | null; agentPk?
             label="Khoá API"
             hint="Cho biết agent thuộc két nào. Không rút được tiền, không đổi được quy tắc."
             value={apiKey}
-            display={apiKey ? short(apiKey) : undefined}
             copyLabel="Chép khoá"
-            empty="Chỉ hiện một lần lúc tạo. Mất thì tạo khoá mới."
+            warning={`Chép ngay: khoá chỉ hiện một lần. Mất thì ${newKeyHint}.`}
+            empty={`Khoá chỉ hiện một lần lúc tạo nên không xem lại được. Mất thì ${newKeyHint}.`}
           />
           <ConnectionRow
             label="Khoá riêng ví agent"
@@ -196,6 +195,7 @@ export function McpSetup({ apiKey, agentPk }: { apiKey?: string | null; agentPk?
             value={agentPk}
             display={agentPk ? short(agentPk) : undefined}
             copyLabel="Chép khoá ví"
+            warning="Chép và cất kỹ: dashboard không lưu khoá này."
             empty="Bạn tự điền trên máy chạy agent."
           />
         </div>
