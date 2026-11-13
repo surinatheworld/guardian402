@@ -166,7 +166,7 @@ function SpendLimits({
       title="Agent được tiêu bao nhiêu?"
       description="Tính bằng USDC. Vượt bất kỳ mức nào, két từ chối cả giao dịch."
     >
-      <div id="han-muc" className="grid scroll-mt-24 gap-3 md:grid-cols-3">
+      <div id="han-muc" className="grid scroll-mt-24 grid-cols-1 gap-3 md:grid-cols-3">
         <Tile
           label="Mỗi ngày"
           value={u(t.dailyCap)}

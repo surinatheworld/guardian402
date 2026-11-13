@@ -102,14 +102,14 @@ export default function Overview() {
           onRetry={() => void policy.refetch()}
         />
       ) : (
-        <section aria-label="Số liệu của két" className="grid gap-4 md:grid-cols-3">
+        <section aria-label="Số liệu của két" className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <BalanceCard p={p} />
           <TodayCard p={p} limits={limits.data} />
           <BudgetCard vault={vault} p={p} limits={limits.data} unsupported={limits.unsupported} />
         </section>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <RecentActivity />
         <AgentCard vault={vault} agent={agent} viewingDemo={viewingDemo} onFee={() => setModal("fee")} />
       </div>

@@ -498,7 +498,7 @@ export default function SetupPage() {
             </>
           }
         >
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <section className="flex flex-col gap-3">
               <h3 className="text-heading">Tiền cho agent tiêu</h3>
               <DepositForm vault={created.vault} />

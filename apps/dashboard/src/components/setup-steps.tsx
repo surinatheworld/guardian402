@@ -396,7 +396,7 @@ export function RulesStep({ draft, setDraft }: StepProps) {
       recipients: draft.recipients.map((r, j) => (j === i ? { ...r, ...patch } : r)),
     });
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
       <div className="flex flex-col gap-8">
         <section aria-labelledby="nguoi-nhan" className="flex flex-col gap-3">
           <div className="flex flex-col gap-0.5">

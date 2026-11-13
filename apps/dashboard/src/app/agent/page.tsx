@@ -340,7 +340,7 @@ function Connect({ vault, agent }: { vault: Address; agent: Agent }) {
   const lastUsed = Math.max(0, ...active.map((k) => k.lastUsedAt ?? 0));
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
       <Section
         title="Kết nối agent"
         description="Khoá API cho agent gọi Guardian. Nó không rút được tiền và không đổi được quy tắc."
