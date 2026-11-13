@@ -530,7 +530,12 @@ export function DetailBody({ item }: { item: ActivityItem }) {
           <div>
             <VaultResult view={view} />
           </div>
-          {view.why ? <p className="text-sm">{view.why}.</p> : null}
+          {view.why ? (
+            <p className="text-sm">
+              {view.why}
+              {/[.!?]$/.test(view.why) ? "" : "."}
+            </p>
+          ) : null}
           {(o.kind === "executed" || o.kind === "rejected") && o.tx ? (
             <TxLink hash={o.tx} label="Xem giao dịch" />
           ) : null}

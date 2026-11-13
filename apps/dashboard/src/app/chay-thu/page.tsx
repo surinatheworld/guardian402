@@ -383,7 +383,8 @@ export default function TrialPage() {
           <Card
             title="Kết quả"
             actions={
-              resultItem ? (
+              // Only a real run lands in the activity page; a simulation stays here.
+              resultItem && resultItem.outcome.kind !== "trial" ? (
                 <NextLink href="/hoat-dong" className={buttonVariants({ variant: "ghost", size: "sm" })}>
                   Xem trong Hoạt động
                 </NextLink>
