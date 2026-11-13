@@ -33,6 +33,7 @@ type Phase =
   | { step: "review" }
   | { step: "wallet" }
   | { step: "mining"; hash: Hex }
+  | { step: "unknown"; hash: Hex }
   | { step: "failed"; message: string; hash?: Hex };
 
 const STEPS = ["Ký trong ví", "Gửi lên mạng", "Xác nhận trên chain"] as const;
@@ -65,6 +66,10 @@ export function useOwnerAction() {
       setPhase({ step: "failed", message: walletError(e) });
       return;
     }
+    await checkReceipt(a, hash);
+  }
+
+  async function checkReceipt(a: OwnerAction, hash: Hex) {
     setPhase({ step: "mining", hash });
     try {
       if (!client) throw new Error("no client");
@@ -74,11 +79,7 @@ export function useOwnerAction() {
         return;
       }
     } catch {
-      setPhase({
-        step: "failed",
-        hash,
-        message: "Không đọc được kết quả giao dịch. Kiểm tra lại trên Snowtrace.",
-      });
+      setPhase({ step: "unknown", hash });
       return;
     }
     await queryClient.invalidateQueries();
@@ -92,9 +93,9 @@ export function useOwnerAction() {
   const dialog = (
     <Modal.Backdrop
       isOpen={action !== null}
-      isDismissable={!busy}
+      isDismissable={!busy && phase.step !== "unknown"}
       onOpenChange={(open) => {
-        if (!open && !busy) {
+        if (!open && !busy && phase.step !== "unknown") {
           setAction(null);
           setPhase({ step: "review" });
         }
@@ -104,7 +105,7 @@ export function useOwnerAction() {
         <Modal.Dialog className="sm:max-w-lg">
           {action ? (
             <>
-              <Modal.CloseTrigger />
+              {phase.step !== "unknown" ? <Modal.CloseTrigger /> : null}
               <Modal.Header>
                 <Modal.Heading className="text-lg font-semibold">{action.title}</Modal.Heading>
               </Modal.Header>
@@ -128,11 +129,13 @@ export function useOwnerAction() {
                 {phase.step !== "review" ? (
                   <ol aria-label="Tiến trình" className="flex flex-col gap-2 text-sm" aria-live="polite">
                     {STEPS.map((label, i) => {
-                      const failed = phase.step === "failed" && i === (phase.hash ? 2 : 0);
+                      const failed =
+                        (phase.step === "failed" && i === (phase.hash ? 2 : 0)) ||
+                        (phase.step === "unknown" && i === 2);
                       const done =
                         phase.step === "mining"
                           ? i < 2
-                          : phase.step === "failed" && phase.hash
+                          : (phase.step === "failed" && phase.hash) || phase.step === "unknown"
                             ? i < 2
                             : false;
                       const active = i === current || (phase.step === "mining" && i === 1);
@@ -152,6 +155,18 @@ export function useOwnerAction() {
                       );
                     })}
                   </ol>
+                ) : null}
+                {phase.step === "unknown" ? (
+                  <Alert status="warning">
+                    <Alert.Indicator />
+                    <Alert.Content>
+                      <Alert.Title>Đã gửi, chưa xác định kết quả</Alert.Title>
+                      <Alert.Description>
+                        Kiểm tra lại trạng thái trước khi gửi giao dịch khác.{" "}
+                        <TxLink hash={phase.hash} label="Xem giao dịch" />
+                      </Alert.Description>
+                    </Alert.Content>
+                  </Alert>
                 ) : null}
                 {phase.step === "failed" ? (
                   <Alert status="danger">
@@ -175,21 +190,25 @@ export function useOwnerAction() {
                 </TechDetails>
               </Modal.Body>
               <Modal.Footer>
-                <Button slot="close" variant="tertiary" isDisabled={busy}>
+                <Button slot="close" variant="tertiary" isDisabled={busy || phase.step === "unknown"}>
                   Huỷ
                 </Button>
                 <Button
                   variant={action.danger ? "danger" : "primary"}
                   isPending={busy}
-                  onPress={() => void run(action)}
+                  onPress={() =>
+                    void (phase.step === "unknown" ? checkReceipt(action, phase.hash) : run(action))
+                  }
                 >
                   {phase.step === "wallet"
                     ? "Đang chờ ví…"
                     : phase.step === "mining"
                       ? "Đang xác nhận…"
-                      : phase.step === "failed"
-                        ? "Thử lại"
-                        : action.confirmLabel}
+                      : phase.step === "unknown"
+                        ? "Kiểm tra trạng thái"
+                        : phase.step === "failed"
+                          ? "Thử lại"
+                          : action.confirmLabel}
                 </Button>
               </Modal.Footer>
             </>

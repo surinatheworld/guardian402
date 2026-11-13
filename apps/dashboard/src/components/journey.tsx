@@ -54,7 +54,7 @@ export function Journey({ stops, compact = false }: { stops: Stop[]; compact?: b
                 <span className={`min-w-0 break-words ${compact ? "text-sm" : "text-sm font-medium"}`}>
                   {s.value}
                 </span>
-                {s.sub ? <span className="min-w-0 break-words text-xs text-muted">{s.sub}</span> : null}
+                {s.sub ? <span className="min-w-0 break-words text-sm text-muted">{s.sub}</span> : null}
               </div>
             </div>
             {i < stops.length - 1 ? (

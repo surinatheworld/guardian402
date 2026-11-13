@@ -11,6 +11,7 @@ export type TxPhase =
   | { step: "idle" }
   | { step: "wallet" }
   | { step: "mining"; hash: Hex }
+  | { step: "unknown"; hash: Hex }
   | { step: "done"; hash: Hex; receipt: TransactionReceipt }
   | { step: "failed"; message: string; hash?: Hex };
 
@@ -32,6 +33,7 @@ export function useTx() {
   const queryClient = useQueryClient();
 
   async function run(send: () => Promise<Hex>): Promise<TransactionReceipt | null> {
+    if (phase.step === "unknown") return null;
     setPhase({ step: "wallet" });
     let hash: Hex;
     try {
@@ -41,6 +43,10 @@ export function useTx() {
       setPhase({ step: "failed", message: walletErrorText(e) });
       return null;
     }
+    return checkReceipt(hash);
+  }
+
+  async function checkReceipt(hash: Hex): Promise<TransactionReceipt | null> {
     setPhase({ step: "mining", hash });
     try {
       if (!client) throw new Error("no client");
@@ -53,7 +59,7 @@ export function useTx() {
       await queryClient.invalidateQueries();
       return receipt;
     } catch {
-      setPhase({ step: "failed", hash, message: "Không đọc được kết quả. Kiểm tra lại trên Snowtrace." });
+      setPhase({ step: "unknown", hash });
       return null;
     }
   }
@@ -61,6 +67,7 @@ export function useTx() {
   return {
     phase,
     run,
+    checkStatus: () => (phase.step === "unknown" ? checkReceipt(phase.hash) : Promise.resolve(null)),
     busy: phase.step === "wallet" || phase.step === "mining",
     reset: () => setPhase({ step: "idle" }),
   };

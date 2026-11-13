@@ -35,7 +35,7 @@ import {
 } from "@/components/setup-steps";
 import { TxStatus } from "@/components/tx-status";
 import { ErrorBox, Notice } from "@/components/ui";
-import { accountApi, useRefreshMe } from "@/lib/account";
+import { accountApi, AccountApiError, useRefreshMe } from "@/lib/account";
 import { deployment, NETWORK } from "@/lib/config";
 import { DEFAULT_DRAFT, filledRecipients, vaultConfig, type SetupDraft } from "@/lib/setup";
 import { useTx } from "@/lib/tx";
@@ -44,12 +44,12 @@ import { useSelectedVault } from "@/lib/vault-context";
 import { wsApi } from "@/lib/workspace";
 
 const STEPS = [
-  { title: "Ví chủ", lead: "Ví của bạn là chủ két: chỉ nó rút được tiền và đổi được quy tắc." },
-  { title: "Agent", lead: "Agent của bạn cần một ví riêng để ký giao dịch." },
-  { title: "Quy tắc", lead: "Agent chỉ chi được trong những giới hạn này. Đổi lại được bất cứ lúc nào." },
-  { title: "Tạo két", lead: "Xem lại rồi ký một giao dịch. Két được tạo trên Avalanche Fuji." },
-  { title: "Nạp tiền", lead: "Nạp tiền cho agent tiêu, và phí để agent tự gửi giao dịch." },
-  { title: "Kết nối agent", lead: "Đưa khoá API và cấu hình này cho agent. Xong là agent tự chi được." },
+  { title: "Ví chủ", lead: "Ví này có quyền rút tiền và thay đổi quy tắc." },
+  { title: "Agent", lead: "Chọn ví riêng cho agent." },
+  { title: "Quy tắc", lead: "Đặt người nhận, hạn mức và mức rủi ro." },
+  { title: "Tạo két", lead: "Xem lại và ký trên mạng Avalanche Fuji." },
+  { title: "Nạp tiền", lead: "Nạp vào két và ví phí của agent." },
+  { title: "Kết nối agent", lead: "Cấu hình ứng dụng agent với khoá API." },
 ] as const;
 
 /** `done[i]`: step i is really complete (not merely before the current one), so a deep link never fakes a ✓. */
@@ -104,7 +104,7 @@ function StepCard({ index, children, footer }: { index: number; children: ReactN
   return (
     <Card key={index} className="animate-step-in sm:p-6">
       <Card.Header className="gap-2">
-        <Card.Title className="text-title">{s?.title}</Card.Title>
+        <Card.Title className="text-title font-semibold">{s?.title}</Card.Title>
         <Card.Description className="text-base">{s?.lead}</Card.Description>
       </Card.Header>
       <Card.Content className="pt-2">{children}</Card.Content>
@@ -150,21 +150,32 @@ export default function SetupPage() {
   /** Off-chain bookkeeping after the vault exists; safe to run again (it resumes where it stopped). */
   async function save(c: Created): Promise<Created> {
     setSaving({ busy: true });
+    let progress = { ...c };
     try {
       await accountApi("/api/account/vaults", "POST", { address: c.vault, label: draft.vaultLabel });
       await refreshMe();
       let agentId = c.agentId;
       if (agentId === undefined) {
-        const r = await wsApi<{ agent: { id: number } }>(c.vault, "agents", "POST", {
-          name: draft.agentName,
-          address: draft.agentAddress,
-        });
-        agentId = r.agent.id;
+        const existing = await wsApi<{ agents: { id: number; address: string }[] }>(c.vault, "agents");
+        agentId = existing.agents.find(
+          (a) => a.address.toLowerCase() === draft.agentAddress.toLowerCase(),
+        )?.id;
+        if (agentId === undefined) {
+          const r = await wsApi<{ agent: { id: number } }>(c.vault, "agents", "POST", {
+            name: draft.agentName,
+            address: draft.agentAddress,
+          });
+          agentId = r.agent.id;
+        }
+        progress = { ...progress, agentId };
+        setCreated(progress);
       }
       for (const r of filledRecipients(draft.recipients)) {
-        await wsApi(c.vault, "contacts", "POST", { name: r.name || "Người nhận", address: r.address }).catch(
-          () => undefined, // a duplicate in the address book is fine
-        );
+        try {
+          await wsApi(c.vault, "contacts", "POST", { name: r.name || "Người nhận", address: r.address });
+        } catch (e) {
+          if (!(e instanceof AccountApiError && e.code === "duplicate")) throw e;
+        }
       }
       let apiKey = c.apiKey;
       if (!apiKey) {
@@ -180,7 +191,7 @@ export default function SetupPage() {
       return next;
     } catch (e) {
       setSaving({ busy: false, error: errorOf(e) });
-      setCreated({ ...c });
+      setCreated(progress);
       throw e;
     }
   }
@@ -199,6 +210,10 @@ export default function SetupPage() {
       }),
     );
     if (!receipt) return;
+    await finishCreation(receipt);
+  }
+
+  async function finishCreation(receipt: import("viem").TransactionReceipt) {
     const [event] = parseEventLogs({ abi: vaultFactoryAbi, logs: receipt.logs, eventName: "VaultCreated" });
     if (!event) {
       setSaving({ busy: false, error: "Không tìm thấy két mới trong giao dịch." });
@@ -215,7 +230,11 @@ export default function SetupPage() {
   }
 
   const back = (
-    <Button variant="ghost" onPress={() => setStep(step - 1)} isDisabled={step === 0}>
+    <Button
+      variant="ghost"
+      onPress={() => setStep(step - 1)}
+      isDisabled={step === 0 || tx.phase.step === "unknown" || tx.busy}
+    >
       <ArrowLeft aria-hidden="true" />
       Quay lại
     </Button>
@@ -270,7 +289,7 @@ export default function SetupPage() {
         ? "busy"
         : ph === "done"
           ? "done"
-          : ph === "failed" && "hash" in tx.phase && tx.phase.hash
+          : ph === "unknown" || (ph === "failed" && "hash" in tx.phase && tx.phase.hash)
             ? "bad"
             : "todo";
     if (i === 2)
@@ -369,10 +388,20 @@ export default function SetupPage() {
                   variant="primary"
                   size="lg"
                   isPending={creating}
-                  isDisabled={!ready.slice(0, 3).every(Boolean) || !guardianSigner}
-                  onPress={() => void create()}
+                  isDisabled={
+                    !ready.slice(0, 3).every(Boolean) || !guardianSigner || tx.phase.step === "done"
+                  }
+                  onPress={() =>
+                    void (tx.phase.step === "unknown"
+                      ? tx.checkStatus().then((receipt) => receipt && finishCreation(receipt))
+                      : create())
+                  }
                 >
-                  {tx.phase.step === "failed" ? "Thử lại" : "Tạo két"}
+                  {tx.phase.step === "unknown"
+                    ? "Kiểm tra trạng thái"
+                    : tx.phase.step === "failed"
+                      ? "Thử lại"
+                      : "Tạo két"}
                 </Button>
               )}
             </>
@@ -386,7 +415,7 @@ export default function SetupPage() {
               isDisabled={creating || Boolean(created)}
             >
               <Label>Tên két</Label>
-              <Input />
+              <Input variant="secondary" />
             </TextField>
             <ReviewSummary draft={draft} owner={owner.address} guardian={guardianSigner} />
             {guardianHealth.isError ? (
@@ -433,11 +462,21 @@ export default function SetupPage() {
                 })}
               </ol>
             ) : null}
-            {tx.phase.step === "failed" ? <TxStatus phase={tx.phase} done="" /> : null}
+            {tx.phase.step === "failed" || tx.phase.step === "unknown" ? (
+              <TxStatus phase={tx.phase} done="" />
+            ) : null}
             {saving.error ? (
               <ErrorBox
-                title="Két đã tạo trên chain, nhưng chưa lưu xong vào tài khoản"
-                detail={`${saving.error} Bấm "Thử lưu lại": két và tiền không bị ảnh hưởng.`}
+                title={
+                  created
+                    ? "Két đã tạo, nhưng chưa lưu xong vào tài khoản"
+                    : "Chưa tìm thấy két trong giao dịch"
+                }
+                detail={
+                  created
+                    ? `${saving.error} Bấm "Thử lưu lại": két và tiền không bị ảnh hưởng.`
+                    : `${saving.error} Xem giao dịch và kiểm tra lại trước khi tạo két khác.`
+                }
               />
             ) : null}
             {created && !saving.error && created.apiKey ? (

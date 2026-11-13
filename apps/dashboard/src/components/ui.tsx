@@ -68,7 +68,7 @@ export function Card({
       {title || actions ? (
         <HeroCard.Header className="flex flex-row flex-wrap items-start justify-between gap-x-4 gap-y-2">
           <div className="flex min-w-0 flex-col gap-0.5">
-            {title ? <HeroCard.Title className="text-heading">{title}</HeroCard.Title> : null}
+            {title ? <HeroCard.Title className="text-heading font-semibold">{title}</HeroCard.Title> : null}
             {description ? (
               <HeroCard.Description className="text-sm text-muted">{description}</HeroCard.Description>
             ) : null}
@@ -81,9 +81,9 @@ export function Card({
   );
 }
 
-const riskColor: Record<RiskLevel, "success" | "warning" | "danger"> = {
-  LOW: "success",
-  MEDIUM: "warning",
+const riskColor: Record<RiskLevel, "default" | "danger"> = {
+  LOW: "default",
+  MEDIUM: "default",
   HIGH: "danger",
 };
 export const RISK_CHIP = riskColor;

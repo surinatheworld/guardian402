@@ -80,7 +80,7 @@ export function WalletSignIn() {
               : "Đăng nhập bằng ví"}
       </Button>
       <p className="text-sm text-muted">
-        Ví chỉ ký một thông điệp: miễn phí, không gửi giao dịch, không cho ai quyền chuyển tiền.
+        Ví ký một thông điệp miễn phí để đăng nhập. Nếu chưa có tài khoản, tài khoản sẽ được tạo.
       </p>
       {run.isError ? (
         <p role="alert" className="text-sm text-danger">
@@ -121,7 +121,7 @@ export function PasswordSignIn() {
     >
       <TextField type="email" name="email" autoComplete="email" isRequired value={email} onChange={setEmail}>
         <Label>Email</Label>
-        <Input placeholder="ban@vidu.com" />
+        <Input variant="secondary" placeholder="ban@vidu.com" />
         <FieldError />
       </TextField>
       <TextField
@@ -134,7 +134,7 @@ export function PasswordSignIn() {
         onChange={setPassword}
       >
         <Label>Mật khẩu</Label>
-        <Input />
+        <Input variant="secondary" />
         {mode === "register" ? <Description>Ít nhất 10 ký tự.</Description> : null}
         <FieldError />
       </TextField>

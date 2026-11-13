@@ -77,7 +77,7 @@ export default function Overview() {
                 <Chip.Label>Đã khoá</Chip.Label>
               </Chip>
             ) : (
-              <Chip color="success" variant="soft">
+              <Chip color="default" variant="soft">
                 <ShieldCheck aria-hidden="true" className="size-3.5" />
                 <Chip.Label>Đang bảo vệ</Chip.Label>
               </Chip>
@@ -251,6 +251,7 @@ function QuickActions({
         }}
       >
         <NumberField
+          variant="secondary"
           value={amount}
           onChange={setAmount}
           minValue={0}
@@ -335,7 +336,7 @@ function Setup({
   return (
     <Card className="sm:p-5">
       <Card.Header className="flex flex-row flex-wrap items-baseline justify-between gap-2">
-        <Card.Title className="text-heading">Còn {left} bước để agent chi tiêu được</Card.Title>
+        <Card.Title className="text-heading font-semibold">Còn {left} bước để agent chi tiêu được</Card.Title>
         <span className="text-sm text-muted tabular-nums">
           {steps.length - left}/{steps.length} xong
         </span>
@@ -391,7 +392,7 @@ const Amount = ({ value, unit = "USDC" }: { value: string; unit?: string }) => (
 function BalanceCard({ p }: { p: Policy | undefined }) {
   const t = p?.tokens.find(isUsdc);
   return (
-    <Figure label="Số dư trong két" foot={p ? "Chỉ bạn rút được, kể cả khi két đang khoá." : null}>
+    <Figure label="Số dư trong két">
       {!p ? <Skeleton className="h-11 w-40 rounded-lg" /> : <Amount value={t ? usdc(t.balance) : "0"} />}
     </Figure>
   );
@@ -458,7 +459,7 @@ function BudgetCard({
     return <Figure label="Tổng ngân sách">{<Skeleton className="h-11 w-40 rounded-lg" />}</Figure>;
   if (!l || l.budget === 0n)
     return (
-      <Figure label="Tổng ngân sách" foot="Đặt ở trang Quy tắc nếu muốn agent dừng sau một tổng nhất định.">
+      <Figure label="Tổng ngân sách">
         <p className="text-heading">Không giới hạn</p>
       </Figure>
     );
@@ -525,7 +526,7 @@ function RecentActivity() {
   return (
     <Card className="min-w-0 sm:p-5">
       <Card.Header className="flex flex-row items-center justify-between gap-3">
-        <Card.Title className="text-heading">Hoạt động gần đây</Card.Title>
+        <Card.Title className="text-heading font-semibold">Hoạt động gần đây</Card.Title>
         {items.length ? (
           <NextLink
             href="/hoat-dong"
@@ -579,7 +580,7 @@ function AgentCard({
           <Cpu aria-hidden="true" className="size-5" />
         </span>
         <div className="flex min-w-0 flex-col">
-          <Card.Title className="text-heading truncate">
+          <Card.Title className="text-heading truncate font-semibold">
             {agent ? (name ?? "Agent") : "Chưa có agent"}
           </Card.Title>
           {agent ? (

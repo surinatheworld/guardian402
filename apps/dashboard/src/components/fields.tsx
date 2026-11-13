@@ -30,6 +30,7 @@ export function SelectField<T extends string>({
 }) {
   return (
     <Select
+      variant="secondary"
       className={`min-w-0 ${className}`}
       value={value}
       isDisabled={isDisabled}
@@ -93,6 +94,7 @@ export function TextInput({
     >
       <Label>{label}</Label>
       <Input
+        variant="secondary"
         {...(placeholder ? { placeholder } : {})}
         {...(mono ? { spellCheck: false, className: "font-mono" } : {})}
       />

@@ -15,17 +15,17 @@ const STEPS = [
   {
     icon: Vault,
     title: "Bạn tạo két và đặt quy tắc",
-    text: "Tiền nằm trong két của bạn trên Avalanche. Bạn chọn người nhận, hạn mức ngày, mỗi giao dịch và tổng.",
+    text: "Chọn người nhận và hạn mức chi tiêu.",
   },
   {
     icon: Cpu,
     title: "Agent nhận khoá API",
-    text: "Gắn khoá vào agent AI của bạn qua MCP. Khoá không rút được tiền và không đổi được quy tắc.",
+    text: "Kết nối agent qua MCP; khoá API không thể rút tiền hoặc đổi quy tắc.",
   },
   {
     icon: ShieldCheck,
-    title: "Mỗi lần chi đều được kiểm tra",
-    text: "Guardian chạy thử giao dịch và chấm rủi ro trước. Két chỉ chi khi mọi quy tắc đều đạt.",
+    title: "Kiểm soát giao dịch",
+    text: "Két áp dụng quy tắc chi tiêu; Guardian đánh giá các giao dịch cần duyệt.",
   },
 ];
 
@@ -64,8 +64,7 @@ export default function SignInPage() {
 
       <Card className="w-full sm:p-6">
         <Card.Header className="gap-1">
-          <Card.Title className="text-heading">Đăng nhập</Card.Title>
-          <Card.Description>Chưa có tài khoản thì lần đăng nhập đầu tiên sẽ tạo luôn.</Card.Description>
+          <Card.Title className="text-heading font-semibold">Đăng nhập</Card.Title>
         </Card.Header>
         <Card.Content className="flex flex-col gap-5">
           <Tabs defaultSelectedKey={NETWORK === "local" ? "email" : "wallet"}>

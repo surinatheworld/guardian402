@@ -70,13 +70,14 @@ export function DepositForm({ vault, onDone }: { vault: Address; onDone?: () => 
         </p>
       ) : null}
       <NumberField
+        variant="secondary"
         value={value}
         onChange={setAmount}
         minValue={0}
         step={1}
         formatOptions={{ maximumFractionDigits: 6 }}
         isInvalid={tooMuch}
-        isDisabled={tx.busy || empty}
+        isDisabled={tx.busy || tx.phase.step === "unknown" || empty}
       >
         <Label>Số USDC nạp vào két</Label>
         <NumberField.Group>
@@ -84,16 +85,12 @@ export function DepositForm({ vault, onDone }: { vault: Address; onDone?: () => 
           <NumberField.Input />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <Description>
-          {tooMuch
-            ? "Nhiều hơn số dư ví của bạn."
-            : "Agent chỉ tiêu được tiền trong két, theo quy tắc của két."}
-        </Description>
+        {tooMuch ? <Description>Nhiều hơn số dư ví của bạn.</Description> : null}
       </NumberField>
       <div className="flex flex-wrap items-center gap-3">
         <Button
           variant="primary"
-          isDisabled={raw === 0n || tooMuch}
+          isDisabled={raw === 0n || tooMuch || tx.phase.step === "unknown"}
           isPending={tx.busy}
           onPress={async () => {
             const r = await tx.run(() =>
@@ -111,7 +108,11 @@ export function DepositForm({ vault, onDone }: { vault: Address; onDone?: () => 
           {tx.phase.step === "failed" ? "Thử lại" : "Nạp vào két"}
         </Button>
       </div>
-      <TxStatus phase={tx.phase} done={`Đã nạp ${formatUnits(raw, 6)} USDC vào két`} />
+      <TxStatus
+        phase={tx.phase}
+        done={`Đã nạp ${formatUnits(raw, 6)} USDC vào két`}
+        onCheck={() => void tx.checkStatus().then((r) => r && onDone?.())}
+      />
     </div>
   );
 }
@@ -148,7 +149,9 @@ export function AgentFeeForm({ agent, onDone }: { agent: Address; onDone?: () =>
             size="sm"
             variant={needGas ? "primary" : "tertiary"}
             isPending={gasTx.busy}
-            isDisabled={wallet.avax !== undefined && wallet.avax < AGENT_FEE_AVAX}
+            isDisabled={
+              gasTx.phase.step === "unknown" || (wallet.avax !== undefined && wallet.avax < AGENT_FEE_AVAX)
+            }
             onPress={() =>
               gasTx
                 .run(() =>
@@ -171,7 +174,9 @@ export function AgentFeeForm({ agent, onDone }: { agent: Address; onDone?: () =>
             size="sm"
             variant={needFee ? "primary" : "tertiary"}
             isPending={feeTx.busy}
-            isDisabled={wallet.usdc !== undefined && wallet.usdc < AGENT_FEE_USDC}
+            isDisabled={
+              feeTx.phase.step === "unknown" || (wallet.usdc !== undefined && wallet.usdc < AGENT_FEE_USDC)
+            }
             onPress={() =>
               feeTx
                 .run(() =>
@@ -190,8 +195,16 @@ export function AgentFeeForm({ agent, onDone }: { agent: Address; onDone?: () =>
           </Button>
         </li>
       </ul>
-      <TxStatus phase={gasTx.phase} done="Đã gửi AVAX cho agent" />
-      <TxStatus phase={feeTx.phase} done="Đã gửi USDC cho agent" />
+      <TxStatus
+        phase={gasTx.phase}
+        done="Đã gửi AVAX cho agent"
+        onCheck={() => void gasTx.checkStatus().then((r) => r && onDone?.())}
+      />
+      <TxStatus
+        phase={feeTx.phase}
+        done="Đã gửi USDC cho agent"
+        onCheck={() => void feeTx.checkStatus().then((r) => r && onDone?.())}
+      />
       {wallet.avax !== undefined && wallet.avax < AGENT_FEE_AVAX ? (
         <p className="text-sm text-muted">
           Ví của bạn không đủ AVAX. <FaucetLink token="avax" />

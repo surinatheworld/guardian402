@@ -184,7 +184,7 @@ export function ActivityTable({ items, label, onOpen }: ListProps) {
                 >
                   {title}
                 </button>
-                <span className="mt-0.5 block truncate text-xs text-muted">
+                <span className="mt-0.5 block truncate text-sm text-muted">
                   {view.why ||
                     (item.attempt?.mode === "scripted-attack" ? "Tấn công mô phỏng" : "Guardian đã duyệt")}
                 </span>
@@ -252,7 +252,7 @@ export function ActivityRows({ items, label, onOpen }: ListProps) {
                 <span className="line-clamp-2 text-sm font-medium sm:line-clamp-1" title={title}>
                   {title}
                 </span>
-                <span className="block truncate text-xs text-muted">{view.why || view.label}</span>
+                <span className="block truncate text-sm text-muted">{view.why || view.label}</span>
               </span>
               <span className="flex items-center justify-between gap-3 sm:contents">
                 <span className="sm:justify-self-end">{guardianCell(item, false)}</span>
@@ -322,6 +322,7 @@ function ReviewForm({ checkId, vault }: { checkId: string; vault: string }) {
       </h3>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[12rem_1fr]">
         <Select
+          variant="secondary"
           value={status ?? current?.status ?? "reviewed"}
           onChange={(k) => k !== null && setStatus(k as ReviewStatus)}
         >
@@ -343,7 +344,7 @@ function ReviewForm({ checkId, vault }: { checkId: string; vault: string }) {
         </Select>
         <TextField value={note ?? current?.note ?? ""} onChange={setNote} maxLength={500}>
           <Label>Ghi chú</Label>
-          <Input placeholder="Ví dụ: đã chặn ví này ở sàn" />
+          <Input variant="secondary" placeholder="Ví dụ: đã chặn ví này ở sàn" />
         </TextField>
       </div>
       <Description className="text-xs text-muted">

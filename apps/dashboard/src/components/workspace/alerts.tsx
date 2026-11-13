@@ -187,7 +187,14 @@ function AddRule({
           options={RULE_IDS.map((id) => ({ id, label: ruleLabel(id) }))}
         />
       ) : (
-        <NumberField value={capPercent} onChange={setCapPercent} minValue={1} maxValue={100} step={5}>
+        <NumberField
+          variant="secondary"
+          value={capPercent}
+          onChange={setCapPercent}
+          minValue={1}
+          maxValue={100}
+          step={5}
+        >
           <Label>Từ (% hạn mức USDC mỗi ngày)</Label>
           <NumberField.Group>
             <NumberField.DecrementButton />

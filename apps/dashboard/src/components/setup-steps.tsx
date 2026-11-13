@@ -262,8 +262,7 @@ export function AgentStep({
         isRequired
       >
         <Label>Tên agent</Label>
-        <Input placeholder="Ví dụ: Agent mua hàng" />
-        <Description>Chỉ để bạn nhận ra agent trong dashboard.</Description>
+        <Input variant="secondary" placeholder="Ví dụ: Agent mua hàng" />
       </TextField>
 
       <div className="flex flex-col gap-3">
@@ -278,7 +277,7 @@ export function AgentStep({
           isRequired
         >
           <Label>Địa chỉ ví của agent</Label>
-          <Input placeholder="0x…" className="font-mono" spellCheck={false} />
+          <Input variant="secondary" placeholder="0x…" className="font-mono" spellCheck={false} />
           <Description>
             Agent dùng ví riêng để ký giao dịch và trả phí Guardian. Két không bao giờ giữ khoá của ví này.
           </Description>
@@ -349,7 +348,7 @@ function UsdcField({
   allowZero,
 }: {
   label: string;
-  description: string;
+  description?: string;
   value: number;
   onChange: (n: number) => void;
   error?: string | undefined;
@@ -358,6 +357,7 @@ function UsdcField({
 }) {
   return (
     <NumberField
+      variant="secondary"
       value={value}
       onChange={(n) => onChange(Number.isNaN(n) ? 0 : n)}
       minValue={0}
@@ -371,7 +371,11 @@ function UsdcField({
         <NumberField.Input />
         <NumberField.IncrementButton />
       </NumberField.Group>
-      <Description>{allowZero && value === 0 ? "0 = không giới hạn." : (note ?? description)}</Description>
+      {allowZero && value === 0 ? (
+        <Description>0 = không giới hạn.</Description>
+      ) : note || description ? (
+        <Description>{note ?? description}</Description>
+      ) : null}
       <FieldError>{error}</FieldError>
     </NumberField>
   );
@@ -411,7 +415,7 @@ export function RulesStep({ draft, setDraft }: StepProps) {
                   isInvalid={Boolean(issuesAt(i, "name"))}
                   aria-label={`Tên người nhận ${i + 1}`}
                 >
-                  <Input placeholder="Tên người nhận" />
+                  <Input variant="secondary" placeholder="Tên người nhận" />
                   <FieldError>{issuesAt(i, "name")}</FieldError>
                 </TextField>
                 <TextField
@@ -421,7 +425,12 @@ export function RulesStep({ draft, setDraft }: StepProps) {
                   isInvalid={Boolean(issuesAt(i, "address"))}
                   aria-label={`Địa chỉ người nhận ${i + 1}`}
                 >
-                  <Input placeholder="Địa chỉ ví 0x…" className="font-mono" spellCheck={false} />
+                  <Input
+                    variant="secondary"
+                    placeholder="Địa chỉ ví 0x…"
+                    className="font-mono"
+                    spellCheck={false}
+                  />
                   <FieldError>{issuesAt(i, "address")}</FieldError>
                 </TextField>
                 <Button
@@ -472,7 +481,6 @@ export function RulesStep({ draft, setDraft }: StepProps) {
             />
             <UsdcField
               label="Mỗi giao dịch"
-              description="Một lần chi không quá mức này."
               value={draft.maxPerTx}
               onChange={(n) => setDraft({ ...draft, maxPerTx: n })}
               error={limitError("maxPerTx")}
@@ -514,13 +522,13 @@ export function RulesStep({ draft, setDraft }: StepProps) {
                 },
               ].map((o) => (
                 <Radio key={o.value} value={o.value}>
-                  <Radio.Content className="relative flex h-full w-full flex-col items-start gap-1 rounded-xl text-left border border-border bg-surface px-4 py-3 pr-10 transition-colors data-[selected=true]:border-accent data-[selected=true]:bg-accent-soft">
-                    <Radio.Control className="absolute top-3 right-3 size-5">
+                  <Radio.Content>
+                    <Radio.Control>
                       <Radio.Indicator />
                     </Radio.Control>
                     <span className="text-sm font-semibold">{o.title}</span>
-                    <Description>{o.text}</Description>
                   </Radio.Content>
+                  <Description>{o.text}</Description>
                 </Radio>
               ))}
             </div>
@@ -542,9 +550,6 @@ export function RulesStep({ draft, setDraft }: StepProps) {
               </li>
             ))}
           </ul>
-          <p className="text-xs text-muted">
-            Két kiểm tra các quy tắc này trên blockchain. Agent, kể cả bị lừa, cũng không vượt qua được.
-          </p>
         </div>
       </aside>
     </div>

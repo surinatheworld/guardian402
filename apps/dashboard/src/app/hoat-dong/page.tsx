@@ -43,9 +43,7 @@ export default function Activity() {
 
   return (
     <>
-      <PageHeader title={PAGE.activity}>
-        Mỗi giao dịch của agent: Guardian chấm rủi ro, két quyết định.
-      </PageHeader>
+      <PageHeader title={PAGE.activity} />
 
       <div className="flex flex-col gap-4">
         <Tabs

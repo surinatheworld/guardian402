@@ -385,7 +385,7 @@ function Profile({ me }: { me: MeResponse }) {
           >
             <TextField type="email" autoComplete="email" isRequired value={email} onChange={setEmail}>
               <Label>Email</Label>
-              <Input />
+              <Input variant="secondary" />
             </TextField>
             <TextField
               type="password"
@@ -396,7 +396,7 @@ function Profile({ me }: { me: MeResponse }) {
               onChange={setPassword}
             >
               <Label>Mật khẩu (ít nhất 10 ký tự)</Label>
-              <Input />
+              <Input variant="secondary" />
             </TextField>
             {addPassword.isError ? (
               <p role="alert" className="text-sm text-danger">

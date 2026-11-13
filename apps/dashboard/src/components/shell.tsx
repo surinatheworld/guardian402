@@ -110,7 +110,7 @@ export function DemoBanner() {
   return (
     <div
       role="note"
-      className="flex min-h-8 items-center gap-2 bg-warning-soft px-4 py-1 text-xs text-warning-soft-foreground sm:px-6"
+      className="flex min-h-8 items-center gap-2 bg-surface-secondary px-4 py-1 text-xs text-foreground sm:px-6"
     >
       <Popover>
         <Button
@@ -519,7 +519,7 @@ function DemoViewChip() {
   if (!viewingDemo) return null;
   return (
     <div className="flex items-center gap-2">
-      <Chip size="sm" variant="soft" color="warning">
+      <Chip size="sm" variant="soft" color="default">
         <Eye aria-hidden="true" className="size-3.5" />
         <Chip.Label>
           Két demo<span className="hidden sm:inline"> · chỉ xem</span>

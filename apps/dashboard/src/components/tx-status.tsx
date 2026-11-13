@@ -2,11 +2,20 @@
 // The state of one wallet transaction, in place, under the button that started it.
 import { CircleCheckFill, CircleXmarkFill } from "@gravity-ui/icons";
 import { Spinner } from "@heroui/react/spinner";
+import { Button } from "@heroui/react/button";
 import type { ReactNode } from "react";
 import type { TxPhase } from "@/lib/tx";
 import { TxLink } from "./ui";
 
-export function TxStatus({ phase, done }: { phase: TxPhase; done: ReactNode }) {
+export function TxStatus({
+  phase,
+  done,
+  onCheck,
+}: {
+  phase: TxPhase;
+  done: ReactNode;
+  onCheck?: () => void;
+}) {
   if (phase.step === "idle") return null;
   return (
     <p role="status" aria-live="polite" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
@@ -20,6 +29,16 @@ export function TxStatus({ phase, done }: { phase: TxPhase; done: ReactNode }) {
           <Spinner size="sm" color="current" />
           <span>Đã gửi, đang chờ mạng xác nhận (vài giây)…</span>
           <TxLink hash={phase.hash} label="Xem" />
+        </>
+      ) : phase.step === "unknown" ? (
+        <>
+          <span>Đã gửi, chưa xác định kết quả. Kiểm tra trạng thái trước khi gửi lại.</span>
+          <TxLink hash={phase.hash} label="Xem giao dịch" />
+          {onCheck ? (
+            <Button size="sm" variant="secondary" onPress={onCheck}>
+              Kiểm tra trạng thái
+            </Button>
+          ) : null}
         </>
       ) : phase.step === "done" ? (
         <>

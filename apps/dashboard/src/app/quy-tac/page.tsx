@@ -50,7 +50,7 @@ export default function RulesPage() {
       <header className="flex flex-col gap-1 pt-4">
         <h1 className="text-title">{PAGE.rules}</h1>
         <p className="text-base text-muted">
-          Két kiểm tra các quy tắc này trên blockchain trước mỗi khoản chi. Mỗi thay đổi bạn ký trong ví.
+          Chọn người nhận, hạn mức và mức rủi ro agent được phép sử dụng.
         </p>
       </header>
       {viewingDemo ? null : <OwnerGateNotice gate={gate} />}
@@ -64,6 +64,7 @@ export default function RulesPage() {
       ) : null}
       {p ? (
         <>
+          <Recipients p={p} vault={vault} gate={gate} owner={owner} linked={linked} />
           <SpendLimits
             p={p}
             vault={vault}
@@ -72,10 +73,7 @@ export default function RulesPage() {
             limits={limits.data}
             unsupported={limits.unsupported}
           />
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Recipients p={p} vault={vault} gate={gate} owner={owner} linked={linked} />
-            <MaxRisk p={p} vault={vault} gate={gate} owner={owner} />
-          </div>
+          <MaxRisk p={p} vault={vault} gate={gate} owner={owner} />
           <Expand label="Nâng cao: ngưỡng duyệt, quyền rút cho ứng dụng, AVAX">
             <div className="flex flex-col gap-4">
               <Limits p={p} vault={vault} gate={gate} owner={owner} />
@@ -104,7 +102,7 @@ function Tile({
 }: {
   label: string;
   value: string;
-  sub: string;
+  sub?: string;
   action?: ReactNode;
   meter?: number;
 }) {
@@ -127,7 +125,7 @@ function Tile({
           </Meter.Track>
         </Meter>
       ) : null}
-      <span className="text-xs text-muted tabular-nums">{sub}</span>
+      {sub ? <span className="text-sm text-muted tabular-nums">{sub}</span> : null}
     </div>
   );
 }
@@ -188,7 +186,6 @@ function SpendLimits({
             <Tile
               label="Mỗi giao dịch"
               value={l && l.maxPerTx > 0n ? u(l.maxPerTx) : "Không giới hạn"}
-              sub="Một lần chi không quá mức này."
               action={edit(() => {
                 setPerTx(fromUnits(l?.maxPerTx ?? 0n, 6));
                 setBudget(fromUnits(l?.budget ?? 0n, 6));
@@ -517,6 +514,7 @@ function AmountField({
 }) {
   return (
     <NumberField
+      variant="secondary"
       value={value}
       onChange={onChange}
       minValue={0}

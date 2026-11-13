@@ -70,13 +70,13 @@ export default function TrialPage() {
   const demoOff = health.data ? !health.data.demoMode : false;
   const isDemoVault = vault.toLowerCase() === deployment.vault.toLowerCase();
   const liveReason = !AGENT_CONTROL_ENABLED
-    ? "Chạy thật chỉ có khi chạy Guardian402 trên máy của bạn. Ở đây bạn mô phỏng được mọi kịch bản."
+    ? "Giao dịch mạng thử không khả dụng ở đây. Bạn vẫn có thể mô phỏng các kịch bản được hỗ trợ."
     : !agent.isSuccess
-      ? "Agent demo chưa chạy (pnpm dev:agent)."
+      ? "Agent demo chưa sẵn sàng. Kiểm tra dịch vụ và thử lại."
       : agent.data.busy
         ? "Agent demo đang chạy một kịch bản khác."
         : scenario.needsOwner && agent.data.network === "fuji"
-          ? "Kịch bản này cần khoá chủ két ở phía agent; trên Fuji chủ két là ví của trưởng nhóm."
+          ? "Kịch bản này cần ví chủ két demo và không thể chạy ở đây."
           : null;
   const canLive = source === "kich-ban" && scenario.live && liveReason === null;
   const canSimulate = source !== "kich-ban" || Boolean(scenario.preset);
@@ -177,8 +177,8 @@ export default function TrialPage() {
       </PageHeader>
 
       {demoOff ? (
-        <Notice status="warning" title="Chạy thử chỉ có ở DEMO MODE">
-          Guardian đang chạy với DEMO_MODE=false nên không có chạy thử miễn phí.
+        <Notice status="warning" title="Chưa thể mô phỏng">
+          Dịch vụ hiện không hỗ trợ mô phỏng miễn phí.
         </Notice>
       ) : null}
 
@@ -249,7 +249,6 @@ export default function TrialPage() {
                             </Chip>
                           ) : null}
                         </div>
-                        <Description>{s.story}</Description>
                         <span className="text-xs text-muted">Mong đợi: {s.expected}</span>
                       </div>
                       <ListBox.ItemIndicator />
@@ -271,6 +270,7 @@ export default function TrialPage() {
                   description="Người nhận phải nằm trong danh sách tin cậy của két, nếu không két sẽ từ chối."
                 />
                 <NumberField
+                  variant="secondary"
                   value={amount}
                   onChange={(v) => {
                     setAmount(v);
@@ -300,6 +300,7 @@ export default function TrialPage() {
                 >
                   <Label>Các bước của giao dịch (JSON)</Label>
                   <TextArea
+                    variant="secondary"
                     rows={9}
                     spellCheck={false}
                     placeholder='[{ "target": "0x…", "value": "0", "data": "0x…" }]'
@@ -332,11 +333,11 @@ export default function TrialPage() {
                   <Radio.Control>
                     <Radio.Indicator />
                   </Radio.Control>
-                  Chỉ mô phỏng
+                  Mô phỏng
                 </Radio.Content>
                 <Description>
                   {canSimulate
-                    ? "Miễn phí. Không gửi gì lên chain."
+                    ? "Miễn phí, không gửi giao dịch lên mạng."
                     : "Kịch bản này cần chạy thật mới có kết quả."}
                 </Description>
               </Radio>
@@ -345,7 +346,7 @@ export default function TrialPage() {
                   <Radio.Control>
                     <Radio.Indicator />
                   </Radio.Control>
-                  Chạy thật trên {NETWORK === "fuji" ? "mạng thử Fuji" : "fork"}
+                  Giao dịch trên {NETWORK === "fuji" ? "mạng thử Fuji" : "mạng mô phỏng"}
                 </Radio.Content>
                 <Description>
                   {source !== "kich-ban"
