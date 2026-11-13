@@ -255,7 +255,11 @@ export function ActivityRows({ items, label, onOpen }: ListProps) {
                 <span className="block truncate text-sm text-muted">{view.why || view.label}</span>
               </span>
               <span className="flex items-center justify-between gap-3 sm:contents">
-                <span className="sm:justify-self-end">{guardianCell(item, false)}</span>
+                {/* The owner's question here is "paid or stopped?": the vault's decision, not the risk badge
+                    (a low-risk payment can still be refused by the vault). Risk stays in the detail drawer. */}
+                <span className="sm:justify-self-end">
+                  <VaultResult view={view} />
+                </span>
                 <span className="text-xs text-muted tabular-nums sm:hidden">
                   {out && (
                     <>
