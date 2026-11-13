@@ -46,6 +46,11 @@ export type SimulatorOptions = {
   retries?: number;
   maxLagSeconds?: number;
   resetIntervalMs?: number;
+  /**
+   * With an upstream: a batch that reverts on a fork reset longer ago than this is simulated once more on a fresh
+   * fork, since the revert may only mean the fork misses a recent transaction (e.g. the deposit it spends).
+   */
+  staleRevertMs?: number;
   /** Period of the background fork maintenance started by `start()`. */
   healthCheckIntervalMs?: number;
   /** Called when a background maintenance run fails; the next run retries. */
@@ -63,6 +68,7 @@ const DEFAULTS = {
   retries: 1,
   maxLagSeconds: 120,
   resetIntervalMs: 5 * 60_000,
+  staleRevertMs: 10_000,
   healthCheckIntervalMs: 15_000,
   gasBuffer: 10n ** 18n, // 1 AVAX for gas, added to the vault's own balance inside the snapshot
 };
@@ -119,7 +125,9 @@ export class Simulator {
    * Never throws: a timeout or any error becomes `success: false` with `unavailable` set (the simulation did
    * not run; the pipeline answers 503 and nobody is charged). A call that reverts is a normal result, without
    * `unavailable`. The time budget counts from the moment the run holds the fork, and a run that times out is
-   * retried once (src/sim/budget.ts). A timed-out run keeps the mutex until its snapshot is reverted.
+   * retried once (src/sim/budget.ts). A timed-out run keeps the mutex until its snapshot is reverted. With an
+   * upstream, a batch that reverts on a fork older than `staleRevertMs` runs once more after a reset to the latest
+   * block (`retryOnFreshFork`).
    */
   async simulate(
     vault: Address,
@@ -127,10 +135,34 @@ export class Simulator {
     trackedTokens: readonly Address[] = [],
   ): Promise<SimResult> {
     const started = performance.now();
+    const first = await this.#attempt(vault, calls, trackedTokens, started);
+    const sinceReset = Date.now() - this.#lastReset;
+    if (!retryOnFreshFork(first, this.#upstream !== undefined, sinceReset, this.#opts.staleRevertMs))
+      return first;
+    // The fork lags Fuji by up to `maxLagSeconds`: a payment right after a deposit reverted with "transfer amount
+    // exceeds balance" because the fork was taken before the deposit. Move the fork to the latest block and retry.
+    try {
+      await this.#mutex.run(() => this.#reset());
+    } catch (error) {
+      this.#opts.onMaintenanceError?.(error);
+      return first;
+    }
+    // The reset emptied the fork's cache: the first runs on it time out while they fill it, so this attempt may
+    // take a few more retries (still within `maxWaitMs`).
+    return this.#attempt(vault, calls, trackedTokens, started, this.#opts.retries + 3);
+  }
+
+  async #attempt(
+    vault: Address,
+    calls: readonly Call[],
+    trackedTokens: readonly Address[],
+    started: number,
+    retries = this.#opts.retries,
+  ): Promise<SimResult> {
     const outcome = await runWithBudget(
       this.#mutex,
       () => this.#simulateLocked(vault, calls, trackedTokens, started),
-      { timeoutMs: this.#opts.timeoutMs, maxWaitMs: this.#opts.maxWaitMs, retries: this.#opts.retries },
+      { timeoutMs: this.#opts.timeoutMs, maxWaitMs: this.#opts.maxWaitMs, retries },
     );
     if (outcome.kind === "done") return outcome.value;
     if (outcome.kind === "error") {
@@ -503,6 +535,19 @@ export class Simulator {
       durationMs: performance.now() - started,
     };
   }
+}
+
+/**
+ * Whether a finished simulation should run again on a fork reset to the latest block: it reverted (a real result,
+ * not a timeout or an error), there is an upstream to reset from, and the fork is older than `staleMs`.
+ */
+export function retryOnFreshFork(
+  result: Pick<SimResult, "success" | "unavailable">,
+  hasUpstream: boolean,
+  msSinceReset: number,
+  staleMs: number,
+): boolean {
+  return hasUpstream && !result.success && result.unavailable === undefined && msSinceReset >= staleMs;
 }
 
 /** Checksummed and de-duplicated. */
