@@ -9,6 +9,7 @@ import { Tabs } from "@heroui/react/tabs";
 import { toast } from "@heroui/react/toast";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { MCP_PACKAGE } from "@/lib/config";
 import { Expand } from "./ui";
 
 const API_DOCS = "https://github.com/surinatheworld/guardian402/blob/main/docs/API.md#agent-api-apiagentv1";
@@ -142,6 +143,7 @@ export function McpSetup({
     queryKey: ["setup-info"],
     queryFn: async () => (await (await fetch("/api/setup-info")).json()) as { repoRoot: string | null },
     staleTime: Infinity,
+    enabled: !MCP_PACKAGE,
   });
   const apiUrl = `${origin}/api/agent/v1`;
   const root = info.data?.repoRoot ?? "<thư mục guardian402>";
@@ -150,15 +152,15 @@ export function McpSetup({
     GUARDIAN_API_KEY: apiKey ?? "<khoá API g402_…>",
     AGENT_PK: agentPk ?? "<khoá riêng ví agent 0x…>",
   };
-  const mcpConfig = JSON.stringify(
-    { mcpServers: { guardian402: { command: "pnpm", args: ["--silent", "--dir", root, "mcp:agent"], env } } },
-    null,
-    2,
-  );
+  // The published package needs only Node.js; without it, the server runs from a clone with pnpm.
+  const server = MCP_PACKAGE
+    ? { command: "npx", args: ["-y", MCP_PACKAGE] }
+    : { command: "pnpm", args: ["--silent", "--dir", root, "mcp:agent"] };
+  const mcpConfig = JSON.stringify({ mcpServers: { guardian402: { ...server, env } } }, null, 2);
   const cliExample = [
     "claude mcp add guardian402 \\",
     ...Object.entries(env).map(([k, v]) => `  --env ${k}=${v} \\`),
-    `  -- pnpm --silent --dir ${root} mcp:agent`,
+    `  -- ${server.command} ${server.args.join(" ")}`,
   ].join("\n");
   const curl = `curl -H "Authorization: Bearer ${env.GUARDIAN_API_KEY}" \\\n  ${apiUrl}/me`;
 
@@ -223,10 +225,20 @@ export function McpSetup({
           </p>
           <CodeBlock code={mcpConfig} copyLabel="Chép cấu hình" />
           <p className="text-xs text-muted">
-            Máy chạy agent cần Node.js, pnpm và mã nguồn Guardian402 (chạy{" "}
-            <code className="font-mono">pnpm install</code> một lần). Trên Windows, nếu ứng dụng báo không
-            chạy được <code className="font-mono">pnpm</code>, đổi thành{" "}
-            <code className="font-mono">pnpm.cmd</code>.
+            {MCP_PACKAGE ? (
+              <>
+                Máy chạy agent chỉ cần Node.js 22.13 trở lên; <code className="font-mono">npx</code> tự tải
+                gói. Trên Windows, nếu ứng dụng báo không chạy được <code className="font-mono">npx</code>,
+                đổi thành <code className="font-mono">npx.cmd</code>.
+              </>
+            ) : (
+              <>
+                Máy chạy agent cần Node.js, pnpm và mã nguồn Guardian402 (chạy{" "}
+                <code className="font-mono">pnpm install</code> một lần). Trên Windows, nếu ứng dụng báo không
+                chạy được <code className="font-mono">pnpm</code>, đổi thành{" "}
+                <code className="font-mono">pnpm.cmd</code>.
+              </>
+            )}
           </p>
           <div className="flex flex-col gap-2 text-sm">
             <span className="font-medium">Agent sẽ có 4 công cụ</span>

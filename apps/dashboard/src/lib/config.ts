@@ -38,6 +38,12 @@ export const AGENT_URL = (
  */
 export const AGENT_CONTROL_ENABLED = process.env.NEXT_PUBLIC_AGENT_CONTROL !== "off";
 
+/**
+ * `NEXT_PUBLIC_MCP_PACKAGE`: the published agent MCP package (e.g. `guardian402-mcp@0.1.0`, packages/mcp-agent). When
+ * set, the connect section shows `npx -y <package>` (no source checkout needed); empty: the pnpm command in a clone.
+ */
+export const MCP_PACKAGE = process.env.NEXT_PUBLIC_MCP_PACKAGE?.trim() ?? "";
+
 export type TokenMeta = { symbol: string; decimals: number };
 const tokens: Record<string, TokenMeta> = {
   [deployment.usdc.toLowerCase()]: { symbol: USDC_FUJI.symbol, decimals: USDC_FUJI.decimals },

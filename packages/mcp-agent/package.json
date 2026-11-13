@@ -1,0 +1,45 @@
+{
+  "name": "guardian402-mcp",
+  "version": "0.1.0",
+  "description": "Guardian402 MCP server for an AI agent: pay from an AgentVault on Avalanche Fuji with Guardian approval (x402). Testnet only.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "guardian402-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/surinatheworld/guardian402.git",
+    "directory": "packages/mcp-agent"
+  },
+  "keywords": [
+    "mcp",
+    "x402",
+    "avalanche",
+    "ai-agent"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node build.mjs && node --test test/smoke.test.mjs",
+    "prepublishOnly": "node build.mjs && node --test test/smoke.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@x402/core": "2.28.0",
+    "@x402/evm": "2.28.0",
+    "@x402/fetch": "2.28.0",
+    "viem": "2.57.7",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@guardian402/guardian-mcp": "workspace:*",
+    "esbuild": "0.28.2"
+  }
+}
