@@ -88,7 +88,7 @@ Bạn cho một AI agent 50 USDC để tự trả tiền dịch vụ, trả đ�
 
 ### Dùng thử ngay, không cần ví
 
-Bản chạy công khai: **https://hispanic-avoiding-landscape-brass.trycloudflare.com** (URL tạm của Cloudflare quick tunnel, có thể đổi khi máy chủ khởi động lại; xem [mục 8](#8-cài-đặt-và-chạy) để chạy trên máy bạn).
+Bản chạy công khai: **https://criteria-frequent-commission-interior.trycloudflare.com** (URL tạm của Cloudflare quick tunnel, có thể đổi khi máy chủ khởi động lại; xem [mục 8](#8-cài-đặt-và-chạy) để chạy trên máy bạn).
 
 Bấm **Xem két demo** ở trang đăng nhập để xem két demo chỉ đọc, rồi mở **Chạy thử** để Guardian chấm bất kỳ kịch bản nào. Chạy thử miễn phí và không gửi gì lên blockchain.
 
