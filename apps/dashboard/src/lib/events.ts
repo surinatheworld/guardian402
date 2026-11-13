@@ -2,6 +2,8 @@
 // AgentVault `Executed` events. The public Fuji RPC caps eth_getLogs at 100 blocks, so on Fuji the events come
 // from Routescan's Etherscan-compatible API (the backend of testnet.snowtrace.io, no key, open CORS) in one
 // request. On the local fork, the last 100 blocks are read from the fork RPC.
+// Routescan caches a getLogs answer per URL: with `toBlock=latest` the same URL keeps returning an old answer
+// (a payment made an hour earlier was still missing), so the query names the current block number instead.
 import { useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 import { decodeEventLog, getAbiItem, toEventSelector, type Hex, type Address } from "viem";
@@ -33,6 +35,8 @@ type RoutescanLog = {
 export async function fetchExecutedFromRoutescan(
   fetcher: typeof fetch = fetch,
   vault: Address = deployment.vault,
+  /** The chain head; without it the query falls back to `latest` (cached by Routescan, may be stale). */
+  toBlock?: bigint,
 ): Promise<ExecutedEvent[]> {
   const url = new URL(ROUTESCAN);
   url.search = new URLSearchParams({
@@ -41,7 +45,7 @@ export async function fetchExecutedFromRoutescan(
     address: vault,
     topic0: toEventSelector(executed),
     fromBlock: vault.toLowerCase() === deployment.vault.toLowerCase() ? String(deployment.startBlock) : "0",
-    toBlock: "latest",
+    toBlock: toBlock === undefined ? "latest" : toBlock.toString(),
   }).toString();
   const res = await fetcher(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Routescan HTTP ${res.status}`);
@@ -78,7 +82,10 @@ export function useExecutedEvents() {
     queryKey: ["vault", "executed", NETWORK, vault],
     refetchInterval: 15_000,
     queryFn: async (): Promise<ExecutedEvent[]> => {
-      if (NETWORK === "fuji") return fetchExecutedFromRoutescan(fetch, vault);
+      if (NETWORK === "fuji") {
+        const head = client ? await client.getBlockNumber().catch(() => undefined) : undefined;
+        return fetchExecutedFromRoutescan(fetch, vault, head);
+      }
       if (!client) return [];
       const to = await client.getBlockNumber();
       const logs = await client.getLogs({
