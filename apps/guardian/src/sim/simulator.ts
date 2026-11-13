@@ -94,6 +94,8 @@ export class Simulator {
   readonly #meta = new Map<string, TokenMeta | null>();
   /** Accounts (`address`) and slots (`address:slot`) already read outside a snapshot, see #pin. */
   readonly #pinned = new Set<string>();
+  /** Every account and slot the simulations have read, kept across resets so a reset can re-read them at once. */
+  readonly #known: TouchedState = new Map();
   #lastReset: number;
   #lastForkBlock = 0n;
   #timer: NodeJS.Timeout | undefined;
@@ -236,6 +238,9 @@ export class Simulator {
     await this.#test.reset({ jsonRpcUrl: this.#opts.upstreamRpcUrl, blockNumber: target });
     this.#lastReset = Date.now();
     this.#pinned.clear(); // the reset emptied the fork's cache
+    // Refill it in one parallel batch with what earlier simulations read: otherwise the next simulation fetches
+    // each slot from Fuji one by one while it runs, which took more than the 10 s wait cap on the hosted server.
+    await this.#pin(this.#known).catch(() => undefined);
     // We hold the mutex here: let the callback queue its work after it.
     if (this.#opts.onReset) setImmediate(this.#opts.onReset);
   }
@@ -389,9 +394,17 @@ export class Simulator {
    * them in the fork's cache for later runs. Pure reads: the fork state does not change.
    */
   async #pin(touched: TouchedState): Promise<void> {
-    if (this.#pinned.size > MAX_PINNED) this.#pinned.clear();
+    if (this.#pinned.size > MAX_PINNED) {
+      this.#pinned.clear();
+      this.#known.clear();
+    }
     const reads: Promise<unknown>[] = [];
     for (const [address, slots] of touched) {
+      if (touched !== this.#known) {
+        const known = this.#known.get(address) ?? new Set<Hex>();
+        for (const slot of slots) known.add(slot);
+        this.#known.set(address, known);
+      }
       const account = address as Address;
       if (!this.#pinned.has(address)) {
         this.#pinned.add(address);
