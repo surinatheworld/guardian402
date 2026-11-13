@@ -6,8 +6,8 @@
 // (a payment made an hour earlier was still missing), so the query names the current block number instead.
 import { useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
-import { decodeEventLog, getAbiItem, toEventSelector, type Hex, type Address } from "viem";
-import { agentVaultAbi } from "@guardian402/shared";
+import { decodeEventLog, getAbiItem, pad, toEventSelector, type Hex, type Address } from "viem";
+import { agentVaultAbi, vaultFactoryAbi } from "@guardian402/shared";
 import { deployment, NETWORK } from "./config";
 import { useSelectedVault } from "./vault-context";
 
@@ -118,5 +118,54 @@ export function useExecutedEvents() {
         };
       });
     },
+  });
+}
+
+const vaultCreated = getAbiItem({ abi: vaultFactoryAbi, name: "VaultCreated" });
+
+/**
+ * Vaults the factory created with `wallet` as their agent (VaultCreated indexes the agent), from Routescan on
+ * Fuji. Used to warn an owner who is about to use an agent wallet as the owner of a new vault. Fuji only.
+ */
+export async function fetchVaultsWithAgent(
+  wallet: Address,
+  fetcher: typeof fetch = fetch,
+): Promise<Address[]> {
+  if (!deployment.factory) return [];
+  const url = new URL(ROUTESCAN);
+  url.search = new URLSearchParams({
+    module: "logs",
+    action: "getLogs",
+    address: deployment.factory,
+    topic0: toEventSelector(vaultCreated),
+    topic3: pad(wallet.toLowerCase() as Hex, { size: 32 }),
+    topic0_3_opr: "and",
+    fromBlock: String(deployment.factoryStartBlock ?? 0),
+    toBlock: "99999999",
+  }).toString();
+  const res = await fetcher(url, { cache: "no-store" });
+  if (!res.ok) return [];
+  const body = (await res.json()) as { result: RoutescanLog[] | string };
+  if (!Array.isArray(body.result)) return [];
+  return body.result.flatMap((l) => {
+    try {
+      const { args } = decodeEventLog({
+        abi: [vaultCreated],
+        topics: l.topics as [Hex, ...Hex[]],
+        data: l.data,
+      });
+      return [args.vault as Address];
+    } catch {
+      return []; // not a VaultCreated log: a warning helper never fails the page
+    }
+  });
+}
+
+export function useVaultsWithAgent(wallet: Address | undefined) {
+  return useQuery({
+    queryKey: ["factory", "vaults-with-agent", wallet],
+    queryFn: () => fetchVaultsWithAgent(wallet as Address),
+    enabled: NETWORK === "fuji" && Boolean(wallet),
+    staleTime: 60_000,
   });
 }

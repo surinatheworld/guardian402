@@ -30,6 +30,7 @@ import { useAccount, useChainId, useSignMessage, useSwitchChain } from "wagmi";
 import { avalancheFuji } from "wagmi/chains";
 import { signInWithWallet, useMe, useRefreshMe } from "@/lib/account";
 import { FAUCET, OWNER_GAS_MIN, useBalances } from "@/lib/balances";
+import { useVaultsWithAgent } from "@/lib/events";
 import { formatAmount, shortHex } from "@/lib/format";
 import {
   checkAgent,
@@ -120,6 +121,7 @@ export function useOwnerReady() {
 
 export function OwnerStep() {
   const o = useOwnerReady();
+  const agentOf = useVaultsWithAgent(o.address as Address | undefined);
   const refresh = useRefreshMe();
   const { signMessageAsync } = useSignMessage();
   const { switchChain, isPending: switching } = useSwitchChain();
@@ -157,6 +159,20 @@ export function OwnerStep() {
                 Chuyển mạng
               </Button>
             )
+          }
+        />
+      ) : null}
+      {o.isConnected && agentOf.data?.length ? (
+        <Check
+          state="bad"
+          title="Ví này đang là ví agent của két khác"
+          detail={
+            <>
+              Ví {shortHex(o.address ?? "")} là ví agent của két{" "}
+              {agentOf.data.map((v) => shortHex(v)).join(", ")}. Nên làm chủ két bằng một ví khác, ví bạn tự
+              giữ: khoá ví agent được đưa cho AI, nên không nên giữ quyền rút tiền và đổi quy tắc. Đổi tài
+              khoản trong ví rồi kết nối lại.
+            </>
           }
         />
       ) : null}

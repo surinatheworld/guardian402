@@ -213,3 +213,166 @@ export function AgentFeeForm({ agent, onDone }: { agent: Address; onDone?: () =>
     </div>
   );
 }
+
+/** What one press of "Nạp tất cả" sends: the deposit, then the agent's fees when its wallet is low. */
+export function fundingPlan(p: {
+  deposit: bigint;
+  agentAvax: bigint | undefined;
+  agentUsdc: bigint | undefined;
+}): ("deposit" | "gas" | "fee")[] {
+  const plan: ("deposit" | "gas" | "fee")[] = [];
+  if (p.deposit > 0n) plan.push("deposit");
+  if (p.agentAvax !== undefined && p.agentAvax < AGENT_FEE_AVAX / 2n) plan.push("gas");
+  if (p.agentUsdc !== undefined && p.agentUsdc < AGENT_FEE_USDC / 2n) plan.push("fee");
+  return plan;
+}
+
+const STEP_LABEL = {
+  deposit: (raw: bigint) => `Nạp ${formatUnits(raw, 6)} USDC vào két`,
+  gas: () => `Gửi ${formatUnits(AGENT_FEE_AVAX, 18)} AVAX phí mạng cho ví agent`,
+  fee: () => `Gửi ${formatUnits(AGENT_FEE_USDC, 6)} USDC phí Guardian cho ví agent`,
+} as const;
+
+/**
+ * The deposit and the agent's fees in one press (step 5 of /bat-dau): each is still its own transaction the owner
+ * signs in the wallet, sent one after the other, and a refusal stops the rest.
+ */
+export function FundAllForm({
+  vault,
+  agent,
+  onDone,
+}: {
+  vault: Address;
+  agent: Address;
+  onDone?: () => void;
+}) {
+  const { address, isConnected } = useAccount();
+  const wallet = useBalances(address);
+  const inVault = useBalances(vault);
+  const agentBalances = useBalances(agent);
+  const { writeContractAsync } = useWriteContract();
+  const { sendTransactionAsync } = useSendTransaction();
+  const txs = { deposit: useTx(), gas: useTx(), fee: useTx() };
+  const [running, setRunning] = useState(false);
+  const [amount, setAmount] = useState<number | null>(null);
+
+  if (!isConnected || !address)
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <p className="text-sm text-muted">Kết nối ví chủ để nạp.</p>
+        <ConnectWalletButton />
+      </div>
+    );
+
+  const agentNeedsFee = agentBalances.usdc !== undefined && agentBalances.usdc < AGENT_FEE_USDC / 2n;
+  const spendable =
+    wallet.usdc === undefined ? undefined : wallet.usdc - (agentNeedsFee ? AGENT_FEE_USDC : 0n);
+  const suggested =
+    spendable === undefined ? 10 : Math.max(0, Math.min(10, Math.floor(fromUnits(spendable, 6))));
+  const value = amount ?? suggested;
+  const raw = Number.isFinite(value) && value > 0 ? parseUnits(String(value), 6) : 0n;
+  const plan = fundingPlan({ deposit: raw, agentAvax: agentBalances.avax, agentUsdc: agentBalances.usdc });
+  const usdcNeeded = raw + (plan.includes("fee") ? AGENT_FEE_USDC : 0n);
+  const avaxNeeded = plan.includes("gas") ? AGENT_FEE_AVAX : 0n;
+  const short =
+    wallet.usdc !== undefined && usdcNeeded > wallet.usdc
+      ? "Ví không đủ USDC cho tất cả các khoản."
+      : wallet.avax !== undefined && avaxNeeded + AGENT_FEE_AVAX / 10n > wallet.avax
+        ? "Ví không đủ AVAX cho phí agent và phí mạng."
+        : null;
+  const allDone = plan.length > 0 && plan.every((s) => txs[s].phase.step === "done");
+
+  async function runAll() {
+    setRunning(true);
+    for (const step of plan) {
+      if (txs[step].phase.step === "done") continue;
+      const r = await txs[step].run(() =>
+        step === "gas"
+          ? sendTransactionAsync({ to: agent, value: AGENT_FEE_AVAX, chainId: avalancheFuji.id })
+          : writeContractAsync({
+              address: deployment.usdc,
+              abi: erc20Abi,
+              functionName: "transfer",
+              args: step === "deposit" ? [vault, raw] : [agent, AGENT_FEE_USDC],
+              chainId: avalancheFuji.id,
+            }),
+      );
+      if (!r) break; // refused or failed: stop, the owner sees why on that line
+    }
+    setRunning(false);
+    onDone?.();
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <dl className="grid grid-cols-3 gap-3 text-sm">
+        <div className="flex flex-col gap-0.5 rounded-xl bg-surface-secondary p-3">
+          <dt className="text-muted">Ví của bạn</dt>
+          <dd className="font-semibold tabular-nums">{usdcText(wallet.usdc)}</dd>
+        </div>
+        <div className="flex flex-col gap-0.5 rounded-xl bg-surface-secondary p-3">
+          <dt className="text-muted">Trong két</dt>
+          <dd className="font-semibold tabular-nums">{usdcText(inVault.usdc)}</dd>
+        </div>
+        <div className="flex flex-col gap-0.5 rounded-xl bg-surface-secondary p-3">
+          <dt className="text-muted">Ví agent</dt>
+          <dd className="font-semibold tabular-nums">
+            {avaxText(agentBalances.avax)} · {usdcText(agentBalances.usdc)}
+          </dd>
+        </div>
+      </dl>
+      {wallet.usdc === 0n ? (
+        <p className="text-sm text-muted">
+          Ví chưa có USDC. <FaucetLink token="usdc" />, chọn mạng Avalanche Fuji và dán địa chỉ ví của bạn.
+        </p>
+      ) : null}
+      <NumberField
+        variant="secondary"
+        value={value}
+        onChange={setAmount}
+        minValue={0}
+        step={1}
+        formatOptions={{ maximumFractionDigits: 6 }}
+        isDisabled={running || allDone}
+      >
+        <Label>Số USDC nạp vào két</Label>
+        <NumberField.Group>
+          <NumberField.DecrementButton />
+          <NumberField.Input />
+          <NumberField.IncrementButton />
+        </NumberField.Group>
+        <Description>Agent chỉ tiêu được tiền trong két, theo quy tắc của két.</Description>
+      </NumberField>
+
+      {plan.length ? (
+        <ol aria-label="Các khoản sẽ gửi" className="flex flex-col gap-2 text-sm">
+          {plan.map((step, i) => (
+            <li key={step} className="flex flex-col gap-1 rounded-xl bg-surface-secondary p-3">
+              <span className="flex items-center gap-2">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-surface text-xs font-semibold tabular-nums">
+                  {i + 1}
+                </span>
+                {STEP_LABEL[step](raw)}
+              </span>
+              <TxStatus phase={txs[step].phase} done="Xong" onCheck={() => void txs[step].checkStatus()} />
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="text-sm text-muted">Két đã có tiền và ví agent đã đủ phí.</p>
+      )}
+      {short ? <p className="text-sm text-danger">{short}</p> : null}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="primary"
+          isDisabled={!plan.length || Boolean(short) || allDone}
+          isPending={running}
+          onPress={() => void runAll()}
+        >
+          {allDone ? "Đã nạp xong" : plan.length > 1 ? `Nạp tất cả (${plan.length} lần ký trong ví)` : "Nạp"}
+        </Button>
+      </div>
+    </div>
+  );
+}

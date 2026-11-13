@@ -23,7 +23,7 @@ import { avalancheFuji } from "wagmi/chains";
 import { vaultFactoryAbi } from "@guardian402/shared";
 import { McpSetup } from "@/components/connect-agent";
 import { WebAgentTry } from "@/components/web-agent-try";
-import { AgentFeeForm, DepositForm } from "@/components/fund";
+import { FundAllForm } from "@/components/fund";
 import { errorOf } from "@/components/form";
 import {
   AgentStep,
@@ -499,18 +499,12 @@ export default function SetupPage() {
             </>
           }
         >
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <section className="flex flex-col gap-3">
-              <h3 className="text-heading">Tiền cho agent tiêu</h3>
-              <DepositForm vault={created.vault} />
-            </section>
-            <section className="flex flex-col gap-3">
-              <h3 className="text-heading">Phí cho ví agent</h3>
-              <p className="text-sm text-muted">
-                Agent tự trả phí mạng và phí Guardian từ ví riêng, không lấy từ két.
-              </p>
-              <AgentFeeForm agent={draft.agentAddress as Address} />
-            </section>
+          <div className="flex max-w-2xl flex-col gap-3">
+            <p className="text-sm text-muted">
+              Tiền nạp vào két là tiền agent được tiêu. Agent tự trả phí mạng và phí Guardian từ ví riêng, nên
+              nếu ví agent còn thiếu, nút dưới đây gửi luôn phí cho nó.
+            </p>
+            <FundAllForm vault={created.vault} agent={draft.agentAddress as Address} />
           </div>
         </StepCard>
       ) : null}
