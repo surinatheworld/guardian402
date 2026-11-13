@@ -61,7 +61,24 @@ export function createGuardianCore(env: Env, log: Logger): GuardianCore {
   const warmUp = () => {
     void simulator
       .simulate(deployment.vault, warmCalls)
-      .then((r) => log.info({ ms: Math.round(r.durationMs), ok: r.success }, "fork warm-up"));
+      // Right after a reset the warm-up usually runs out of its 800 ms budget while it fills the fork's cache:
+      // that is its job, not a failure. Only a revert would mean the warm batch itself is wrong.
+      .then((r) =>
+        log.info(
+          {
+            ms: Math.round(r.durationMs),
+            result: r.success
+              ? "ok"
+              : r.timedOut
+                ? "cache-filled"
+                : r.unavailable
+                  ? "unavailable"
+                  : "reverted",
+            ...(!r.success && !r.unavailable ? { revert: r.revertReason } : {}),
+          },
+          "fork warm-up",
+        ),
+      );
   };
   const simulator: Simulator = new Simulator({
     forkRpcUrl: env.FORK_RPC_URL,
