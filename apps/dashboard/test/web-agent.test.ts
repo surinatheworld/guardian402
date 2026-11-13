@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { decodeFunctionData, erc20Abi } from "viem";
 import { USDC_FUJI } from "@guardian402/shared";
 import { tryAmounts } from "../src/components/web-agent-try";
-import { agentAddressOf, isAgentKey, usdcTransfer } from "../src/lib/web-agent";
+import { agentAddressOf, isAgentKey, toAgentKey, usdcTransfer } from "../src/lib/web-agent";
 
 const U = 1_000_000n;
 
@@ -36,6 +36,10 @@ describe("web agent", () => {
     const key = `0x${"11".repeat(32)}`;
     expect(isAgentKey(key)).toBe(true);
     expect(isAgentKey("0x1234")).toBe(false);
+    // MetaMask exports the key without 0x; surrounding spaces from a paste are ignored.
+    expect(isAgentKey(` ${key.slice(2)} `)).toBe(true);
+    expect(agentAddressOf(key.slice(2))).toBe(agentAddressOf(key));
+    expect(toAgentKey(key.slice(2))).toBe(key);
     expect(agentAddressOf(key)).toMatch(/^0x[0-9a-fA-F]{40}$/);
     expect(agentAddressOf("nope")).toBeNull();
   });

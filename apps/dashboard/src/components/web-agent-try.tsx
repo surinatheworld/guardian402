@@ -16,7 +16,14 @@ import { agentVaultAbi } from "@guardian402/shared";
 import { AGENT_FEE_AVAX, useBalances } from "@/lib/balances";
 import { deployment } from "@/lib/config";
 import { shortHex } from "@/lib/format";
-import { agentAddressOf, isAgentKey, usdcTransfer, webPay, type WebPayResult } from "@/lib/web-agent";
+import {
+  agentAddressOf,
+  isAgentKey,
+  toAgentKey,
+  usdcTransfer,
+  webPay,
+  type WebPayResult,
+} from "@/lib/web-agent";
 import { useContacts } from "@/lib/workspace";
 import { AgentFeeForm } from "./fund";
 import { Notice, TxLink } from "./ui";
@@ -102,7 +109,7 @@ export function WebAgentTry({ vault, initialKey }: { vault: Address; initialKey?
     setRunning(kind);
     setResult(null);
     const r = await webPay({
-      agentKey: key.trim() as Hex,
+      agentKey: toAgentKey(key) as Hex,
       vault,
       calls:
         kind === "ok"
@@ -132,7 +139,7 @@ export function WebAgentTry({ vault, initialKey }: { vault: Address; initialKey?
           <Input
             variant="secondary"
             type="password"
-            placeholder="0x…"
+            placeholder="0x… hoặc 64 ký tự xuất từ MetaMask"
             spellCheck={false}
             className="font-mono"
           />
@@ -140,7 +147,7 @@ export function WebAgentTry({ vault, initialKey }: { vault: Address; initialKey?
             {!key
               ? "Khoá chỉ nằm trong tab này để ký thử; không gửi lên máy chủ."
               : !isAgentKey(key)
-                ? "Khoá riêng có dạng 0x và 64 ký tự."
+                ? "Khoá riêng có 64 ký tự (có hoặc không có 0x ở đầu)."
                 : keyMatches
                   ? `Đúng ví agent của két (${shortHex(agentFromKey ?? "", 6, 4)}).`
                   : `Đây là ví ${shortHex(agentFromKey ?? "", 6, 4)}, không phải ví agent của két (${shortHex(vaultAgent ?? "", 6, 4)}).`}

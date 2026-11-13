@@ -49,12 +49,23 @@ export type WebPayResult =
     }
   | { outcome: "error"; message: string };
 
-export const isAgentKey = (v: string) => /^0x[0-9a-fA-F]{64}$/.test(v.trim());
+/**
+ * A private key as typed or pasted: wallets such as MetaMask export it without the 0x prefix, so both forms are
+ * accepted. Returns the 0x form, or null when it is not 32 bytes of hex.
+ */
+export function toAgentKey(v: string): Hex | null {
+  const raw = v.trim();
+  const key = /^0x/i.test(raw) ? `0x${raw.slice(2)}` : `0x${raw}`;
+  return /^0x[0-9a-fA-F]{64}$/.test(key) ? (key as Hex) : null;
+}
+
+export const isAgentKey = (v: string) => toAgentKey(v) !== null;
 
 /** The agent wallet address for a key, or null when the key is not a valid private key. */
 export function agentAddressOf(key: string): Address | null {
   try {
-    return isAgentKey(key) ? privateKeyToAccount(key.trim() as Hex).address : null;
+    const k = toAgentKey(key);
+    return k ? privateKeyToAccount(k).address : null;
   } catch {
     return null;
   }
