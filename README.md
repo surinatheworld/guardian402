@@ -111,8 +111,8 @@ Bấm **Xem két demo** ở trang đăng nhập để xem két demo chỉ đọc
    | 2. Agent         | Nhập địa chỉ ví của agent, hoặc tạo ví mới ngay trong trình duyệt                         | —                                                    |
    | 3. Quy tắc       | Chọn người nhận được trả tiền; hạn mức mỗi ngày, mỗi giao dịch và tổng; mức rủi ro tối đa | —                                                    |
    | 4. Tạo két       | Ký **một** giao dịch                                                                      | `VaultFactory.createVault(agent, guardian, quy tắc)` |
-   | 5. Nạp tiền      | Nạp USDC từ ví (MetaMask, Core) vào két; gửi một ít phí cho ví agent                      | chuyển USDC thường                                   |
-   | 6. Kết nối agent | Nhận **khoá API** và lệnh cấu hình **MCP server** cho agent                               | —                                                    |
+   | 5. Nạp tiền      | Một nút: nạp USDC vào két, kèm phí cho ví agent nếu ví agent còn thiếu                    | chuyển USDC thường                                   |
+   | 6. Kết nối agent | Bấm **Thử ngay trên web** để xem agent trả tiền; nhận **khoá API** và cấu hình **MCP**    | giao dịch của agent                                  |
 
 3. **Để agent tự chạy.** Từ đây két tự thực thi quy tắc trên blockchain. Bạn theo dõi ở **Tổng quan** và **Hoạt động**: số dư, hạn mức đã dùng, khoản nào bị chặn và vì sao.
 4. **Khi cần:**
@@ -128,6 +128,10 @@ Bấm **Xem két demo** ở trang đăng nhập để xem két demo chỉ đọc
 | Quy tắc chi tiêu | `/quy-tac`   | Agent được tiêu bao nhiêu, cho ai?         |
 | Agent            | `/agent`     | Khoá API, cấu hình MCP, phí trong ví agent |
 | Chạy thử         | `/chay-thu`  | Guardian xử lý giao dịch này ra sao?       |
+
+### Thử agent ngay trên web, không cần cài gì
+
+Bước cuối của trang Bắt đầu và trang **Agent** có khung **Thử agent ngay trên web**. Một nút trả một khoản nhỏ cho người nhận được phép; nút còn lại thử một khoản quy tắc sẽ chặn. Trang làm đúng các bước của công cụ `pay`: Guardian chạy thử và duyệt (ví agent trả phí 0,01 USDC qua x402), két kiểm lại, rồi ví agent gửi giao dịch. Khoá ví agent chỉ nằm trong tab trình duyệt: là ví vừa tạo ở bước 2, hoặc bạn dán vào. Khoá không gửi lên máy chủ.
 
 ### Phía agent: một khoá API và một MCP server
 
@@ -152,7 +156,7 @@ Agent cần 3 thông tin: **địa chỉ API** (`https://<dashboard>/api/agent/v
 }
 ```
 
-Khoá riêng của ví agent chỉ nằm trên máy chạy agent; dashboard không bao giờ nhận nó. Khoá API không rút được tiền và không đổi được quy tắc.
+Khi gói npm `guardian402-mcp` (`packages/mcp-agent`) đã được đăng, cấu hình chỉ còn `"command": "npx", "args": ["-y", "guardian402-mcp"]`: không cần tải mã nguồn. Khoá riêng của ví agent chỉ nằm trên máy chạy agent; dashboard không bao giờ nhận nó. Khoá API không rút được tiền và không đổi được quy tắc.
 
 | Công cụ MCP       | Làm gì                                                              | Phí        |
 | :---------------- | :------------------------------------------------------------------ | :--------- |
