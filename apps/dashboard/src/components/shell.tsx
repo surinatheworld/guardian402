@@ -117,7 +117,7 @@ export function DemoBanner() {
           size="sm"
           variant="ghost"
           aria-label="Thông tin DEMO MODE"
-          className="h-auto px-0 text-xs font-semibold text-inherit"
+          className="h-auto min-h-6 px-0 text-xs font-semibold text-inherit"
         >
           DEMO MODE
         </Button>
