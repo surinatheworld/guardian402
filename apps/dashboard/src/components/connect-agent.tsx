@@ -1,14 +1,17 @@
 "use client";
-// Connect the owner's AI agent: the API key (shown once), and the MCP server config to paste into the agent's
-// client. The agent then has four tools (get_rules, check_payment, pay, get_transaction); `pay` asks the
-// Guardian and lets the vault execute, or sends nothing (apps/guardian-mcp/src/agent-tools.ts).
-import { Check, Copy, TriangleExclamation } from "@gravity-ui/icons";
+// Connect the owner's AI agent, whatever runs it: the three values the agent needs (API URL, API key, the agent
+// wallet's key), then either the MCP server config (any MCP client: the `mcpServers` format) or the REST steps.
+// With MCP the agent gets four tools (get_rules, check_payment, pay, get_transaction); `pay` asks the Guardian and
+// lets the vault execute, or sends nothing (apps/guardian-mcp/src/agent-tools.ts).
+import { ArrowUpRightFromSquare, Check, Copy, TriangleExclamation } from "@gravity-ui/icons";
 import { Button } from "@heroui/react/button";
 import { Tabs } from "@heroui/react/tabs";
 import { toast } from "@heroui/react/toast";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useSyncExternalStore } from "react";
-import { Notice } from "./ui";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { Expand } from "./ui";
+
+const API_DOCS = "https://github.com/surinatheworld/guardian402/blob/main/docs/API.md#agent-api-apiagentv1";
 
 export function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
@@ -35,8 +38,8 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
 
 export function CodeBlock({ code, copyLabel = "Chép" }: { code: string; copyLabel?: string }) {
   return (
-    <div className="flex flex-col gap-2">
-      <pre className="max-h-80 overflow-auto rounded-xl bg-surface-secondary p-4 font-mono text-xs leading-relaxed whitespace-pre">
+    <div className="flex min-w-0 flex-col gap-2">
+      <pre className="max-h-[28rem] max-w-full overflow-auto rounded-xl bg-surface-secondary p-4 font-mono text-xs leading-relaxed whitespace-pre">
         {code}
       </pre>
       <div>
@@ -72,7 +75,68 @@ const useOrigin = () =>
     () => "",
   );
 
-/** MCP config for the agent's client. Secrets are filled in only when this page has them right now. */
+const short = (v: string) => (v.length > 16 ? `${v.slice(0, 10)}…${v.slice(-4)}` : v);
+
+/** One value the agent needs: what it is, the value (or how to get it), and a copy button when there is one. */
+function ConnectionRow({
+  label,
+  hint,
+  value,
+  display,
+  copyLabel,
+  empty,
+}: {
+  label: string;
+  hint: ReactNode;
+  value?: string | null | undefined;
+  display?: string | undefined;
+  copyLabel: string;
+  empty?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-sm font-medium">{label}</span>
+        <span className="text-xs text-muted">{hint}</span>
+        {value ? (
+          <code className="mt-1 font-mono text-xs break-all text-foreground">{display ?? value}</code>
+        ) : (
+          <span className="mt-1 text-xs text-foreground">{empty}</span>
+        )}
+      </div>
+      {value ? (
+        <div className="shrink-0">
+          <CopyButton value={value} label={copyLabel} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+const TOOLS: [string, string][] = [
+  ["get_rules", "Đọc quy tắc và hạn mức còn lại. Miễn phí."],
+  ["pay", "Trả tiền: Guardian duyệt rồi két chi, hoặc không gửi gì. 0,01 USDC."],
+  ["check_payment", "Kiểm tra trước một khoản chi, không gửi. 0,005 USDC."],
+  ["get_transaction", "Xem kết quả một giao dịch. Miễn phí."],
+];
+
+const REST_STEPS: [string, string][] = [
+  ["GET /me", "Đọc quy tắc của két: người nhận, hạn mức còn lại, và hướng dẫn viết sẵn cho AI."],
+  [
+    "POST /cosign",
+    "Gửi khoản chi dự định để Guardian chấm rủi ro. Trả phí 0,01 USDC qua x402 rồi nhận phê duyệt đã ký.",
+  ],
+  [
+    "executeBatch",
+    "Ví agent tự gửi khoản chi kèm phê duyệt vào két trên Avalanche. Két kiểm lại rồi mới chi.",
+  ],
+  ["GET /transactions/:hash", "Xem két đã chi hay từ chối."],
+];
+
+/**
+ * How to connect an agent: the values it needs, then MCP (any client) or the REST API. Secrets are filled in
+ * only when this page has them right now (a fresh API key, an agent key generated in this browser).
+ */
 export function McpSetup({ apiKey, agentPk }: { apiKey?: string | null; agentPk?: string | null }) {
   const origin = useOrigin();
   const info = useQuery({
@@ -80,92 +144,142 @@ export function McpSetup({ apiKey, agentPk }: { apiKey?: string | null; agentPk?
     queryFn: async () => (await (await fetch("/api/setup-info")).json()) as { repoRoot: string | null },
     staleTime: Infinity,
   });
+  const apiUrl = `${origin}/api/agent/v1`;
   const root = info.data?.repoRoot ?? "<thư mục guardian402>";
   const env = {
-    GUARDIAN_API_URL: `${origin}/api/agent/v1`,
+    GUARDIAN_API_URL: apiUrl,
     GUARDIAN_API_KEY: apiKey ?? "<khoá API g402_…>",
     AGENT_PK: agentPk ?? "<khoá riêng ví agent 0x…>",
   };
-  const claudeCode = [
+  const mcpConfig = JSON.stringify(
+    { mcpServers: { guardian402: { command: "pnpm", args: ["--silent", "--dir", root, "mcp:agent"], env } } },
+    null,
+    2,
+  );
+  const cliExample = [
     "claude mcp add guardian402 \\",
     ...Object.entries(env).map(([k, v]) => `  --env ${k}=${v} \\`),
     `  -- pnpm --silent --dir ${root} mcp:agent`,
   ].join("\n");
-  const desktop = JSON.stringify(
-    {
-      mcpServers: {
-        guardian402: {
-          command: "pnpm",
-          args: ["--silent", "--dir", root, "mcp:agent"],
-          env,
-        },
-      },
-    },
-    null,
-    2,
-  );
-  const rest = `curl -H "Authorization: Bearer ${env.GUARDIAN_API_KEY}" \\\n  ${env.GUARDIAN_API_URL}/me`;
+  const curl = `curl -H "Authorization: Bearer ${env.GUARDIAN_API_KEY}" \\\n  ${apiUrl}/me`;
+
   return (
-    <div className="flex flex-col gap-4">
-      <Tabs defaultSelectedKey="code">
+    <div className="flex min-w-0 flex-col gap-6">
+      <section aria-labelledby="ket-noi-thong-tin" className="flex flex-col gap-3">
+        <div className="flex flex-col gap-0.5">
+          <h3 id="ket-noi-thong-tin" className="text-heading">
+            Agent cần 3 thông tin
+          </h3>
+          <p className="text-sm text-muted">
+            Dùng được với mọi agent: ứng dụng có MCP, hoặc code của bạn gọi thẳng API.
+          </p>
+        </div>
+        <div className="flex flex-col divide-y divide-separator rounded-xl bg-surface-secondary p-4">
+          <ConnectionRow
+            label="Địa chỉ API"
+            hint="Nơi agent đọc quy tắc và xin Guardian duyệt."
+            value={origin ? apiUrl : null}
+            copyLabel="Chép địa chỉ"
+            empty="Đang tải…"
+          />
+          <ConnectionRow
+            label="Khoá API"
+            hint="Cho biết agent thuộc két nào. Không rút được tiền, không đổi được quy tắc."
+            value={apiKey}
+            display={apiKey ? short(apiKey) : undefined}
+            copyLabel="Chép khoá"
+            empty="Chỉ hiện một lần lúc tạo. Mất thì tạo khoá mới."
+          />
+          <ConnectionRow
+            label="Khoá riêng ví agent"
+            hint="Agent dùng để tự ký giao dịch. Chỉ nằm trên máy chạy agent; dashboard không bao giờ nhận."
+            value={agentPk}
+            display={agentPk ? short(agentPk) : undefined}
+            copyLabel="Chép khoá ví"
+            empty="Bạn tự điền trên máy chạy agent."
+          />
+        </div>
+      </section>
+
+      <Tabs defaultSelectedKey="mcp" className="min-w-0">
         <Tabs.ListContainer>
-          <Tabs.List aria-label="Agent của bạn chạy bằng">
-            <Tabs.Tab id="code">
-              Claude Code
-              <Tabs.Indicator />
-            </Tabs.Tab>
-            <Tabs.Tab id="desktop">
-              Claude Desktop
+          <Tabs.List aria-label="Agent kết nối bằng">
+            <Tabs.Tab id="mcp">
+              MCP
               <Tabs.Indicator />
             </Tabs.Tab>
             <Tabs.Tab id="rest">
-              API (REST)
+              REST API
               <Tabs.Indicator />
             </Tabs.Tab>
           </Tabs.List>
         </Tabs.ListContainer>
-        <Tabs.Panel id="code" className="flex flex-col gap-2 px-0 pt-4 pb-0">
-          <p className="text-sm text-muted">Chạy lệnh này trong terminal, trên máy chạy agent.</p>
-          <CodeBlock code={claudeCode} copyLabel="Chép lệnh" />
-        </Tabs.Panel>
-        <Tabs.Panel id="desktop" className="flex flex-col gap-2 px-0 pt-4 pb-0">
+
+        <Tabs.Panel id="mcp" className="flex flex-col gap-4 px-0 pt-4 pb-0">
           <p className="text-sm text-muted">
-            Dán vào <code className="font-mono text-xs">claude_desktop_config.json</code> (Settings →
-            Developer → Edit Config), rồi mở lại Claude Desktop.
+            Cho ứng dụng agent hỗ trợ MCP, với bất kỳ mô hình AI nào. Thêm máy chủ này vào phần cấu hình MCP
+            của ứng dụng (định dạng <code className="font-mono text-xs">mcpServers</code>), rồi mở lại ứng
+            dụng.
           </p>
-          <CodeBlock code={desktop} copyLabel="Chép cấu hình" />
+          <CodeBlock code={mcpConfig} copyLabel="Chép cấu hình" />
+          <p className="text-xs text-muted">
+            Máy chạy agent cần Node.js, pnpm và mã nguồn Guardian402 (chạy{" "}
+            <code className="font-mono">pnpm install</code> một lần). Trên Windows, nếu ứng dụng báo không
+            chạy được <code className="font-mono">pnpm</code>, đổi thành{" "}
+            <code className="font-mono">pnpm.cmd</code>.
+          </p>
+          <div className="flex flex-col gap-2 text-sm">
+            <span className="font-medium">Agent sẽ có 4 công cụ</span>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {TOOLS.map(([name, text]) => (
+                <li key={name} className="flex flex-col gap-0.5 rounded-xl bg-surface-secondary p-3">
+                  <code className="font-mono text-xs font-medium">{name}</code>
+                  <span className="text-muted">{text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <Expand label="Ví dụ: thêm bằng một lệnh (Claude Code)">
+            <div className="flex flex-col gap-2 pt-1">
+              <p className="text-sm text-muted">Chạy trong terminal, trên máy chạy agent.</p>
+              <CodeBlock code={cliExample} copyLabel="Chép lệnh" />
+            </div>
+          </Expand>
         </Tabs.Panel>
-        <Tabs.Panel id="rest" className="flex flex-col gap-2 px-0 pt-4 pb-0">
+
+        <Tabs.Panel id="rest" className="flex flex-col gap-4 px-0 pt-4 pb-0">
           <p className="text-sm text-muted">
-            Agent không dùng MCP thì gọi thẳng API: <code className="font-mono text-xs">GET /me</code> đọc quy
-            tắc, <code className="font-mono text-xs">POST /cosign</code> xin duyệt (trả phí x402), rồi agent
-            tự gửi <code className="font-mono text-xs">executeBatch</code> vào két.
+            Cho code của bạn, có hay không có AI. Mọi yêu cầu gửi kèm{" "}
+            <code className="font-mono text-xs">Authorization: Bearer &lt;khoá API&gt;</code>.
           </p>
-          <CodeBlock code={rest} copyLabel="Chép lệnh" />
+          <ol className="flex flex-col gap-2 text-sm">
+            {REST_STEPS.map(([call, text], i) => (
+              <li key={call} className="flex gap-3 rounded-xl bg-surface-secondary p-3">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-surface text-xs font-semibold tabular-nums">
+                  {i + 1}
+                </span>
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <code className="font-mono text-xs font-medium">{call}</code>
+                  <span className="text-muted">{text}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+          <div className="flex flex-col gap-2">
+            <p className="text-sm text-muted">Thử ngay bước 1:</p>
+            <CodeBlock code={curl} copyLabel="Chép lệnh" />
+          </div>
+          <a
+            href={API_DOCS}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+          >
+            Tài liệu Agent API đầy đủ
+            <ArrowUpRightFromSquare aria-hidden="true" className="size-3.5" />
+          </a>
         </Tabs.Panel>
       </Tabs>
-      {!agentPk ? (
-        <Notice title="Khoá ví agent do bạn tự điền">
-          Thay <code className="font-mono text-xs">AGENT_PK</code> bằng khoá riêng của ví agent. Khoá chỉ nằm
-          trên máy chạy agent; dashboard không bao giờ nhận nó.
-        </Notice>
-      ) : null}
-      <div className="flex flex-col gap-2 text-sm">
-        <span className="font-medium">Agent sẽ có 4 công cụ</span>
-        <ul className="grid gap-2 sm:grid-cols-2">
-          {[
-            ["get_rules", "Đọc quy tắc và hạn mức còn lại. Miễn phí."],
-            ["pay", "Trả tiền: Guardian duyệt rồi két chi, hoặc không gửi gì. 0,01 USDC."],
-            ["check_payment", "Kiểm tra trước một khoản chi, không gửi. 0,005 USDC."],
-            ["get_transaction", "Xem kết quả một giao dịch. Miễn phí."],
-          ].map(([name, text]) => (
-            <li key={name} className="flex flex-col gap-0.5 rounded-xl bg-surface-secondary p-3">
-              <code className="font-mono text-xs font-medium">{name}</code>
-              <span className="text-muted">{text}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
     </div>
   );
 }

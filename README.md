@@ -131,14 +131,25 @@ Bấm **Xem két demo** ở trang đăng nhập để xem két demo chỉ đọc
 
 ### Phía agent: một khoá API và một MCP server
 
-Agent của bạn (Claude, hay bất kỳ framework nào hỗ trợ MCP) chạy MCP server phía agent. Trang **Agent** cho sẵn lệnh, ví dụ với Claude Code:
+Agent cần 3 thông tin: **địa chỉ API** (`https://<dashboard>/api/agent/v1`), **khoá API** (`g402_…`) và **khoá riêng ví agent**. Trang **Agent** (và bước cuối của trang Bắt đầu) cho sẵn cả ba, cùng hai cách kết nối:
 
-```bash
-claude mcp add guardian402 \
-  --env GUARDIAN_API_URL=https://<dashboard>/api/agent/v1 \
-  --env GUARDIAN_API_KEY=g402_… \
-  --env AGENT_PK=<khoá riêng ví agent> \
-  -- pnpm --silent --dir <thư mục guardian402> mcp:agent
+- **MCP**, cho mọi ứng dụng agent hỗ trợ MCP, với bất kỳ mô hình AI nào: thêm máy chủ này vào phần cấu hình MCP của ứng dụng (định dạng `mcpServers`).
+- **REST API**, cho code của bạn, có hay không có AI (xem bên dưới).
+
+```json
+{
+  "mcpServers": {
+    "guardian402": {
+      "command": "pnpm",
+      "args": ["--silent", "--dir", "<thư mục guardian402>", "mcp:agent"],
+      "env": {
+        "GUARDIAN_API_URL": "https://<dashboard>/api/agent/v1",
+        "GUARDIAN_API_KEY": "g402_…",
+        "AGENT_PK": "<khoá riêng ví agent>"
+      }
+    }
+  }
+}
 ```
 
 Khoá riêng của ví agent chỉ nằm trên máy chạy agent; dashboard không bao giờ nhận nó. Khoá API không rút được tiền và không đổi được quy tắc.
