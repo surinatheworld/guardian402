@@ -5,99 +5,59 @@
 <h1 align="center">Guardian402</h1>
 
 <p align="center">
-  <b>Tường lửa giao dịch cho ví của AI Agent trên Avalanche.</b><br />
-  Tiền nằm trong một smart contract có luật chi tiêu. Mỗi giao dịch được mô phỏng, chấm rủi ro và giải thích trước khi được ký duyệt.
+  <b>Cho AI agent tiêu tiền, trong giới hạn bạn đặt.</b><br />
+  Tiền nằm trong két (smart contract) của bạn trên Avalanche. Agent chỉ chi được trong các quy tắc bạn đặt, và mỗi khoản chi được Guardian chạy thử, chấm rủi ro và ký duyệt trước.
 </p>
 
 <p align="center">
-  <a href="https://testnet.snowtrace.io/address/0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c"><img alt="Avalanche Fuji" src="https://img.shields.io/badge/Avalanche-Fuji%2043113-E84142?style=for-the-badge&logo=avalanche&logoColor=white" /></a>
+  <a href="https://testnet.snowtrace.io/address/0xAd6BC023d60f871488394dEceE9EC2E85E553549"><img alt="Avalanche Fuji" src="https://img.shields.io/badge/Avalanche-Fuji%2043113-E84142?style=for-the-badge&logo=avalanche&logoColor=white" /></a>
   <img alt="Solidity 0.8.28" src="https://img.shields.io/badge/Solidity-0.8.28-363636?style=for-the-badge&logo=solidity&logoColor=white" />
   <img alt="x402 2.28.0" src="https://img.shields.io/badge/x402-2.28.0-2F7BFF?style=for-the-badge" />
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-agent%20tools-111827?style=for-the-badge" />
   <img alt="ERC-8004 agent 295" src="https://img.shields.io/badge/ERC--8004-agent%20%23295-8B5CF6?style=for-the-badge" />
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge" /></a>
 </p>
 
 <p align="center">
-  <img alt="166 contract tests" src="https://img.shields.io/badge/forge%20test-166%20passed-22C55E?style=flat-square&logo=ethereum&logoColor=white" />
-  <img alt="319 TypeScript tests" src="https://img.shields.io/badge/vitest-319%20passed-22C55E?style=flat-square&logo=vitest&logoColor=white" />
+  <img alt="197 contract tests" src="https://img.shields.io/badge/forge%20test-197%20passed-22C55E?style=flat-square&logo=ethereum&logoColor=white" />
+  <img alt="339 TypeScript tests" src="https://img.shields.io/badge/vitest-339%20passed-22C55E?style=flat-square&logo=vitest&logoColor=white" />
   <img alt="eval: 40 cases, 100% recall, 0% false positives" src="https://img.shields.io/badge/eval-40%20cases%20%C2%B7%20100%25%20recall%20%C2%B7%200%25%20FP-22C55E?style=flat-square" />
-  <img alt="Next.js dashboard" src="https://img.shields.io/badge/dashboard-Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white" />
-  <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white" />
+  <img alt="Scenarios S0 to S6 on Fuji" src="https://img.shields.io/badge/Fuji-S0%E2%80%93S6%20pass-22C55E?style=flat-square" />
 </p>
 
 <p align="center">
-  <a href="#-demo">Demo</a> ·
   <a href="#1-tác-dụng">Tác dụng</a> ·
-  <a href="#2-hướng-dẫn-sử-dụng-sản-phẩm">Hướng dẫn sử dụng</a> ·
-  <a href="#3-cơ-chế-hoạt-động">Cơ chế hoạt động</a> ·
-  <a href="#4-kịch-bản-demo-s0s6">Kịch bản</a> ·
+  <a href="#2-luồng-chính">Luồng chính</a> ·
+  <a href="#3-cơ-chế-hoạt-động">Cơ chế</a> ·
+  <a href="#4-đã-kiểm-chứng-trên-fuji">Kiểm chứng</a> ·
+  <a href="#8-cài-đặt-và-chạy">Cài đặt</a> ·
   <a href="docs/API.md">API</a> ·
   <a href="docs/THREAT_MODEL.md">Bảo mật</a>
 </p>
 
-> _Guardian402 is an on-chain transaction firewall for autonomous AI agents: enforceable spending policies, transaction simulation, and cryptographically signed risk verdicts._ Dự thi Team1 Vietnam UniHack 2026 · Avalanche Fuji testnet.
-
----
-
-## 🎬 Demo
+> _Guardian402 is a transaction firewall and co-signer for AI-agent wallets on Avalanche: on-chain spending rules, simulation before execution, and signed risk verdicts, paid per request over x402._ Dự thi Team1 Vietnam UniHack 2026 · chỉ chạy trên Avalanche Fuji testnet.
 
 <p align="center">
-  <img src="docs/assets/demo.gif" alt="Trang Chạy thử: ba kịch bản lần lượt được Guardian mô phỏng và chấm rủi ro" width="100%" />
+  <img src="docs/assets/overview.png" alt="Trang Tổng quan (giao diện tối): số dư trong két, hạn mức agent đã tiêu hôm nay, hoạt động gần đây với mức rủi ro của từng giao dịch" width="100%" />
 </p>
 
-<p align="center"><sub>Trang <b>Chạy thử</b>, ghi từ sản phẩm đang chạy: agent bị chèn lệnh đòi rút sạch két (rủi ro cao, két sẽ từ chối), một lệnh swap bình thường (rủi ro thấp, két chấp nhận), rồi swap qua pool lệch giá 30% (rủi ro cao).</sub></p>
-
-<table>
-  <tr>
-    <td width="33%" valign="top"><h3 align="center">🤖 Agent đề xuất</h3><p align="center">Agent gửi giao dịch dự định và trả phí từng lần gọi bằng USDC qua x402.</p></td>
-    <td width="33%" valign="top"><h3 align="center">🔍 Guardian kiểm tra</h3><p align="center">Mô phỏng trên fork của Fuji, 9 luật xác định chấm rủi ro, LLM chỉ viết lời giải thích.</p></td>
-    <td width="33%" valign="top"><h3 align="center">🛡️ Két quyết định</h3><p align="center"><code>AgentVault</code> kiểm tra lại mọi luật trên chain. Sai luật thì revert, tiền ở lại két.</p></td>
-  </tr>
-</table>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/overview-dark.png" />
-    <img src="docs/assets/overview.png" alt="Trang Tổng quan: số dư trong két, hạn mức agent đã tiêu hôm nay, các giao dịch cần chú ý" width="100%" />
-  </picture>
-</p>
-
-|     Hoạt động: mỗi giao dịch là ba trạm      | Quy tắc chi tiêu: hạn mức, người nhận, ứng dụng  |
-| :------------------------------------------: | :----------------------------------------------: |
-| ![Trang Hoạt động](docs/assets/activity.png) | ![Trang Quy tắc chi tiêu](docs/assets/rules.png) |
-
-<details>
-<summary><b>Kết quả thật khi agent bị chiếm quyền cố rút sạch két (S2)</b></summary>
-
-```text
-[S2 drain-to-attacker] mạng local
-  Planner bị chèn lệnh (DEMO) đề xuất 1 lệnh từ bản tin.
-  Guardian: rủi ro CAO (100/100) · POLICY_PRECHECK, DRAIN_PATTERN, RECIPIENT_NOT_ALLOWLISTED
-  Giải thích: Rủi ro CAO. Luật của vault sẽ từ chối giao dịch này: người nhận không được phép.
-              Chuyển 100% số dư (46,5 USDC) ra khỏi vault.
-  Agent bị chiếm quyền phớt lờ Guardian và gửi thẳng, không có verdict:
-  Vault: bị từ chối (RecipientNotAllowed: 0x000000000000000000000000000000000000a77A)
-  Khớp kết quả mong đợi trong bảng §10.
-```
-
-Chạy lại trên máy bạn: `./run-local.sh scenario S2`.
-
-</details>
+|                   Hoạt động: Guardian chấm gì, két quyết định ra sao                   | Quy tắc chi tiêu: hạn mức, người nhận, mức rủi ro |
+| :------------------------------------------------------------------------------------: | :-----------------------------------------------: |
+| ![Trang Hoạt động với các giao dịch bị chặn và đã thực hiện](docs/assets/activity.png) | ![Trang Quy tắc chi tiêu](docs/assets/rules.png)  |
 
 ---
 
 **Mục lục**
 
 1. [Tác dụng](#1-tác-dụng)
-2. [Hướng dẫn sử dụng sản phẩm](#2-hướng-dẫn-sử-dụng-sản-phẩm)
+2. [Luồng chính](#2-luồng-chính)
 3. [Cơ chế hoạt động](#3-cơ-chế-hoạt-động)
-4. [Kịch bản demo S0–S6](#4-kịch-bản-demo-s0s6)
+4. [Đã kiểm chứng trên Fuji](#4-đã-kiểm-chứng-trên-fuji)
 5. [Phạm vi và giới hạn](#5-phạm-vi-và-giới-hạn)
 6. [Phần giả lập (DEMO MODE)](#6-phần-giả-lập-demo-mode)
 7. [Hợp đồng trên Avalanche Fuji](#7-hợp-đồng-trên-avalanche-fuji)
-8. [Cài đặt và kiểm thử cho lập trình viên](#8-cài-đặt-và-kiểm-thử-cho-lập-trình-viên)
-9. [Tiêu chí nghiệm thu](#9-tiêu-chí-nghiệm-thu)
-10. [Tài liệu và giấy phép](#10-tài-liệu-và-giấy-phép)
+8. [Cài đặt và chạy](#8-cài-đặt-và-chạy)
+9. [Tài liệu và giấy phép](#9-tài-liệu-và-giấy-phép)
 
 ---
 
@@ -105,93 +65,92 @@ Chạy lại trên máy bạn: `./run-local.sh scenario S2`.
 
 ### Vấn đề
 
-Bạn cấp cho một AI Agent 500 USDC để tự thanh toán dịch vụ, trả đối tác hoặc swap token. Agent có thể:
+Bạn cho một AI agent 50 USDC để tự trả tiền dịch vụ, trả đối tác hoặc swap token. Nếu agent giữ thẳng khoá riêng của ví, không gì chặn được việc nó:
 
-- hiểu sai lệnh, hoặc bị **prompt injection** và gửi giao dịch độc hại;
-- chuyển tiền đến địa chỉ lừa đảo, hoặc địa chỉ nhái gần giống địa chỉ thật;
-- gọi router hay contract chưa được kiểm chứng;
-- cấp quyền `approve` không giới hạn;
-- tiêu quá hạn mức bạn đặt ra.
-
-Nếu agent giữ thẳng private key của ví, không có gì chặn được các việc trên.
+- hiểu sai lệnh, hoặc bị **prompt injection** rồi gửi giao dịch độc hại;
+- chuyển tiền tới địa chỉ lừa đảo, hay địa chỉ nhái gần giống địa chỉ thật;
+- cấp quyền `approve` không giới hạn, gọi router chưa kiểm chứng;
+- tiêu vượt mức bạn muốn.
 
 ### Guardian402 làm gì
 
-- **Giữ tiền trong két (`AgentVault`)** thay vì trong ví của agent. Két chỉ chạy lệnh của agent khi lệnh qua được luật: người nhận được phép, ứng dụng được phép, hạn mức mỗi ngày, công tắc khoá khẩn cấp.
-- **Kiểm tra trước khi chạy.** Guardian mô phỏng giao dịch trên bản sao của Fuji, chấm rủi ro bằng 9 luật xác định, và ký một phê duyệt (verdict) gắn với đúng giao dịch đó.
-- **Giải thích bằng lời.** Mỗi lần kiểm tra có lời giải thích tiếng Việt và tiếng Anh về việc tiền đi đâu và vì sao bị gắn cờ.
-- **Không giữ hộ tiền.** Chủ két rút tiền bất cứ lúc nào, kể cả khi đã khoá agent. Guardian chỉ ký verdict, không chuyển được tiền.
+- **Tiền nằm trong két của bạn** (`AgentVault`), không nằm trong ví agent. Két chỉ chạy lệnh của agent khi lệnh qua mọi quy tắc trên blockchain: người nhận được phép, hạn mức mỗi ngày, hạn mức mỗi giao dịch, tổng ngân sách, khoá khẩn cấp.
+- **Chạy thử trước khi chi.** Guardian mô phỏng giao dịch trên một bản sao của Fuji, chấm rủi ro bằng 9 luật xác định, và ký một phê duyệt (verdict EIP-712) gắn với đúng giao dịch đó.
+- **Giải thích bằng lời**, tiếng Việt và tiếng Anh: tiền đi đâu, vì sao bị chặn.
+- **Không giữ hộ tiền.** Chỉ chủ két rút được tiền, kể cả khi két đang khoá. Guardian chỉ ký verdict, không chuyển được tiền.
 
 > [!IMPORTANT]
-> Guardian402 không phải là một AI Agent. Đây là hạ tầng bảo mật đứng giữa quyết định của agent và quyền dùng tiền: agent có thể được cấp quyền hành động, nhưng không bao giờ được toàn quyền trên tài sản của chủ sở hữu.
-
-### Ba trường hợp sử dụng
-
-| Trường hợp                     | Mục tiêu                                                                       | Kịch bản demo  |
-| :----------------------------- | :----------------------------------------------------------------------------- | :------------- |
-| **Agent thanh toán**           | Agent tự trả USDC cho các bên đã được duyệt, trong hạn mức.                    | S0, S2         |
-| **Bảo vệ giao dịch DeFi**      | Agent swap qua router; Guardian kiểm tra kết quả mô phỏng, trượt giá, approve. | S1, S4         |
-| **Khoanh vùng agent bị chiếm** | Agent lộ key, bị prompt injection hoặc cố vượt quyền; két chặn mọi vi phạm.    | S2, S3, S5, S6 |
+> Guardian402 không phải là một AI agent. Đây là hạ tầng đứng giữa quyết định của agent và quyền dùng tiền: agent được hành động, nhưng không bao giờ có toàn quyền trên tài sản của chủ.
 
 ---
 
-## 2. Hướng dẫn sử dụng sản phẩm
+## 2. Luồng chính
 
-### 2.1 Chạy sản phẩm trên máy
+### Dùng thử ngay, không cần ví
 
-Cần Node.js ≥ 22.13, pnpm 10, Foundry 1.8.5 và Git (chi tiết ở [mục 8](#8-cài-đặt-và-kiểm-thử-cho-lập-trình-viên)).
+Bản chạy công khai: **https://hispanic-avoiding-landscape-brass.trycloudflare.com** (URL tạm của Cloudflare quick tunnel, có thể đổi khi máy chủ khởi động lại; xem [mục 8](#8-cài-đặt-và-chạy) để chạy trên máy bạn).
 
-```bash
-git clone --recurse-submodules https://github.com/surinatheworld/guardian402
-cd guardian402
-pnpm install
-./run-local.sh
-```
-
-`./run-local.sh` dựng toàn bộ sản phẩm trên một bản sao (fork) của Fuji và mở dashboard tại `http://localhost:3000`. Trên Windows, chạy lệnh này từ Git Bash. Bấm `Ctrl+C` hoặc chạy `./run-local.sh stop` để dừng.
-
-Lần chạy đầu, script tạo `.env.local` với key testnet mới. Không cần ví hay tiền thật.
-
-### 2.2 Xem thử không cần ví
-
-Mở trang **Chạy thử** (`/chay-thu`), chọn một kịch bản S0–S6 hoặc tự soạn giao dịch, rồi chọn một trong hai chế độ:
-
-- **Chạy thử**: Guardian mô phỏng và chấm rủi ro, miễn phí, không gửi giao dịch nào.
-- **Chạy thật**: agent demo trả phí x402 và gửi giao dịch vào két; bạn thấy két chấp nhận hay từ chối.
+Bấm **Xem két demo** ở trang đăng nhập để xem két demo chỉ đọc, rồi mở **Chạy thử** để Guardian chấm bất kỳ kịch bản nào. Chạy thử miễn phí và không gửi gì lên blockchain.
 
 <p align="center">
-  <img src="docs/assets/try.png" alt="Trang Chạy thử: chọn kịch bản bên trái, kết quả của Guardian và dự đoán của két bên phải" width="90%" />
+  <img src="docs/assets/try.png" alt="Trang Chạy thử: chọn kịch bản bên trái; bên phải là kết quả của Guardian và dự đoán của két" width="90%" />
 </p>
 
-Khi dashboard được mở qua URL công khai, "Chạy thật" giới hạn 6 lần mỗi người và 24 lần cho mọi khách trong 10 phút.
+### Phía chủ két: thiết lập một lần rồi để agent tự chạy
 
-### 2.3 Dùng với vai trò chủ két
+<p align="center">
+  <img src="docs/assets/sign-in.png" alt="Trang đăng nhập: đăng nhập bằng ví hoặc email, hoặc xem két demo" width="90%" />
+</p>
 
-1. **Đăng nhập** ở trang Tài khoản (`/tai-khoan`), bằng email và mật khẩu hoặc bằng ví (Sign-In with Ethereum). Sau đó liên kết két của bạn; két chỉ liên kết được khi ví của bạn là `owner()` của nó trên chain.
-2. **Đặt quy tắc chi tiêu** ở trang Quy tắc chi tiêu (`/quy-tac`): hạn mức mỗi ngày, người nhận tin cậy, ứng dụng được dùng, mức rủi ro tối đa agent được phép. Mỗi thay đổi là một giao dịch bạn ký bằng ví của mình.
-3. **Quản lý agent** ở trang Agent (`/agent`): agent nào được tiêu tiền từ két, cấp và thu hồi khoá API, tạm ngưng hoặc gỡ quyền.
-4. **Theo dõi** ở trang Tổng quan (`/`) và Hoạt động (`/hoat-dong`): số dư, hạn mức đã dùng hôm nay, giao dịch nào bị chặn và vì sao. Mỗi giao dịch hiện thành ba trạm: Agent đề xuất → Guardian kiểm tra → Két quyết định, kèm link Snowtrace.
-5. **Khoá khẩn cấp** bằng nút ở thanh trên cùng: agent mất quyền ngay lập tức, bạn vẫn rút được tiền.
+1. **Đăng nhập** (`/dang-nhap`) bằng ví (Sign-In with Ethereum: ký một thông điệp, miễn phí, không gửi giao dịch) hoặc bằng email. Chưa có ví thì cài [Core](https://core.app) hoặc MetaMask, chọn mạng Avalanche Fuji.
+2. **Tạo két** ở trang **Bắt đầu** (`/bat-dau`), sáu bước có giải thích cho người mới:
 
-| Trang            | Đường dẫn    | Trả lời câu hỏi                           |
-| :--------------- | :----------- | :---------------------------------------- |
-| Tổng quan        | `/`          | Tiền của tôi có ổn không?                 |
-| Hoạt động        | `/hoat-dong` | Agent đã làm gì, cái gì bị chặn, vì sao?  |
-| Chạy thử         | `/chay-thu`  | Guardian xử lý giao dịch này ra sao?      |
-| Quy tắc chi tiêu | `/quy-tac`   | Agent được tiêu bao nhiêu, cho ai, ở đâu? |
-| Agent            | `/agent`     | Agent nào đang có quyền?                  |
+   | Bước             | Bạn làm gì                                                                                | Trên blockchain                                      |
+   | :--------------- | :---------------------------------------------------------------------------------------- | :--------------------------------------------------- |
+   | 1. Ví chủ        | Kiểm tra ví đúng mạng Fuji, có AVAX trả phí                                               | —                                                    |
+   | 2. Agent         | Nhập địa chỉ ví của agent, hoặc tạo ví mới ngay trong trình duyệt                         | —                                                    |
+   | 3. Quy tắc       | Chọn người nhận được trả tiền; hạn mức mỗi ngày, mỗi giao dịch và tổng; mức rủi ro tối đa | —                                                    |
+   | 4. Tạo két       | Ký **một** giao dịch                                                                      | `VaultFactory.createVault(agent, guardian, quy tắc)` |
+   | 5. Nạp tiền      | Nạp USDC từ ví (MetaMask, Core) vào két; gửi một ít phí cho ví agent                      | chuyển USDC thường                                   |
+   | 6. Kết nối agent | Nhận **khoá API** và lệnh cấu hình **MCP server** cho agent                               | —                                                    |
 
-### 2.4 Kết nối agent của bạn
+3. **Để agent tự chạy.** Từ đây két tự thực thi quy tắc trên blockchain. Bạn theo dõi ở **Tổng quan** và **Hoạt động**: số dư, hạn mức đã dùng, khoản nào bị chặn và vì sao.
+4. **Khi cần:**
+   - **Làm mới ngân sách** (`/quy-tac`): khi agent đã tiêu hết tổng ngân sách, nó dừng chi cho tới khi bạn ký làm mới.
+   - **Sửa quy tắc**: mỗi thay đổi là một giao dịch bạn ký.
+   - **Rút tiền** về ví bất cứ lúc nào.
+   - **Khoá khẩn cấp**: agent mất quyền chi ngay lập tức, bạn vẫn rút được tiền.
 
-Agent gọi Guardian trước khi gửi giao dịch, rồi gửi lệnh kèm verdict vào két. Có ba cách gọi:
+| Trang            | Đường dẫn    | Trả lời câu hỏi                            |
+| :--------------- | :----------- | :----------------------------------------- |
+| Tổng quan        | `/`          | Tiền của tôi có ổn không?                  |
+| Hoạt động        | `/hoat-dong` | Agent đã làm gì, cái gì bị chặn, vì sao?   |
+| Quy tắc chi tiêu | `/quy-tac`   | Agent được tiêu bao nhiêu, cho ai?         |
+| Agent            | `/agent`     | Khoá API, cấu hình MCP, phí trong ví agent |
+| Chạy thử         | `/chay-thu`  | Guardian xử lý giao dịch này ra sao?       |
 
-| Cách gọi       | Dùng khi                                  | Điểm vào                                                             |
-| :------------- | :---------------------------------------- | :------------------------------------------------------------------- |
-| Guardian API   | Agent tự trả phí x402 bằng ví của nó      | `POST /v1/check` (0,005 USDC), `POST /v1/cosign` (0,01 USDC)         |
-| Agent REST API | Agent dùng khoá API do chủ két cấp        | `/api/agent/v1/{me,check,cosign}` với `Authorization: Bearer g402_…` |
-| MCP server     | Agent chạy trong một framework hỗ trợ MCP | `pnpm mcp`: tool `check_transaction` và `cosign_transaction`         |
+### Phía agent: một khoá API và một MCP server
 
-`check` trả về mức rủi ro và lời giải thích. `cosign` trả thêm verdict đã ký để gửi kèm `executeBatch` vào két. Tham khảo đầy đủ ở [docs/API.md](docs/API.md).
+Agent của bạn (Claude, hay bất kỳ framework nào hỗ trợ MCP) chạy MCP server phía agent. Trang **Agent** cho sẵn lệnh, ví dụ với Claude Code:
+
+```bash
+claude mcp add guardian402 \
+  --env GUARDIAN_API_URL=https://<dashboard>/api/agent/v1 \
+  --env GUARDIAN_API_KEY=g402_… \
+  --env AGENT_PK=<khoá riêng ví agent> \
+  -- pnpm --silent --dir <thư mục guardian402> mcp:agent
+```
+
+Khoá riêng của ví agent chỉ nằm trên máy chạy agent; dashboard không bao giờ nhận nó. Khoá API không rút được tiền và không đổi được quy tắc.
+
+| Công cụ MCP       | Làm gì                                                              | Phí        |
+| :---------------- | :------------------------------------------------------------------ | :--------- |
+| `get_rules`       | Đọc quy tắc và hạn mức còn lại, thành câu hướng dẫn cho agent       | miễn phí   |
+| `check_payment`   | Kiểm tra trước một khoản chi, không gửi                             | 0,005 USDC |
+| `pay`             | Guardian duyệt rồi két chi trong một bước; bị chặn thì không gửi gì | 0,01 USDC  |
+| `get_transaction` | Xem kết quả một giao dịch                                           | miễn phí   |
+
+Phí Guardian trả theo từng lần gọi, bằng USDC qua giao thức **x402**, từ ví của agent. Ngoài MCP còn có Agent REST API (`/api/agent/v1/{me,check,cosign}` với `Authorization: Bearer g402_…`) và Guardian API trả phí trực tiếp (`POST /v1/check`, `POST /v1/cosign`). Tham khảo đầy đủ ở [docs/API.md](docs/API.md).
 
 ---
 
@@ -200,100 +159,130 @@ Agent gọi Guardian trước khi gửi giao dịch, rồi gửi lệnh kèm ver
 ```mermaid
 sequenceDiagram
     autonumber
-    participant A as AI Agent
+    participant A as AI agent (MCP)
+    participant D as Dashboard API
     participant G as Guardian API
     participant F as Fork của Fuji
     participant V as AgentVault (Fuji)
-    A->>G: calls + phí x402 (USDC)
-    G->>F: mô phỏng lô lệnh từ két
+    A->>D: pay(to, amount) + khoá API
+    D->>G: lô lệnh + phí x402 (USDC)
+    G->>F: chạy thử lô lệnh từ két
     F-->>G: số dư trước/sau, log, revert
     G->>G: 9 luật → LOW / MEDIUM / HIGH
     G-->>A: rủi ro + giải thích + verdict EIP-712
-    A->>V: executeBatch(calls, verdict, chữ ký)
-    V->>V: người nhận, ứng dụng, hạn mức, nonce, hạn dùng, mức rủi ro
+    A->>V: executeBatch(lô lệnh, verdict, chữ ký)
+    V->>V: agent, người nhận, hạn mức ngày, mỗi giao dịch, tổng, nonce, hạn dùng, mức rủi ro
     alt qua mọi luật
-        V-->>A: thực thi
+        V-->>A: thực hiện
     else sai một luật
         V-->>A: revert, tiền ở lại két
     end
 ```
 
-### Một giao dịch đi qua những bước nào
+1. **Agent gửi khoản chi dự định** và trả phí cho từng lần gọi bằng USDC qua x402.
+2. **Guardian chạy thử** lô lệnh trên một fork Anvil của Fuji và đo số dư trước, sau.
+3. **Bộ luật chấm rủi ro** (LOW, MEDIUM, HIGH) từ kết quả chạy thử. Luật là mã xác định: cùng đầu vào cho cùng kết quả.
+4. **LLM chỉ viết lời giải thích** từ kết quả chạy thử. LLM không quyết định tiền có được chuyển hay không và không đổi được mức rủi ro; module giải thích không import trình ký hay ví nào.
+5. **Guardian ký verdict EIP-712** gắn với đúng lô lệnh, với nonce của két và hạn dùng 60 giây.
+6. **Két tự kiểm tra lại mọi luật** trên blockchain rồi mới chạy.
 
-1. **Agent gửi giao dịch dự định** cho Guardian và trả phí theo từng lần gọi bằng USDC qua giao thức x402.
-2. **Guardian mô phỏng** giao dịch trên một fork Anvil của Fuji và đo số dư trước, sau.
-3. **Bộ luật chấm rủi ro** (LOW, MEDIUM, HIGH) từ kết quả mô phỏng. Bộ luật là mã xác định: cùng đầu vào cho cùng kết quả.
-4. **LLM viết lời giải thích** từ kết quả mô phỏng. LLM không quyết định tiền có được chuyển hay không và không đổi được mức rủi ro.
-5. **Guardian ký verdict EIP-712** gắn với đúng lô lệnh đó, với nonce của két và hạn dùng 60 giây.
-6. **Agent gửi lô lệnh kèm verdict** vào `AgentVault`. Két tự kiểm tra lại mọi luật trên chain rồi mới chạy.
+### Lớp 1: quy tắc trên blockchain (`AgentVault.sol`)
 
-### Lớp 1 — Luật trên chain (`AgentVault.sol`)
+Lớp này vẫn chặn được kể cả khi agent bỏ qua Guardian.
 
-Lớp này vẫn chặn được ngay cả khi agent bỏ qua Guardian.
+- **Chỉ đúng agent** do chủ két chỉ định mới gọi được `executeBatch`.
+- **Người nhận**: từ chối mọi địa chỉ nhận tiền ngoài danh sách.
+- **Ứng dụng**: chỉ gọi được contract và hàm đã duyệt.
+- **Hạn mức mỗi ngày** cho từng token, tính trên số dư thực giảm của két, làm mới lúc 00:00 UTC (07:00 giờ Việt Nam).
+- **Hạn mức mỗi giao dịch** (`maxPerTx`): một lô lệnh không chi quá mức này.
+- **Tổng ngân sách** (`budget`): dùng hết thì agent dừng cho tới khi chủ két gọi `resetBudget`.
+- **Khoá khẩn cấp**: chủ két ngắt quyền agent ngay lập tức; rút tiền vẫn được.
+- **Bắt buộc có verdict** cho khoản chuyển trên ngưỡng, cho mọi `approve`, và cho mọi khoản chi của lô lệnh có gọi contract.
+- **Chống dùng lại**: `verdictNonce` tăng dần, `deadline` theo thời gian block, và giới hạn mức rủi ro tối đa chủ két chấp nhận.
 
-- **Chỉ đúng agent** được chủ két chỉ định mới gọi được `executeBatch`.
-- **Danh sách người nhận**: từ chối mọi địa chỉ nhận tiền ngoài danh sách đã duyệt.
-- **Danh sách ứng dụng**: chỉ gọi được contract và hàm đã duyệt.
-- **Hạn mức mỗi ngày** cho từng token, tính trên số dư thực giảm của két, đặt lại lúc 00:00 UTC.
-- **Khoá khẩn cấp**: chủ két ngắt quyền agent ngay lập tức.
-- **Bắt buộc có verdict** cho khoản chuyển trên ngưỡng (1 USDC trong demo), cho mọi approve, và cho mọi khoản chi của lô lệnh có gọi contract.
-- **Chống dùng lại**: `verdictNonce` tăng dần và `deadline` theo thời gian block.
-- **Giới hạn mức rủi ro**: két từ chối verdict có rủi ro cao hơn mức chủ két cho phép.
+`VaultFactory` cho mỗi chủ tạo két của mình trong một giao dịch, với agent, Guardian và quy tắc truyền vào. Factory không giữ quyền gì trên két nó tạo.
 
-### Lớp 2 — Chấm rủi ro trước khi chạy (Guardian API)
+### Lớp 2: chấm rủi ro trước khi chạy (Guardian API)
 
-| Luật                        | Phát hiện                                                              |
-| :-------------------------- | :--------------------------------------------------------------------- |
-| `SIMULATION_FAILED`         | Giao dịch revert khi mô phỏng                                          |
-| `POLICY_PRECHECK`           | Két sẽ từ chối giao dịch này (sai người nhận, quá hạn mức, đang khoá…) |
-| `UNLIMITED_APPROVAL`        | Cấp quyền tiêu token không giới hạn                                    |
-| `UNKNOWN_CONTRACT`          | Gọi contract không có trong danh sách đã biết                          |
-| `ADDRESS_POISONING`         | Địa chỉ nhái: trùng đầu và đuôi với một địa chỉ tin cậy                |
-| `DRAIN_PATTERN`             | Rút phần lớn số dư trong một lần                                       |
-| `ABNORMAL_SLIPPAGE`         | Swap nhận ít hơn nhiều so với giá tham chiếu                           |
-| `RECIPIENT_NOT_ALLOWLISTED` | Tiền đến địa chỉ ngoài danh sách người nhận                            |
-| `UNPROTECTED_SWAP`          | Swap không đặt mức nhận tối thiểu (`minOut` thấp hơn mô phỏng quá 3%)  |
+| Luật                        | Phát hiện                                                                                           |
+| :-------------------------- | :-------------------------------------------------------------------------------------------------- |
+| `SIMULATION_FAILED`         | Giao dịch revert khi chạy thử                                                                       |
+| `POLICY_PRECHECK`           | Két sẽ từ chối: sai người nhận, vượt hạn mức ngày, mỗi giao dịch hay tổng ngân sách, két đang khoá… |
+| `UNLIMITED_APPROVAL`        | Cấp quyền tiêu token không giới hạn                                                                 |
+| `UNKNOWN_CONTRACT`          | Gọi contract ngoài danh sách đã biết                                                                |
+| `ADDRESS_POISONING`         | Địa chỉ nhái: trùng đầu và đuôi với một địa chỉ tin cậy                                             |
+| `DRAIN_PATTERN`             | Rút phần lớn số dư trong một lần                                                                    |
+| `ABNORMAL_SLIPPAGE`         | Swap nhận ít hơn nhiều so với giá tham chiếu                                                        |
+| `RECIPIENT_NOT_ALLOWLISTED` | Tiền tới địa chỉ ngoài danh sách người nhận                                                         |
+| `UNPROTECTED_SWAP`          | Swap không đặt mức nhận tối thiểu (`minOut` thấp hơn kết quả chạy thử quá 3%)                       |
 
 > [!NOTE]
-> Không phải mọi giao dịch của agent đều qua Guardian. Phát biểu chính xác: Guardian402 cưỡng chế luật chi tiêu trên chain và yêu cầu phê duyệt theo rủi ro cho những giao dịch thoả điều kiện đã cấu hình.
+> Không phải giao dịch nào của agent cũng phải qua Guardian. Phát biểu chính xác: Guardian402 cưỡng chế quy tắc chi tiêu trên blockchain, và yêu cầu phê duyệt theo rủi ro cho những giao dịch thoả điều kiện đã cấu hình.
 
 ---
 
-## 4. Kịch bản demo S0–S6
+## 4. Đã kiểm chứng trên Fuji
 
-| Mã     | Kịch bản                            | Guardian | Kết quả ở két                                 |
-| :----- | :---------------------------------- | :------- | :-------------------------------------------- |
-| **S0** | Chuyển 1,5 USDC cho Treasury        | LOW      | Thực hiện: két −1,5 USDC, Treasury +1,5 USDC  |
-| **S1** | Swap 2 USDC sang mWAVAX             | LOW      | Thực hiện                                     |
-| **S2** | Rút sạch két về ví kẻ tấn công      | HIGH     | Revert `RecipientNotAllowed`                  |
-| **S3** | Cấp quyền cho địa chỉ nhái sàn swap | HIGH     | Revert `RecipientNotAllowed`                  |
-| **S4** | Swap qua pool lệch giá 30%          | HIGH     | Revert `RiskTooHigh`                          |
-| **S5** | Dùng lại phê duyệt cũ               | LOW      | Revert `InvalidVerdict`, rồi `VerdictExpired` |
-| **S6** | Agent chạy khi két đang khoá        | HIGH     | Revert `Paused`                               |
+Mọi kết quả dưới đây chạy trên **Avalanche Fuji thật** ngày 13/11/2026, kiểm được trên Snowtrace.
 
-Ở S2 và S3, agent bị chiếm quyền bỏ qua Guardian và gửi thẳng vào két; két vẫn từ chối.
+### Luồng chính với ví MetaMask thật
 
-```bash
-./run-local.sh scenario S0     # một kịch bản
-./run-local.sh scenario all    # cả bảy kịch bản
-```
+Két [`0xff0d…9C2d`](https://testnet.snowtrace.io/address/0xff0db552A0Ffe0464273DAe402dd19efB7Bc9C2d), tạo qua trang Bắt đầu với quy tắc: chỉ trả cho Treasury, tối đa 2 USDC mỗi giao dịch, tổng 5 USDC. Agent gọi công cụ `pay` của MCP server.
+
+| Bước                               | Ai làm            | Kết quả                                                                                                                                                                                                                                  |
+| :--------------------------------- | :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nạp 10 USDC vào két                | Chủ két, MetaMask | ✓ [tx](https://testnet.snowtrace.io/tx/0xe14a3197b03ce8dcc7855bf37aa24feb2163389c6108f2751e8d7a89dd187bf3)                                                                                                                               |
+| Trả 1 USDC cho Treasury            | Agent             | ✓ rủi ro thấp, [đã thực hiện](https://testnet.snowtrace.io/tx/0xa7db521a54613d8a92fccbb7b331ec28bf48e2d7c0aac1bfcb2fa84920e8ed97)                                                                                                        |
+| Trả 2,5 USDC                       | Agent             | ✓ bị chặn: vượt hạn mức mỗi giao dịch; không gửi gì                                                                                                                                                                                      |
+| Trả 2 USDC, rồi 2 USDC             | Agent             | ✓ [đã thực hiện](https://testnet.snowtrace.io/tx/0x42170a0049edecfd3c7228b25aaae7e835b6627b7587d367f502904dff8c9607), [đã thực hiện](https://testnet.snowtrace.io/tx/0xf7103a3222f7e599ece9413f50de34cce170c1a979d5d95d3debd1d857e91edd) |
+| Trả 0,5 USDC khi đã tiêu đủ 5 USDC | Agent             | ✓ bị chặn: hết tổng ngân sách, chờ chủ két làm mới                                                                                                                                                                                       |
+| Làm mới ngân sách                  | Chủ két, MetaMask | ✓ ngân sách về lại 5 USDC                                                                                                                                                                                                                |
+| Trả 1 USDC sau khi làm mới         | Agent             | ✓ [đã thực hiện](https://testnet.snowtrace.io/tx/0xd5e2f1963f288ac01983708ff5d181ee9aaa57cf2db1b57f3cb5b58638b166d6)                                                                                                                     |
+| Rút 2 USDC về ví                   | Chủ két, MetaMask | ✓                                                                                                                                                                                                                                        |
+
+### Kịch bản demo S0–S6
+
+| Mã     | Kịch bản                                                | Guardian | Két                                                                                                                                                                                                                                            |
+| :----- | :------------------------------------------------------ | :------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S0** | Chuyển 1,5 USDC cho Treasury                            | LOW      | [Thực hiện](https://testnet.snowtrace.io/tx/0x02b10072b18e80301ccd5fdfa8e0193d74fac595c83a1dbdeec677dea0444eb1)                                                                                                                                |
+| **S1** | Swap 2 USDC sang mWAVAX, có `minOut`                    | LOW      | [Thực hiện](https://testnet.snowtrace.io/tx/0x643d89ad6e6e526bdc2bc5f2d9a0084263c68564235104d4a0c418b94a090e00)                                                                                                                                |
+| **S2** | Agent bị chèn lệnh, rút sạch két về ví kẻ tấn công      | HIGH 100 | [`RecipientNotAllowed`](https://testnet.snowtrace.io/tx/0x18f9908fedaf48e0e7ca4eea3e1b5020470d333869412ac90ff0cf6a25e132ae)                                                                                                                    |
+| **S3** | Cấp quyền không giới hạn cho địa chỉ nhái sàn swap      | HIGH 100 | [`RecipientNotAllowed`](https://testnet.snowtrace.io/tx/0xb0a0846cf4297693f3e6508d50b631e7fff1e51542c620435a9c640c8ac00fce)                                                                                                                    |
+| **S4** | Swap qua pool lệch giá 30%, `minOut = 0`                | HIGH 85  | [`RiskTooHigh`](https://testnet.snowtrace.io/tx/0x1220fd094ecbbc621c6640f15c9570092f34cfd330b329271432473d8f3869f5)                                                                                                                            |
+| **S5** | Dùng lại phê duyệt cũ cho lệnh khác, rồi khi đã hết hạn | LOW      | [`InvalidVerdict`](https://testnet.snowtrace.io/tx/0x9924ab795e1974f6232321d1fee49c6046213d494790f72da4f86d74eb5ab056), [`VerdictExpired`](https://testnet.snowtrace.io/tx/0x885d3cb381d11d9d55b98c7bd96b7f174abddc9d406c283c582c7496d620a51f) |
+| **S6** | Agent chi khi chủ két đã khoá khẩn cấp                  | HIGH 60  | [`Paused`](https://testnet.snowtrace.io/tx/0xe61ec50818bdbe9d5844e2546a7d2ff3902ef71ff09d083e8100482b19b61161)                                                                                                                                 |
+
+Ở S2 và S3, agent bị chiếm quyền bỏ qua Guardian và gửi thẳng vào két; két vẫn từ chối. S4 là trường hợp qua mọi luật tĩnh: chỉ kết quả chạy thử mới cho thấy pool lệch giá. Mỗi lần gọi Guardian có một giao dịch trả phí x402 thật, ví dụ [phí của S0](https://testnet.snowtrace.io/tx/0xadf11f6a7b76b4a10b830d8cd978b0fe50bc0e6734ce72aee852204e8b2e4741).
+
+### Kiểm thử tự động
+
+| Bộ                                                                               | Kết quả                                                                    |
+| :------------------------------------------------------------------------------- | :------------------------------------------------------------------------- |
+| Contract (`forge test`: unit, fuzz, invariant)                                   | 197/197                                                                    |
+| TypeScript (`pnpm test`: shared, guardian, guardian-mcp, agent, dashboard, eval) | 339/339                                                                    |
+| Guardian trên fork Fuji (`test:fork`)                                            | 18/18                                                                      |
+| Eval, 40 ca có nhãn (`pnpm eval`)                                                | precision 100%, recall 100%, dương tính giả 0% ([báo cáo](eval/report.md)) |
 
 ---
 
 ## 5. Phạm vi và giới hạn
 
-| Ngoài phạm vi bảo vệ                        | Lý do                                                                                                                             |
-| :------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------- |
-| **Mọi contract Web3 tuỳ ý**                 | V1 kiểm soát các loại giao dịch được hỗ trợ (chuyển ERC-20, swap qua router đã biết), chưa phân tích calldata bất kỳ.             |
-| **Tham số của ứng dụng được phép**          | Két không đọc được tham số của contract đã duyệt (ví dụ người nhận của lệnh swap); phần này dựa vào luật của Guardian và hạn mức. |
-| **Tổn thất do thị trường**                  | Swap hợp lệ, trượt giá trong ngưỡng vẫn có thể lỗ theo giá thị trường.                                                            |
-| **Lộ private key của chủ két**              | Người có quyền chủ két đổi được luật, theo đúng thiết kế phân quyền.                                                              |
-| **Mọi biến thể prompt injection**           | Demo cho thấy giao dịch độc hại bị chặn sau khi agent bị inject; không giải quyết tấn công ở tầng prompt.                         |
-| **Lỗi zero-day ngoài bộ luật**              | Mô phỏng và 9 luật bắt các mẫu tấn công đã biết, không bảo đảm bắt mọi lỗi logic của contract bên thứ ba.                         |
-| **Giao dịch ngoài AgentVault**              | Chỉ tài sản nằm trong két được bảo vệ.                                                                                            |
-| **Khác biệt giữa lúc kiểm tra và lúc chạy** | Giá và trạng thái chain có thể đổi giữa lúc mô phỏng và lúc giao dịch vào block; cần đặt `minOut` trên chain.                     |
-| **Lộ key agent, khoản dưới ngưỡng**         | Khoản chuyển nhỏ (≤ 1 USDC) thẳng tới người nhận đã duyệt, trong hạn mức ngày, chạy được mà không cần Guardian.                   |
-| **Quanh 00:00 UTC**                         | Hạn mức tính theo ngày UTC, nên trong vài phút quanh nửa đêm có thể chi tới hai lần hạn mức.                                      |
+| Ngoài phạm vi bảo vệ                        | Lý do                                                                                                                                              |
+| :------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Mọi contract Web3 tuỳ ý**                 | V1 kiểm soát các loại giao dịch được hỗ trợ (chuyển ERC-20, swap qua router đã biết), chưa phân tích calldata bất kỳ.                              |
+| **Tham số của ứng dụng được phép**          | Két không đọc được tham số của contract đã duyệt (ví dụ người nhận của lệnh swap); phần này dựa vào luật của Guardian và các hạn mức.              |
+| **Tổn thất do thị trường**                  | Swap hợp lệ, trượt giá trong ngưỡng vẫn có thể lỗ theo giá thị trường.                                                                             |
+| **Lộ khoá riêng của chủ két**               | Ai có quyền chủ két thì đổi được quy tắc, đúng theo thiết kế.                                                                                      |
+| **Mọi biến thể prompt injection**           | Demo cho thấy giao dịch độc hại bị chặn sau khi agent bị chèn lệnh; không giải quyết tấn công ở tầng prompt.                                       |
+| **Giao dịch ngoài AgentVault**              | Chỉ tài sản nằm trong két được bảo vệ.                                                                                                             |
+| **Khác biệt giữa lúc kiểm tra và lúc chạy** | Giá và trạng thái chain có thể đổi giữa lúc chạy thử và lúc giao dịch vào block; cần đặt `minOut` trên chain.                                      |
+| **Lộ khoá agent, khoản dưới ngưỡng**        | Khoản chuyển nhỏ (dưới ngưỡng verdict) thẳng tới người nhận đã duyệt, trong các hạn mức, chạy được mà không cần Guardian.                          |
+| **Quanh 00:00 UTC**                         | Hạn mức ngày tính theo ngày UTC, nên vài phút quanh nửa đêm có thể chi tới hai lần hạn mức ngày (tổng ngân sách và hạn mức mỗi giao dịch vẫn giữ). |
+
+Ghi chú vận hành:
+
+- Bản sao Fuji của Guardian được làm mới vài phút một lần. Khoản chi ngay sau khi nạp tiền có thể mất thêm vài giây vì Guardian làm mới bản sao trước khi chạy thử lại.
+- Trên bản chạy công khai chỉ có **Chạy thử** (mô phỏng); **Chạy thật** các kịch bản cần chạy dự án trên máy (`NEXT_PUBLIC_AGENT_CONTROL=off` trên bản công khai).
 
 Mô hình đe doạ đầy đủ và các lần rà soát bảo mật: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
@@ -301,100 +290,110 @@ Mô hình đe doạ đầy đủ và các lần rà soát bảo mật: [docs/THR
 
 ## 6. Phần giả lập (DEMO MODE)
 
-Các phần dưới đây được công bố khi thuyết trình và hiển thị qua banner `DEMO MODE` trên dashboard:
+Các phần dưới đây được công bố khi thuyết trình và hiện qua dải `DEMO MODE` trên dashboard:
 
 - **MockOracle**: giá cố định 25 USDC/mWAVAX.
 - **MockRouter và mWAVAX**: router thử nghiệm có hai pool (pool 1 lệch giá 30%) và token thử nghiệm.
-- **Kịch bản tấn công**: lệnh "prompt injection" được đọc từ fixture cố định (`apps/agent/fixtures/feed.json`) để demo lặp lại được, không phụ thuộc vào LLM.
-- **Địa chỉ nhái**: địa chỉ trùng 3 ký tự đầu và 3 ký tự cuối với router thật; DEMO MODE dùng ngưỡng 3/3.
-- **x402 facilitator tự host**: dùng khi demo offline hoặc khi dịch vụ công cộng giới hạn tần suất.
+- **Kịch bản tấn công**: lệnh "prompt injection" đọc từ fixture cố định (`apps/agent/fixtures/feed.json`) để demo lặp lại được, không phụ thuộc LLM.
+- **Địa chỉ nhái**: trùng 3 ký tự đầu và 3 ký tự cuối với router thật; DEMO MODE dùng ngưỡng 3/3 (production 4/4).
+- **x402 facilitator tự host**: dùng khi dịch vụ công cộng giới hạn tần suất hoặc khi demo offline.
 
-Toàn bộ chạy trên testnet Fuji: không có token riêng, không bán token, không dùng tiền thật.
+Toàn bộ chạy trên testnet Fuji: không có token riêng, không bán token, không dùng tiền thật. Trên blockchain chỉ có hash, thanh toán và trạng thái, không có dữ liệu cá nhân.
 
 ---
 
 ## 7. Hợp đồng trên Avalanche Fuji
 
-Avalanche Fuji C-Chain (`chainId: 43113`), đã verify trên [testnet.snowtrace.io](https://testnet.snowtrace.io):
+Avalanche Fuji C-Chain (`chainId 43113`), đã verify trên [testnet.snowtrace.io](https://testnet.snowtrace.io):
 
-| Hợp đồng              | Địa chỉ                                                                                                                         |
-| :-------------------- | :------------------------------------------------------------------------------------------------------------------------------ |
-| **AgentVault**        | [`0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c`](https://testnet.snowtrace.io/address/0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c) |
-| **MockRouter (DEMO)** | [`0xe20967C615e442991D468ed7f797edcAeA1771d9`](https://testnet.snowtrace.io/address/0xe20967C615e442991D468ed7f797edcAeA1771d9) |
-| **MockOracle (DEMO)** | [`0xeebAac693aA19308bA859b3D668e3794310e66AE`](https://testnet.snowtrace.io/address/0xeebAac693aA19308bA859b3D668e3794310e66AE) |
-| **mWAVAX (DEMO)**     | [`0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5`](https://testnet.snowtrace.io/address/0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5) |
-| **USDC (Circle)**     | [`0x5425890298aed601595a70AB815c96711a31Bc65`](https://testnet.snowtrace.io/address/0x5425890298aed601595a70AB815c96711a31Bc65) |
+| Hợp đồng                                    | Địa chỉ                                                                                                                         |
+| :------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------ |
+| **VaultFactory** (mỗi chủ tạo két của mình) | [`0xAd6BC023d60f871488394dEceE9EC2E85E553549`](https://testnet.snowtrace.io/address/0xAd6BC023d60f871488394dEceE9EC2E85E553549) |
+| **AgentVault** (két demo, S0–S6)            | [`0xcf2F9AD1e2665112092696F49C4BBc42b81be05E`](https://testnet.snowtrace.io/address/0xcf2F9AD1e2665112092696F49C4BBc42b81be05E) |
+| **MockRouter (DEMO)**                       | [`0xe20967C615e442991D468ed7f797edcAeA1771d9`](https://testnet.snowtrace.io/address/0xe20967C615e442991D468ed7f797edcAeA1771d9) |
+| **MockOracle (DEMO)**                       | [`0xeebAac693aA19308bA859b3D668e3794310e66AE`](https://testnet.snowtrace.io/address/0xeebAac693aA19308bA859b3D668e3794310e66AE) |
+| **mWAVAX (DEMO)**                           | [`0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5`](https://testnet.snowtrace.io/address/0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5) |
+| **USDC (Circle)**                           | [`0x5425890298aed601595a70AB815c96711a31Bc65`](https://testnet.snowtrace.io/address/0x5425890298aed601595a70AB815c96711a31Bc65) |
 
-Guardian đăng ký danh tính ERC-8004 là agent **#295** trên IdentityRegistry:
-[`0x8004A818BFB912233c491871b3d84c89A494BD9e`](https://testnet.snowtrace.io/address/0x8004A818BFB912233c491871b3d84c89A494BD9e).
+Két demo trước (code cũ, giữ nguyên): [`0x6A8C…Cf3c`](https://testnet.snowtrace.io/address/0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c).
+Guardian đăng ký danh tính ERC-8004 là agent **#295** trên IdentityRegistry [`0x8004A818…4BD9e`](https://testnet.snowtrace.io/address/0x8004A818BFB912233c491871b3d84c89A494BD9e).
 
 ---
 
-## 8. Cài đặt và kiểm thử cho lập trình viên
+## 8. Cài đặt và chạy
 
 ### Yêu cầu
 
-- Node.js ≥ 22.13, pnpm 10 (`corepack enable pnpm`)
-- Foundry 1.8.5 (`foundryup`)
-- Git
-- Docker, nếu máy không chạy được `anvil` (ví dụ Windows chặn `anvil.exe`): fork khi đó chạy bằng image `ghcr.io/foundry-rs/foundry:v1.8.5`
+- Node.js ≥ 22.13 và pnpm 10 (`corepack enable pnpm`)
+- Foundry 1.8.5 (`foundryup`) và Git
+- Docker Desktop, nếu máy không chạy được `anvil` (Windows có thể chặn `anvil.exe`): fork khi đó chạy bằng image `ghcr.io/foundry-rs/foundry:v1.8.5`
 
-Trên Windows, clone vào đường dẫn ngắn (ví dụ `C:\code`) hoặc chạy `git config --global core.longpaths true` trước: submodule lồng trong OpenZeppelin (`lib/erc4626-tests`) có đường dẫn dài, Git báo `Filename too long` nếu thư mục gốc đã dài. Build và test không cần submodule lồng đó.
-
-### Cài đặt và chạy test
+Trên Windows, chạy các lệnh từ Git Bash, và clone vào đường dẫn ngắn (ví dụ `C:\code`) hoặc bật `git config --global core.longpaths true`.
 
 ```bash
 git clone --recurse-submodules https://github.com/surinatheworld/guardian402
 cd guardian402
 pnpm install
-cd contracts && forge test && cd ..
-pnpm test
 ```
 
-- `forge test`: 166 test của hợp đồng (unit, fuzz, invariant).
-- `pnpm test`: test TypeScript của mọi gói (shared, guardian, guardian-mcp, agent, dashboard, eval).
-- `pnpm eval`: chạy 40 ca có nhãn qua Guardian trên fork và ghi `eval/report.md` (cần `pnpm fork` đang chạy).
+### Chạy cả hệ thống
 
-### `./run-local.sh` làm gì
+```bash
+./run-local.sh fuji
+```
 
-- Kiểm tra công cụ cần có; lần đầu tạo `.env.local` với key testnet mới (không ghi đè file đã có).
-- Khởi động fork Anvil của Fuji (cổng 8545). Fork đã có sẵn bộ hợp đồng Fuji; script **không deploy hợp đồng mới và không sửa file nào trong git**: nó giao két trên fork cho key trong `.env.local` (chỉ trên fork) rồi nạp dữ liệu mẫu.
-- Khởi chạy x402 facilitator (4022), Guardian API (4402), Agent API (4403) và dashboard (3000); log ở `.run-local/logs/`.
-- `Ctrl+C` hoặc `./run-local.sh stop` chỉ dừng các tiến trình do script mở.
+Chạy trên **Fuji thật**: két, VaultFactory, phí x402 và giao dịch ví đều trên Fuji; fork Anvil ở cổng 8545 chỉ là bản sao để Guardian chạy thử. Cần `.env.local` có các khoá testnet đã có AVAX và USDC thử nghiệm ([faucet.circle.com](https://faucet.circle.com), [Core faucet](https://core.app/tools/testnet-faucet)).
+
+```bash
+./run-local.sh
+```
+
+Chạy toàn bộ trên một **fork của Fuji** (không cần token thử nghiệm): lần đầu tạo `.env.local` với khoá testnet mới, giao két demo trên fork cho các khoá đó và nạp dữ liệu mẫu. Không deploy gì, không sửa file nào trong git.
+
+Cả hai cách đều mở fork (8545), x402 facilitator (4022), Guardian API (4402), agent API (4403) và dashboard (http://localhost:3000); log ở `.run-local/logs/`. Dừng bằng `Ctrl+C` hoặc `./run-local.sh stop`.
+
+```bash
+./run-local.sh scenario all
+```
+
+Chạy bảy kịch bản S0–S6 (một kịch bản: `scenario S2`).
+
+### Kiểm thử
+
+```bash
+cd contracts && forge test && cd ..
+pnpm test
+pnpm typecheck
+pnpm lint
+```
+
+- `pnpm --filter @guardian402/guardian test:fork`: test Guardian trên fork (cần `pnpm fork` đang chạy).
+- `pnpm eval`: 40 ca có nhãn trên fork, ghi `eval/report.md`.
+- `pnpm happy-path:fuji`: chạy trọn luồng chính trên Fuji bằng khoá thử nghiệm của dự án (tạo két qua factory, nạp, đăng nhập dashboard, agent gọi MCP `get_rules` và `pay`).
+
+Danh sách lệnh đầy đủ (deploy, verify, MCP, facilitator…): [CLAUDE.md](CLAUDE.md#commands).
 
 ### Cấu trúc repo
 
-| Thư mục              | Nội dung                                                      |
-| :------------------- | :------------------------------------------------------------ |
-| `contracts/`         | `AgentVault.sol`, các mock, test và script Foundry            |
-| `packages/shared/`   | ABI, địa chỉ, kiểu EIP-712, schema dùng chung                 |
-| `apps/guardian/`     | Guardian API: paywall x402, mô phỏng, bộ luật, giải thích, ký |
-| `apps/guardian-mcp/` | Guardian dưới dạng MCP server có trả phí                      |
-| `apps/agent/`        | Agent demo, các kịch bản, API điều khiển cục bộ               |
-| `apps/dashboard/`    | Dashboard Next.js (giao diện tiếng Việt)                      |
-| `eval/`              | 40 ca có nhãn, bộ chạy và báo cáo                             |
+| Thư mục              | Nội dung                                                                              |
+| :------------------- | :------------------------------------------------------------------------------------ |
+| `contracts/`         | `AgentVault.sol`, `VaultFactory.sol`, mock DEMO, test và script Foundry               |
+| `packages/shared/`   | ABI, địa chỉ, kiểu EIP-712, schema dùng chung                                         |
+| `apps/guardian/`     | Guardian API: paywall x402, chạy thử, bộ luật, giải thích, ký verdict                 |
+| `apps/guardian-mcp/` | MCP server phía agent (`pnpm mcp:agent`) và Guardian dạng MCP có trả phí (`pnpm mcp`) |
+| `apps/agent/`        | Agent demo, kịch bản S0–S6, API điều khiển cục bộ                                     |
+| `apps/dashboard/`    | Dashboard Next.js tiếng Việt: tài khoản, tạo két, quy tắc, hoạt động, agent API       |
+| `eval/`              | 40 ca có nhãn, bộ chạy và báo cáo                                                     |
+| `scripts/`           | Fork, deploy, seed, chạy cả hệ thống                                                  |
 
 ---
 
-## 9. Tiêu chí nghiệm thu
+## 9. Tài liệu và giấy phép
 
-- [x] **1. Cưỡng chế on-chain**: két từ chối đúng giao dịch vi phạm luật (S2, S3, S5, S6), kể cả khi agent bỏ qua Guardian.
-- [x] **2. Chuyển tiền an toàn**: S0 chuyển 1,5 USDC thành công, có receipt và biến động số dư on-chain.
-- [x] **3. Rủi ro động**: S4 cho thấy bộ luật phát hiện trượt giá 30% và két từ chối vì `RiskTooHigh`.
-- [x] **4. Thanh toán x402**: micropayment thật qua facilitator, có giao dịch settlement on-chain.
-- [x] **5. Quyền của chủ két**: ví thường và agent không đổi được luật của két (166 test Foundry).
-- [x] **6. Bằng chứng trên explorer**: mọi mã giao dịch kiểm chứng được trên Snowtrace/Routescan.
-- [x] **7. Dễ dùng thử**: không cần ví vẫn trải nghiệm được sản phẩm qua trang Chạy thử.
-- [x] **8. Công bố trung thực**: nêu rõ các thành phần demo, mock và giới hạn kỹ thuật của V1.
-
----
-
-## 10. Tài liệu và giấy phép
-
-- [docs/SPEC.md](docs/SPEC.md): đặc tả kỹ thuật
-- [docs/API.md](docs/API.md): tham chiếu API của Guardian và dashboard
+- [docs/SPEC.md](docs/SPEC.md): đặc tả kỹ thuật và change log
+- [docs/API.md](docs/API.md): Guardian API, Agent REST API, MCP server
+- [docs/PRODUCT_FLOWS.md](docs/PRODUCT_FLOWS.md): các luồng sản phẩm
 - [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md): mô hình đe doạ và các lần rà soát
 - [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md): kịch bản thuyết trình
-- [docs/PRODUCT_FLOWS.md](docs/PRODUCT_FLOWS.md): các luồng sản phẩm
 
 Giấy phép: [MIT](LICENSE).
