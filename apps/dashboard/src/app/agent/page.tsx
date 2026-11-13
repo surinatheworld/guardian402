@@ -15,6 +15,7 @@ import { useWriteContract } from "wagmi";
 import { avalancheFuji } from "wagmi/chains";
 import { agentVaultAbi } from "@guardian402/shared";
 import { McpSetup } from "@/components/connect-agent";
+import { WebAgentTry } from "@/components/web-agent-try";
 import { EditModal } from "@/components/edit-modal";
 import { TextInput, useConfirm } from "@/components/fields";
 import { errorOf } from "@/components/form";
@@ -91,7 +92,15 @@ export default function AgentPage() {
             agents.isPending ? (
               <LoadingRows rows={2} />
             ) : registered ? (
-              <Connect vault={vault} agent={registered} />
+              <>
+                <Section
+                  title="Thử agent ngay trên web"
+                  description="Bấm một nút: trang này làm đúng việc agent của bạn sẽ làm, xin Guardian duyệt rồi két chi. Không cần cài gì."
+                >
+                  <WebAgentTry vault={vault} />
+                </Section>
+                <Connect vault={vault} agent={registered} />
+              </>
             ) : (
               <NameAgent vault={vault} address={onChain} />
             )

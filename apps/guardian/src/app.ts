@@ -71,16 +71,22 @@ export function createApp(d: AppDeps) {
     });
   }
 
-  // CORS for the dashboard origin only (free GET endpoints and the demo check). `DASHBOARD_ORIGIN=*` opens it to
-  // any origin, for a public hackathon demo: the API uses no cookies, so nothing ambient can be abused.
+  // @x402/fetch 2.28.0 (dist/esm/index.mjs) sends PAYMENT-SIGNATURE (or the v1 X-PAYMENT) on the paid retry and,
+  // oddly, an Access-Control-Expose-Headers request header; it reads PAYMENT-REQUIRED and PAYMENT-RESPONSE back.
+  const X402_REQUEST_HEADERS = "content-type, payment-signature, x-payment, access-control-expose-headers";
+  const X402_RESPONSE_HEADERS = "PAYMENT-REQUIRED, PAYMENT-RESPONSE, X-PAYMENT-RESPONSE, Retry-After";
+  // CORS for the dashboard origin only (free GET endpoints, the demo check, and the paid check/cosign the
+  // dashboard's "try the agent on the web" pays over x402 from the browser: it sends PAYMENT-SIGNATURE and reads
+  // PAYMENT-REQUIRED / PAYMENT-RESPONSE). `DASHBOARD_ORIGIN=*` opens it to any origin, for a public hackathon
+  // demo: the API uses no cookies, so nothing ambient can be abused.
   app.use((req, res, next) => {
     const anyOrigin = d.dashboardOrigin === "*";
     if (anyOrigin || req.headers.origin === d.dashboardOrigin) {
       res.setHeader("Access-Control-Allow-Origin", anyOrigin ? "*" : d.dashboardOrigin);
       res.setHeader("Vary", "Origin");
-      res.setHeader("Access-Control-Allow-Headers", anyOrigin ? "*" : "content-type");
+      res.setHeader("Access-Control-Allow-Headers", anyOrigin ? "*" : X402_REQUEST_HEADERS);
       res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-      if (anyOrigin) res.setHeader("Access-Control-Expose-Headers", "*");
+      res.setHeader("Access-Control-Expose-Headers", anyOrigin ? "*" : X402_RESPONSE_HEADERS);
     }
     if (req.method === "OPTIONS") {
       res.status(204).end();

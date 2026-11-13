@@ -22,6 +22,7 @@ import { useWriteContract } from "wagmi";
 import { avalancheFuji } from "wagmi/chains";
 import { vaultFactoryAbi } from "@guardian402/shared";
 import { McpSetup } from "@/components/connect-agent";
+import { WebAgentTry } from "@/components/web-agent-try";
 import { AgentFeeForm, DepositForm } from "@/components/fund";
 import { errorOf } from "@/components/form";
 import {
@@ -527,7 +528,18 @@ export default function SetupPage() {
             </>
           }
         >
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-8">
+            <section aria-labelledby="thu-ngay" className="flex flex-col gap-3">
+              <div className="flex flex-col gap-0.5">
+                <h3 id="thu-ngay" className="text-heading">
+                  Thử ngay trên web
+                </h3>
+                <p className="text-sm text-muted">
+                  Bấm một nút để xem agent trả tiền: Guardian duyệt rồi két chi. Không cần cài gì.
+                </p>
+              </div>
+              <WebAgentTry vault={created.vault} initialKey={generatedPk} />
+            </section>
             <McpSetup apiKey={created.apiKey ?? null} agentPk={generatedPk} />
           </div>
         </StepCard>

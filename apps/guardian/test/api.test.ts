@@ -226,6 +226,16 @@ describe("free endpoints", () => {
   it("CORS only for the dashboard origin", async () => {
     const ok = await fetch(`${base}/v1/health`, { headers: { origin: "http://localhost:3000" } });
     expect(ok.headers.get("access-control-allow-origin")).toBe("http://localhost:3000");
+    // The dashboard pays over x402 from the browser: it must send the payment and read the requirements back.
+    const pre = await fetch(`${base}/v1/cosign`, {
+      method: "OPTIONS",
+      headers: { origin: "http://localhost:3000", "access-control-request-headers": "payment-signature" },
+    });
+    // @x402/fetch sends these on the paid retry (see app.ts); a missing one fails the browser's preflight.
+    for (const h of ["content-type", "payment-signature", "x-payment", "access-control-expose-headers"])
+      expect(pre.headers.get("access-control-allow-headers")).toContain(h);
+    expect(pre.headers.get("access-control-expose-headers")).toContain("PAYMENT-REQUIRED");
+    expect(pre.headers.get("access-control-expose-headers")).toContain("PAYMENT-RESPONSE");
     const other = await fetch(`${base}/v1/health`, { headers: { origin: "https://evil.example" } });
     expect(other.headers.get("access-control-allow-origin")).toBeNull();
   });
