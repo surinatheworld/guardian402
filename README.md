@@ -49,6 +49,7 @@
 
 **Mục lục**
 
+- [Public endpoints](#public-endpoints)
 1. [Tác dụng](#1-tác-dụng)
 2. [Luồng chính](#2-luồng-chính)
 3. [Cơ chế hoạt động](#3-cơ-chế-hoạt-động)
@@ -95,13 +96,32 @@ Bạn cho một AI agent 50 USDC để tự trả tiền dịch vụ, trả đ�
 
 **Tiền từ đâu.** Guardian thu phí theo từng lần gọi, bằng USDC qua x402: 0,005 USDC cho một lần kiểm tra (`check`), 0,01 USDC cho kiểm tra kèm phê duyệt (`cosign`). Agent trả từ ví của nó tới ví nhận phí của bên vận hành Guardian (`PAY_TO`); Guardian chỉ thu khi trả lời thành công, và tổng phí hiện ở trang Về Guardian. Không có token, không bán token, không có lợi suất: tiền trong két là của chủ két, Guardian không chạm vào được. Trong hackathon mọi khoản đều là USDC thử nghiệm trên Fuji.
 
+## Public endpoints
+
+Base URL: **<https://miho-hackathon.080895.xyz>**. Use HTTPS for every public request.
+
+Domain này phục vụ web qua Caddy. Caddy chuyển request theo path tới dashboard, API hoặc web terminal. `/terminal` được bảo vệ bằng Basic Auth; các path ứng dụng khác không có lớp đăng nhập chung ở Caddy, nên từng ứng dụng/API phải tự kiểm tra quyền truy cập.
+
+| Dịch vụ | Endpoint public | Cách dùng |
+| :--- | :--- | :--- |
+| Dashboard | `GET /` | Giao diện Guardian402. Các trang như `/hoat-dong`, `/chay-thu`, `/quy-tac` và `/agent` được phục vụ cùng domain. |
+| Web terminal | `/terminal` | Mở terminal trên trình duyệt; yêu cầu Basic Auth. |
+| Agent REST API | `/api/agent/v1/*` | `GET /me`, `POST /check`, `POST /cosign`, `GET /checks/:checkId` và `GET /transactions/:hash`; gửi `Authorization: Bearer g402_…`. Đây cũng là API mà MCP agent gọi. |
+| Guardian API | `/api/guardian/v1/*` | Proxy cùng domain tới Guardian, ví dụ `GET /api/guardian/v1/health`, `POST /api/guardian/v1/check` và `POST /api/guardian/v1/cosign`. Các lượt check/cosign trực tiếp áp dụng x402. |
+| Tài khoản | `/api/auth/*`, `/api/account/*` | API phiên đăng nhập, ví và két đã liên kết; dùng cookie phiên của dashboard. |
+| Avalanche Fuji JSON-RPC | `https://api.avax-test.network/ext/bc/C/rpc` | RPC công khai của Fuji. Dashboard đọc chain qua RPC Fuji; ứng dụng ví cũng có thể dùng endpoint này. |
+
+`/api` là namespace, không phải một endpoint tổng hợp. Dùng đúng đường dẫn con ở bảng trên. `/api/rpc` chỉ dành cho chế độ local chạy Anvil, không phải RPC Fuji public. `GET /api/agent-control/health` và các route điều khiển demo đang tắt trên deployment public.
+
+MCP server hiện dùng **stdio** trên máy chạy MCP client, không phải dịch vụ MCP HTTP tại `/api/mcp`. Cấu hình `GUARDIAN_API_URL` của `guardian402-mcp` dùng `https://miho-hackathon.080895.xyz/api/agent/v1`; giữ `GUARDIAN_API_KEY` và `AGENT_PK` trong cấu hình MCP phía agent.
+
 ---
 
 ## 2. Luồng chính
 
 ### Dùng thử ngay, không cần ví
 
-Bản chạy công khai: **https://criteria-frequent-commission-interior.trycloudflare.com** (URL tạm của Cloudflare quick tunnel, có thể đổi khi máy chủ khởi động lại; xem [mục 8](#8-cài-đặt-và-chạy) để chạy trên máy bạn).
+Bản chạy công khai: **https://miho-hackathon.080895.xyz**. Danh sách endpoint và cách kết nối nằm ở mục [Public endpoints](#public-endpoints).
 
 Bấm **Xem két demo** ở trang đăng nhập để xem két demo chỉ đọc, rồi mở **Chạy thử** để Guardian chấm bất kỳ kịch bản nào. Chạy thử miễn phí và không gửi gì lên blockchain.
 
