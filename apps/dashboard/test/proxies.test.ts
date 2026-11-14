@@ -223,6 +223,33 @@ describe("request origin, client key and limits", () => {
     }
   });
 
+  it("accepts a pinned Origin even when the proxy rewrote Host and sent no forwarded headers", () => {
+    process.env.DASHBOARD_PUBLIC_ORIGINS = "https://demo.example.com";
+    try {
+      const behindProxy = req({ host: "localhost:3000", origin: "https://demo.example.com" });
+      expect(requestOrigin(behindProxy)).toEqual({
+        origin: "https://demo.example.com",
+        host: "demo.example.com",
+        https: true,
+      });
+      expect(() => assertSameOrigin(behindProxy)).not.toThrow();
+      expect(() => assertSameOrigin(req({ host: "localhost:3000", origin: "https://evil.example" }))).toThrow(
+        AccountError,
+      );
+    } finally {
+      delete process.env.DASHBOARD_PUBLIC_ORIGINS;
+    }
+  });
+
+  it("infers https from Origin when a TLS proxy sends no X-Forwarded-Proto", () => {
+    const r = req({ host: "demo.example.com", origin: "https://demo.example.com" });
+    expect(requestOrigin(r).https).toBe(true);
+    expect(() => assertSameOrigin(r)).not.toThrow();
+    expect(() => assertSameOrigin(req({ host: "demo.example.com", origin: "https://evil.example" }))).toThrow(
+      AccountError,
+    );
+  });
+
   it("keys a client by the last X-Forwarded-For entry, the one the proxy wrote", () => {
     expect(clientKey(req())).toBe("local");
     expect(clientKey(req({ "x-forwarded-for": "203.0.113.9" }))).toBe("203.0.113.9");

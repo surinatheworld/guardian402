@@ -184,14 +184,23 @@ const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
  */
 export function requestOrigin(req: Request): { origin: string; host: string; https: boolean } {
   const url = new URL(req.url);
-  const proto = firstValue(req, "x-forwarded-proto");
-  const https = proto === "https" || (proto !== "http" && url.protocol === "https:");
-  const host = firstValue(req, "x-forwarded-host") ?? req.headers.get("host") ?? url.host;
-  const origin = `${https ? "https" : "http"}://${host}`;
   const pinned = (process.env.DASHBOARD_PUBLIC_ORIGINS ?? "")
     .split(",")
     .map((o) => o.trim().replace(/\/$/, ""))
     .filter(Boolean);
+  // A browser writes Origin itself and a page on another site cannot forge it, so an Origin the operator pinned
+  // is this dashboard even when the proxy in front rewrote Host or dropped X-Forwarded-Host / -Proto.
+  const sent = req.headers.get("origin");
+  if (sent && pinned.includes(sent)) {
+    const u = new URL(sent);
+    return { origin: sent, host: u.host, https: u.protocol === "https:" };
+  }
+  const proto = firstValue(req, "x-forwarded-proto");
+  const host = firstValue(req, "x-forwarded-host") ?? req.headers.get("host") ?? url.host;
+  // A TLS-terminating proxy that sends no X-Forwarded-Proto: same host over https in Origin means https.
+  const httpsByOrigin = !proto && sent === `https://${host}`;
+  const https = proto === "https" || (proto !== "http" && url.protocol === "https:") || httpsByOrigin;
+  const origin = `${https ? "https" : "http"}://${host}`;
   if (pinned.length > 0 && !pinned.includes(origin)) {
     let hostname = "";
     try {
