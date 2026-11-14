@@ -31,7 +31,8 @@
   <a href="#3-bằng-chứng-trên-fuji">Bằng chứng</a> ·
   <a href="#8-chạy-trên-máy">Cài đặt</a> ·
   <a href="docs/API.md">API</a> ·
-  <a href="docs/THREAT_MODEL.md">Bảo mật</a>
+  <a href="docs/THREAT_MODEL.md">Bảo mật</a> ·
+  <a href="README.en.md">English</a>
 </p>
 
 > _Guardian402 is a transaction firewall and co-signer for AI-agent wallets on Avalanche: on-chain spending rules, simulation before execution, and signed risk verdicts, paid per request over x402._ Dự thi Team1 Vietnam UniHack 2026 · chỉ chạy trên Avalanche Fuji testnet.
