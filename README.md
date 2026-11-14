@@ -20,7 +20,7 @@
 
 <p align="center">
   <img alt="197 contract tests" src="https://img.shields.io/badge/forge%20test-197%20passed-22C55E?style=flat-square&logo=ethereum&logoColor=white" />
-  <img alt="339 TypeScript tests" src="https://img.shields.io/badge/vitest-339%20passed-22C55E?style=flat-square&logo=vitest&logoColor=white" />
+  <img alt="348 TypeScript tests" src="https://img.shields.io/badge/vitest-348%20passed-22C55E?style=flat-square&logo=vitest&logoColor=white" />
   <img alt="eval: 40 cases, 100% recall, 0% false positives" src="https://img.shields.io/badge/eval-40%20cases%20%C2%B7%20100%25%20recall%20%C2%B7%200%25%20FP-22C55E?style=flat-square" />
   <img alt="Scenarios S0 to S6 on Fuji" src="https://img.shields.io/badge/Fuji-S0%E2%80%93S6%20pass-22C55E?style=flat-square" />
 </p>
@@ -81,6 +81,19 @@ Bạn cho một AI agent 50 USDC để tự trả tiền dịch vụ, trả đ�
 
 > [!IMPORTANT]
 > Guardian402 không phải là một AI agent. Đây là hạ tầng đứng giữa quyết định của agent và quyền dùng tiền: agent được hành động, nhưng không bao giờ có toàn quyền trên tài sản của chủ.
+
+### Vì sao on-chain, vì sao Avalanche, tiền từ đâu
+
+**Vì sao on-chain.** Quy tắc chi tiêu chỉ có ý nghĩa khi agent không vượt qua được. Nếu quy tắc nằm trong phần mềm của agent hay trên một máy chủ, ai cầm khoá agent cũng bỏ qua được. Ở đây quy tắc nằm trong `AgentVault`: mọi lệnh của agent phải qua `executeBatch`, sai một luật là revert và tiền ở lại két (S2, S3 ở [mục 4](#4-đã-kiểm-chứng-trên-fuji)). Phê duyệt của Guardian là chữ ký EIP-712 gắn với đúng lô lệnh, nonce của két và hạn dùng 60 giây; két tự kiểm chữ ký, nên lúc thực thi không phải tin máy chủ nào. Chủ két tự giữ tiền và rút được bất cứ lúc nào.
+
+**Vì sao Avalanche.**
+
+- USDC của Circle trên C-Chain hỗ trợ EIP-3009 (`transferWithAuthorization`), đúng thứ scheme `exact` của x402 cần: agent chỉ ký, facilitator gửi giao dịch, không cần tài khoản hay thẻ.
+- Settlement USDC trên C-Chain rẻ và nhanh, nên thu phí vài phần nghìn USDC cho mỗi lần kiểm tra là khả thi, và giao dịch của agent được xác nhận trong hạn 60 giây của phê duyệt.
+- Fork C-Chain bằng Anvil chạy nhanh, nên Guardian chạy thử trên trạng thái gần như mới nhất của Fuji (p50 354 ms trong [eval](eval/report.md)).
+- Guardian có danh tính on-chain trên IdentityRegistry ERC-8004 chính thức trên Fuji (agent #295).
+
+**Tiền từ đâu.** Guardian thu phí theo từng lần gọi, bằng USDC qua x402: 0,005 USDC cho một lần kiểm tra (`check`), 0,01 USDC cho kiểm tra kèm phê duyệt (`cosign`). Agent trả từ ví của nó tới ví nhận phí của bên vận hành Guardian (`PAY_TO`); Guardian chỉ thu khi trả lời thành công, và tổng phí hiện ở trang Về Guardian. Không có token, không bán token, không có lợi suất: tiền trong két là của chủ két, Guardian không chạm vào được. Trong hackathon mọi khoản đều là USDC thử nghiệm trên Fuji.
 
 ---
 
@@ -274,7 +287,7 @@ Két [`0xff0d…9C2d`](https://testnet.snowtrace.io/address/0xff0db552A0Ffe04642
 | Bộ                                                                               | Kết quả                                                                    |
 | :------------------------------------------------------------------------------- | :------------------------------------------------------------------------- |
 | Contract (`forge test`: unit, fuzz, invariant)                                   | 197/197                                                                    |
-| TypeScript (`pnpm test`: shared, guardian, guardian-mcp, agent, dashboard, eval) | 339/339                                                                    |
+| TypeScript (`pnpm test`: shared, guardian, guardian-mcp, agent, dashboard, eval) | 348/348                                                                    |
 | Guardian trên fork Fuji (`test:fork`)                                            | 18/18                                                                      |
 | Eval, 40 ca có nhãn (`pnpm eval`)                                                | precision 100%, recall 100%, dương tính giả 0% ([báo cáo](eval/report.md)) |
 
@@ -300,6 +313,15 @@ Ghi chú vận hành:
 - Trên bản chạy công khai chỉ có **Chạy thử** (mô phỏng); **Chạy thật** các kịch bản cần chạy dự án trên máy (`NEXT_PUBLIC_AGENT_CONTROL=off` trên bản công khai).
 
 Mô hình đe doạ đầy đủ và các lần rà soát bảo mật: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+
+### Giới hạn pháp lý tại Việt Nam
+
+- Theo quy định hiện hành tại Việt Nam, tài sản mã hoá không phải tiền pháp định và không được dùng làm phương tiện thanh toán. Guardian402 chỉ chạy trên Avalanche Fuji testnet, với token thử nghiệm không có giá trị.
+- Không giữ tiền của người dùng: mỗi chủ két giữ tiền trong két của mình và rút được bất cứ lúc nào. Guardian chỉ ký phê duyệt, không chuyển được tiền.
+- Không có token, không bán token, không huy động vốn.
+- Không tư vấn tài chính hay đầu tư: kết quả của Guardian là đánh giá rủi ro kỹ thuật của một giao dịch.
+- Trên blockchain chỉ có hash, thanh toán và trạng thái, không có dữ liệu cá nhân. Tài khoản dashboard (email, mật khẩu đã băm) chỉ nằm trong cơ sở dữ liệu của máy chủ dashboard.
+- Muốn đưa lên mainnet cho người dùng Việt Nam thì phải rà lại khung pháp lý về tài sản số trước, gồm Luật Công nghiệp công nghệ số (2025) và chương trình thí điểm thị trường tài sản mã hoá theo Nghị quyết 05/2025/NQ-CP.
 
 ---
 

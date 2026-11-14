@@ -7,7 +7,7 @@ Addresses (from `packages/shared/src/addresses/fuji.json`):
 
 |                     | Address                                      |
 | ------------------- | -------------------------------------------- |
-| AgentVault          | `0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c` |
+| AgentVault          | `0xcf2F9AD1e2665112092696F49C4BBc42b81be05E` |
 | MockRouter (DEMO)   | `0xe20967C615e442991D468ed7f797edcAeA1771d9` |
 | mWAVAX (DEMO)       | `0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5` |
 | USDC (Circle, Fuji) | `0x5425890298aed601595a70AB815c96711a31Bc65` |
@@ -16,7 +16,7 @@ Addresses (from `packages/shared/src/addresses/fuji.json`):
 
 - [ ] `git pull`, `pnpm install`, `cd contracts && forge build` on the demo laptop.
 - [ ] `.env.local` at the repo root has `AGENT_PK`, `OWNER_PK` (funds the vault through `pnpm seed:fuji`), `GUARDIAN_SIGNER_PK`, `PAY_TO`, `FACILITATOR_PK`.
-- [ ] The vault owner is the team lead's wallet (`0x54A2…2888`, since 2026-11-11): owner actions, including S6's pause, are signed from that wallet in the dashboard (the top bar's **Khoá khẩn cấp**, or the Quy tắc page). `pnpm agent scenario S6` needs `OWNER_PK` to be the owner, so it no longer runs against the Fuji vault.
+- [ ] The DEMO vault's owner is the `OWNER_PK` wallet (`0x6678…3b72`, the `owner` of `fuji.json`; read on Fuji on 2026-11-14), so `pnpm agent scenario S6` runs against it. Owner actions in the dashboard (the top bar's **Khoá khẩn cấp**, the Quy tắc page) are signed from that wallet. The previous vault `0x6A8C…Cf3c` (owner: the team lead's wallet `0x54A2…2888`) is kept as is; the scenarios no longer use it.
 - [ ] Run the checks below once and top up anything that is low.
 
 ## Pre-demo checklist (15 minutes before)
@@ -26,7 +26,7 @@ Set the shell variables once:
 ```bash
 RPC=https://api.avax-test.network/ext/bc/C/rpc
 USDC=0x5425890298aed601595a70AB815c96711a31Bc65
-VAULT=0x6A8CCC880238DF1f4309d1B04EDFBD6017A4Cf3c
+VAULT=0xcf2F9AD1e2665112092696F49C4BBc42b81be05E
 ROUTER=0xe20967C615e442991D468ed7f797edcAeA1771d9
 MWAVAX=0xC2439b70B85CF5fBD5A7dA935567e476bFc97ba5
 AGENT=$(cast wallet address --private-key "$AGENT_PK")
@@ -99,5 +99,5 @@ S0 (`transfer` of 1.5 USDC to the treasury, LOW, executes) is the plain "agent p
 | Fuji RPC rate-limited (HTTP 429, Cloudflare 1015)       | Reads already fall back to the other public endpoint (at once since 2026-11-11; the 429 carries `Retry-After: 2990`). If the fork itself is starved, set `FUJI_RPC_URL` to `https://avalanche-fuji.gateway.tenderly.co` (public, no key, keeps state) or to a provider URL with a key, restart `pnpm fork` and the Guardian. If the owner wallet cannot send ("Request exceeds defined limit"), edit Avalanche Fuji in MetaMask and make `https://avalanche-fuji-c-chain-rpc.publicnode.com` its default RPC. |
 | Guardian answers `503` (busy or simulation unavailable) | Not charged. The agent already retries twice after `Retry-After`; if the scenario still shows HTTP 503, wait 20 s and run it again; if it repeats, restart `pnpm fork` and the Guardian.                                                                                                                                                                                                                                                                                                                      |
 | A scenario says "KHÔNG KHỚP"                            | Read the line: usually low balances (checklist) or a paused vault. Unpause with **Mở khoá** in the top bar.                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Anything else, or the network is down                   | Show the Snowtrace links in `docs/PROGRESS.md` (P8 and P9 sections).                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Anything else, or the network is down                   | Show the Snowtrace links in README §4 (S0–S6 and the happy path, run on 2026-11-13) or `docs/PROGRESS.md` (P8 and P9 sections).                                                                                                                                                                                                                                                                                                                                                                               |
 | Docker is not running (Windows)                         | Start Docker Desktop, then `pnpm fork` again.                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
