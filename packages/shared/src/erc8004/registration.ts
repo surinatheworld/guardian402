@@ -56,7 +56,7 @@ export function guardianRegistration(agentId: number, endpoint?: string): Regist
     name: "Guardian402",
     description:
       "Transaction firewall and co-signer for AI-agent wallets on Avalanche Fuji (testnet). Before an agent's " +
-      "batch runs, the Guardian simulates it on a fork, scores it with 8 deterministic rules, explains the result " +
+      "batch runs, the Guardian simulates it on a fork, scores it with 9 deterministic rules, explains the result " +
       "in Vietnamese and English, and signs an EIP-712 verdict that the owner's AgentVault checks on-chain. " +
       `Paid per request over x402 in USDC: POST /v1/check ${usdc(PRICES.check)}, POST /v1/cosign ${usdc(PRICES.cosign)}. ` +
       "Hackathon project, testnet only.",

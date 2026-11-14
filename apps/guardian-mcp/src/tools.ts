@@ -26,7 +26,7 @@ const TOOLS: Record<
     price: PRICES.check,
     title: "Check an agent transaction",
     description:
-      "Simulate an AgentVault batch on a fork of Avalanche Fuji and score it with 8 deterministic rules. " +
+      "Simulate an AgentVault batch on a fork of Avalanche Fuji and score it with 9 deterministic rules. " +
       "Returns the risk (LOW, MEDIUM, HIGH), the findings, the balance changes and an explanation in " +
       "Vietnamese and English. Costs 0.005 USDC on Fuji, paid over x402.",
   },

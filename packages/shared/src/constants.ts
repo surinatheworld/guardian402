@@ -36,7 +36,7 @@ export function riskFromCode(code: RiskCode): RiskLevel {
   return RISK_LEVELS[code];
 }
 
-/** The six risk rules plus the two system checks of SPEC §8. */
+/** The seven risk rules plus the two system checks of SPEC §8 (nine since 2026-11-11: UNPROTECTED_SWAP). */
 export const RULE_IDS = [
   "SIMULATION_FAILED",
   "POLICY_PRECHECK",

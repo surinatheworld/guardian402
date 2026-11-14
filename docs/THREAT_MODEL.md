@@ -39,7 +39,7 @@ Each agent batch must pass every layer that applies:
 
 1. **AgentVault static policy (always, on-chain):** pause flag, agent address, at most 8 calls, allowlisted targets and selectors, allowlisted recipients and spenders, `maxApproval`, per-day cap per token and for AVAX.
 2. **AgentVault verdict rules (on-chain):** approvals, outflows above the verdict threshold, and any outflow of a batch that reaches an allowed target (a call to it, native value sent to it, or a token transfer to it) need a Guardian verdict, bound to the exact calls (`callsHash`), the vault (EIP-712 domain), the current nonce and a 60 s deadline, with risk ≤ `maxAgentRisk` (THẤP by default).
-3. **Guardian checks (off-chain):** simulation on a fork plus 8 deterministic rules. HIGH risk means the vault rejects the verdict.
+3. **Guardian checks (off-chain):** simulation on a fork plus 9 deterministic rules. HIGH risk means the vault rejects the verdict.
 4. **Batch hygiene (on-chain, added in P11):** approvals granted on the agent path are revoked at the end of the batch.
 5. **Owner controls:** kill switch, revoke agent, change caps, withdraw at any time, also while paused.
 
