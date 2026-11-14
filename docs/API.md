@@ -17,6 +17,44 @@ Principles:
 Errors are JSON `{ "error": "<code>", "message": "<Vietnamese text>" }` with the HTTP status. Amounts are
 strings in base units (USDC: 6 decimals). Code: `apps/dashboard/src/server/` (rules), `src/app/api/` (routes).
 
+## Public deployment
+
+Base URL: `https://miho-hackathon.080895.xyz` (HTTPS only). A reverse proxy routes by path to the dashboard and its
+APIs; it adds no shared login, so every API checks access itself.
+
+| Service        | Path                                                 | Use                                                                                                                        |
+| -------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard      | `/`, `/hoat-dong`, `/chay-thu`, `/quy-tac`, `/agent` | The Vietnamese web app                                                                                                     |
+| Agent REST API | `/api/agent/v1/*`                                    | `GET me`, `POST check`, `POST cosign`, `GET checks/:checkId`, `GET transactions/:hash` with `Authorization: Bearer g402_…` |
+| Guardian API   | `/api/guardian/v1/*`                                 | Same-origin proxy to the Guardian (`GET health`, paid `POST check` and `POST cosign` over x402)                            |
+| Accounts       | `/api/auth/*`, `/api/account/*`                      | Session cookie of the dashboard                                                                                            |
+| Fuji JSON-RPC  | `https://api.avax-test.network/ext/bc/C/rpc`         | The public Fuji RPC; `/api/rpc` exists only in local mode (Anvil)                                                          |
+
+`/api` is a namespace, not an endpoint. The demo control routes (`/api/agent-control/*`) are off on the public
+deployment (`NEXT_PUBLIC_AGENT_CONTROL=off`), so only simulated runs (**Chạy thử**) work there. Behind a proxy,
+set `DASHBOARD_PUBLIC_ORIGINS=https://miho-hackathon.080895.xyz` on the dashboard so sign-in accepts that origin.
+
+MCP config for an agent using the public deployment (`mcpServers` format; the server runs over stdio next to the
+agent, there is no HTTP MCP endpoint):
+
+```json
+{
+  "mcpServers": {
+    "guardian402": {
+      "command": "pnpm",
+      "args": ["--silent", "--dir", "<guardian402 checkout>", "mcp:agent"],
+      "env": {
+        "GUARDIAN_API_URL": "https://miho-hackathon.080895.xyz/api/agent/v1",
+        "GUARDIAN_API_KEY": "g402_…",
+        "AGENT_PK": "<agent wallet private key>"
+      }
+    }
+  }
+}
+```
+
+Once the npm package `guardian402-mcp` (`packages/mcp-agent`) is published, `"command": "npx", "args": ["-y", "guardian402-mcp"]` replaces the checkout.
+
 ## Auth and account
 
 | Method and path                        | Body                                   | Notes                                                                                                                                                                   |
