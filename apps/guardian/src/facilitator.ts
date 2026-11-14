@@ -1,7 +1,7 @@
 // Self-hosted x402 facilitator (docs/SPEC.md §6.4), following the Team1 x402 starter. Used by
 // the E2E tests (pointed at the fork) and as the demo fallback when the public facilitator is down.
 // It pays settlement gas from FACILITATOR_PK, so keep a little AVAX in that wallet.
-import express from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import { createWalletClient, publicActions, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { x402Facilitator } from "@x402/core/facilitator";
@@ -38,12 +38,26 @@ export function createFacilitatorApp(opts: {
   app.get("/supported", (_req, res) => {
     res.json(facilitator.getSupported());
   });
-  app.post("/verify", async (req, res) => {
+  // Both routes take { paymentPayload, paymentRequirements } (x402 facilitator API). Anything else is a 400 in
+  // JSON: without this check a body with a missing field threw inside the scheme and Express answered 500 with
+  // an HTML stack trace.
+  const isObject = (v: unknown) => typeof v === "object" && v !== null && !Array.isArray(v);
+  const wellFormed = (req: Request, res: Response, next: NextFunction) => {
+    const b = req.body as { paymentPayload?: unknown; paymentRequirements?: unknown } | undefined;
+    if (!isObject(b) || !isObject(b?.paymentPayload) || !isObject(b?.paymentRequirements)) {
+      res
+        .status(400)
+        .json({ error: "invalid request", details: "paymentPayload and paymentRequirements are required" });
+      return;
+    }
+    next();
+  };
+  app.post("/verify", wellFormed, async (req, res) => {
     const result = await facilitator.verify(req.body.paymentPayload, req.body.paymentRequirements);
     opts.log?.(result.isValid ? `verified ${result.payer}` : `refused: ${result.invalidReason}`);
     res.json(result);
   });
-  app.post("/settle", async (req, res) => {
+  app.post("/settle", wellFormed, async (req, res) => {
     const result = await facilitator.settle(req.body.paymentPayload, req.body.paymentRequirements);
     // The first line of the node's error only: viem's later lines repeat the calldata, which holds the payer's
     // EIP-3009 signature.
@@ -55,5 +69,25 @@ export function createFacilitatorApp(opts: {
     );
     res.json(result);
   });
+  // Malformed JSON, or an error thrown while verifying or settling: JSON, never an HTML page with a stack trace.
+  app.use(
+    (
+      err: { status?: number; type?: string; message?: string },
+      _req: Request,
+      res: Response,
+      _next: NextFunction,
+    ) => {
+      if (err.type === "entity.parse.failed") {
+        res.status(400).json({ error: "invalid request", details: "malformed JSON body" });
+        return;
+      }
+      opts.log?.(
+        `error: ${String(err.message ?? err)
+          .split("\n")[0]
+          ?.slice(0, 200)}`,
+      );
+      res.status(err.status === 413 ? 413 : 500).json({ error: "facilitator error" });
+    },
+  );
   return { app, address: account.address };
 }

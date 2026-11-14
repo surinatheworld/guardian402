@@ -81,9 +81,9 @@ export function DepositForm({ vault, onDone }: { vault: Address; onDone?: () => 
       >
         <Label>Số USDC nạp vào két</Label>
         <NumberField.Group>
-          <NumberField.DecrementButton />
+          <NumberField.DecrementButton aria-label="Giảm" />
           <NumberField.Input />
-          <NumberField.IncrementButton />
+          <NumberField.IncrementButton aria-label="Tăng" />
         </NumberField.Group>
         {tooMuch ? <Description>Nhiều hơn số dư ví của bạn.</Description> : null}
       </NumberField>
@@ -337,9 +337,9 @@ export function FundAllForm({
       >
         <Label>Số USDC nạp vào két</Label>
         <NumberField.Group>
-          <NumberField.DecrementButton />
+          <NumberField.DecrementButton aria-label="Giảm" />
           <NumberField.Input />
-          <NumberField.IncrementButton />
+          <NumberField.IncrementButton aria-label="Tăng" />
         </NumberField.Group>
         <Description>Agent chỉ tiêu được tiền trong két, theo quy tắc của két.</Description>
       </NumberField>

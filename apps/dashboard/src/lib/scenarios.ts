@@ -31,7 +31,7 @@ export const SCENARIOS: Scenario[] = [
   },
   {
     id: "S1",
-    title: "Swap 2 USDC sang WAVAX",
+    title: "Swap 2 USDC sang mWAVAX",
     story: "Agent đổi 2 USDC qua sàn thử nghiệm, có đặt mức nhận tối thiểu.",
     expected: "Rủi ro thấp, két thực hiện.",
     attack: false,

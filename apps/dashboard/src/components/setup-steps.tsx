@@ -383,9 +383,9 @@ function UsdcField({
     >
       <Label>{label}</Label>
       <NumberField.Group>
-        <NumberField.DecrementButton />
+        <NumberField.DecrementButton aria-label="Giảm" />
         <NumberField.Input />
-        <NumberField.IncrementButton />
+        <NumberField.IncrementButton aria-label="Tăng" />
       </NumberField.Group>
       {allowZero && value === 0 ? (
         <Description>0 = không giới hạn.</Description>

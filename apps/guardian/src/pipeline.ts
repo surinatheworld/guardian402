@@ -1,7 +1,16 @@
 // The check pipeline (docs/SPEC.md §6.3): validate → vault context → simulate → rules → explain →
 // (cosign only) sign → store → respond. Used by /v1/check, /v1/cosign, /v1/demo/check and the eval runner.
 import { randomBytes } from "node:crypto";
-import { encodePacked, keccak256, toHex, type Address, type PublicClient } from "viem";
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  ContractFunctionZeroDataError,
+  encodePacked,
+  keccak256,
+  toHex,
+  type Address,
+  type PublicClient,
+} from "viem";
 import {
   agentVaultAbi,
   checkRequestSchema,
@@ -59,6 +68,16 @@ export class UnavailableError extends Error {
   constructor(readonly detail: string) {
     super("simulation unavailable");
   }
+}
+
+/** The node answered, and the answer is "no such function here": empty return data or a revert of getPolicy(). */
+function isNotAVault(e: unknown): boolean {
+  if (!(e instanceof BaseError)) return false;
+  return (
+    e.walk(
+      (x) => x instanceof ContractFunctionZeroDataError || x instanceof ContractFunctionRevertedError,
+    ) !== null
+  );
 }
 
 type Cached<T> = { at: number; value: T };
@@ -167,7 +186,19 @@ export class Pipeline {
     const key = vault.toLowerCase();
     const hit = this.#policy.get(key);
     if (hit && this.#d.now() - hit.at < this.#d.policyCacheMs) return hit.value;
-    const value = await readPolicy(this.#d.chain, vault);
+    let value: PolicySnapshot;
+    try {
+      value = await readPolicy(this.#d.chain, vault);
+    } catch (e) {
+      // No contract there, or one without getPolicy(): the caller named something that is not an AgentVault.
+      // That is their input (400, not charged), not a failure of the Guardian (502). RPC errors stay errors.
+      if (isNotAVault(e))
+        throw new InputError({
+          formErrors: [],
+          fieldErrors: { vault: ["not an AgentVault on this network"] },
+        });
+      throw e;
+    }
     this.#policy.set(key, { at: this.#d.now(), value });
     return value;
   }

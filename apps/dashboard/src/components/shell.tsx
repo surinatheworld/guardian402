@@ -228,9 +228,19 @@ function NavLink({
   );
 }
 
+/**
+ * The trial page simulates through the Guardian's free DEMO endpoint, so it is offered whenever the Guardian runs
+ * in DEMO mode: also on a deployment with no agent control API, where the page only simulates.
+ */
+function useTrialAvailable() {
+  const guardian = useGuardianHealth();
+  const agent = useAgentHealth();
+  return guardian.data?.demoMode === true || agent.isSuccess;
+}
+
 function Sidebar() {
   const pathname = usePathname();
-  const agent = useAgentHealth();
+  const trial = useTrialAvailable();
   return (
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col gap-4 overflow-y-auto bg-surface px-3 py-4 lg:flex">
       <div className="flex h-8 items-center px-2">
@@ -242,7 +252,7 @@ function Sidebar() {
           <NavLink key={n.href} {...n} />
         ))}
       </nav>
-      {agent.isSuccess ? (
+      {trial ? (
         <nav aria-label="Demo" className="-mt-3 flex flex-col gap-1">
           <span className={GROUP_LABEL}>Demo</span>
           <NavLink {...DEMO_NAV} />
@@ -268,12 +278,14 @@ function Sidebar() {
 /** The destinations as a bottom bar below the sidebar breakpoint: reachable with a thumb, no menu to open. */
 function BottomNav() {
   const active = activeHref(usePathname());
+  const trial = useTrialAvailable();
+  const items = trial ? [...NAV, DEMO_NAV] : NAV;
   return (
     <nav
       aria-label="Trang chính"
-      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-separator bg-surface px-1 pt-1 pb-[max(8px,env(safe-area-inset-bottom,0px))] lg:hidden"
+      className={`fixed inset-x-0 bottom-0 z-30 grid border-t border-separator bg-surface px-1 pt-1 pb-[max(8px,env(safe-area-inset-bottom,0px))] lg:hidden ${trial ? "grid-cols-5" : "grid-cols-4"}`}
     >
-      {NAV.map((n) => {
+      {items.map((n) => {
         const Icon = n.icon;
         return (
           <NextLink
@@ -469,10 +481,20 @@ function AccountMenu() {
   if (me.isPending) return <Skeleton className="size-8 rounded-full" />;
   if (!me.data)
     return (
-      <NextLink href="/dang-nhap" className={buttonVariants({ variant: "primary", size: "sm" })}>
-        <Person aria-hidden="true" />
-        Đăng nhập
-      </NextLink>
+      <>
+        {/* Below the sidebar breakpoint a signed-out visitor has no account menu: keep "Về Guardian" reachable. */}
+        <NextLink
+          href="/ve-guardian"
+          aria-label={PAGE.about}
+          className={`${buttonVariants({ variant: "ghost", size: "sm", isIconOnly: true })} lg:hidden`}
+        >
+          <CircleInfo aria-hidden="true" />
+        </NextLink>
+        <NextLink href="/dang-nhap" className={buttonVariants({ variant: "primary", size: "sm" })}>
+          <Person aria-hidden="true" />
+          Đăng nhập
+        </NextLink>
+      </>
     );
   const u = me.data.user;
   const name = u.displayName ?? u.email ?? shortHex(me.data.wallets[0]?.address ?? "");

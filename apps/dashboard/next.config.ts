@@ -33,6 +33,22 @@ const config: NextConfig = {
   reactStrictMode: true,
   experimental: { optimizePackageImports: ["@gravity-ui/icons"] },
   poweredByHeader: false,
+  // Owner actions are wallet-signed clicks: no other site may frame these pages (clickjacking). No full
+  // Content-Security-Policy: the pages call the RPC, the Guardian and wallet extensions from the browser, and a
+  // script policy that is wrong breaks sign-in; frame-ancestors is the part that is safe to enforce.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
+  },
   // The five destinations of the Phase 15 redesign replaced these pages; keep old links working.
   async redirects() {
     return [

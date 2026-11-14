@@ -1,4 +1,5 @@
 // Guardian API routes (docs/SPEC.md §6.1).
+import { createHash, randomBytes } from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
 import type { Logger } from "pino";
 import type { x402ResourceServer } from "@x402/express";
@@ -34,23 +35,61 @@ export type AppDeps = {
   resourceServer: x402ResourceServer | null;
   forkBlock: () => Promise<bigint>;
   log?: Logger;
+  /** Limits of the free demo endpoint; default DEFAULT_DEMO_LIMIT. */
+  demoLimit?: DemoLimit;
   /** Sync with the facilitator on startup (the middleware default); off in unit tests. */
   syncFacilitatorOnStart?: boolean;
 };
 
-/** A tiny in-memory limiter for the free demo endpoint (no IPs are stored). */
-function rateLimit(perMinute: number) {
-  let windowStart = Date.now();
-  let count = 0;
-  return (_req: Request, res: Response, next: NextFunction) => {
-    if (Date.now() - windowStart > 60_000) {
-      windowStart = Date.now();
-      count = 0;
+/** Calls per minute to the free demo endpoint: for one caller, and for all callers together. */
+export type DemoLimit = { perClient: number; overall: number };
+export const DEFAULT_DEMO_LIMIT: DemoLimit = { perClient: 30, overall: 120 };
+const LIMIT_WINDOW_MS = 60_000;
+const MAX_LIMIT_KEYS = 5_000;
+
+/**
+ * The caller as the nearest proxy saw it: the last X-Forwarded-For entry (the dashboard's /api/guardian proxy
+ * and a public tunnel pass it on), else the socket address. Someone who reaches the API directly can make the
+ * header up, which is why the limiter also has a cap for everyone together.
+ */
+function callerOf(req: Request): string {
+  const xff = req.headers["x-forwarded-for"];
+  const last = (Array.isArray(xff) ? xff.join(",") : (xff ?? ""))
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .at(-1);
+  return last ?? req.socket.remoteAddress ?? "unknown";
+}
+
+/**
+ * In-memory limiter for the free demo endpoint. One visitor can no longer use up the trial page for everyone
+ * (it was one shared counter): each caller has its own minute window, and all callers together a larger one.
+ * No address is kept: the key is a salted hash that lives in this process only.
+ */
+export function demoRateLimit(limit: DemoLimit, now: () => number = Date.now) {
+  const salt = randomBytes(16);
+  const callers = new Map<string, { start: number; count: number }>();
+  let all = { start: now(), count: 0 };
+  return (req: Request, res: Response, next: NextFunction) => {
+    const t = now();
+    if (t - all.start >= LIMIT_WINDOW_MS) all = { start: t, count: 0 };
+    const key = createHash("sha256").update(salt).update(callerOf(req)).digest("base64url").slice(0, 22);
+    let mine = callers.get(key);
+    if (!mine || t - mine.start >= LIMIT_WINDOW_MS) {
+      mine = { start: t, count: 0 };
+      callers.set(key, mine);
+      if (callers.size > MAX_LIMIT_KEYS)
+        for (const [k, v] of callers) if (t - v.start >= LIMIT_WINDOW_MS) callers.delete(k);
     }
-    if (++count > perMinute) {
+    // A caller over its own limit does not use up the shared one.
+    if (mine.count >= limit.perClient || all.count >= limit.overall) {
+      res.setHeader("Retry-After", String(Math.ceil((LIMIT_WINDOW_MS - (t - mine.start)) / 1000)));
       res.status(429).json({ error: "rate limited" });
       return;
     }
+    mine.count++;
+    all.count++;
     next();
   };
 }
@@ -147,7 +186,8 @@ export function createApp(d: AppDeps) {
 
   app.post("/v1/check", handle("check"));
   app.post("/v1/cosign", handle("cosign"));
-  if (d.demoMode) app.post("/v1/demo/check", rateLimit(30), handle("demo"));
+  if (d.demoMode)
+    app.post("/v1/demo/check", demoRateLimit(d.demoLimit ?? DEFAULT_DEMO_LIMIT), handle("demo"));
 
   app.get("/v1/health", async (_req, res) => {
     const forkBlock = await d.forkBlock().catch(() => null);

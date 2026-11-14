@@ -197,9 +197,9 @@ function AddRule({
         >
           <Label>Từ (% hạn mức USDC mỗi ngày)</Label>
           <NumberField.Group>
-            <NumberField.DecrementButton />
+            <NumberField.DecrementButton aria-label="Giảm" />
             <NumberField.Input className="tabular-nums" />
-            <NumberField.IncrementButton />
+            <NumberField.IncrementButton aria-label="Tăng" />
           </NumberField.Group>
         </NumberField>
       )}

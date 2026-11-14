@@ -263,9 +263,9 @@ function QuickActions({
         >
           <Label>Số USDC</Label>
           <NumberField.Group>
-            <NumberField.DecrementButton />
+            <NumberField.DecrementButton aria-label="Giảm" />
             <NumberField.Input className="tabular-nums" />
-            <NumberField.IncrementButton />
+            <NumberField.IncrementButton aria-label="Tăng" />
           </NumberField.Group>
           <Description>Trong két có {usdc(balance, 6)} USDC.</Description>
         </NumberField>

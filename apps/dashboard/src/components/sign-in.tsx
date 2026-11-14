@@ -98,6 +98,8 @@ export function WalletSignIn() {
   );
 }
 
+// The browser words its own validation messages in its own language (English on most machines): the form says
+// them in Vietnamese instead, matching what the API answers.
 export function PasswordSignIn() {
   const done = useAfterSignIn();
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -122,7 +124,9 @@ export function PasswordSignIn() {
       <TextField type="email" name="email" autoComplete="email" isRequired value={email} onChange={setEmail}>
         <Label>Email</Label>
         <Input variant="secondary" placeholder="ban@vidu.com" />
-        <FieldError />
+        <FieldError>
+          {(v) => (v.validationDetails.valueMissing ? "Hãy nhập email." : "Email không hợp lệ.")}
+        </FieldError>
       </TextField>
       <TextField
         type="password"
@@ -136,7 +140,11 @@ export function PasswordSignIn() {
         <Label>Mật khẩu</Label>
         <Input variant="secondary" />
         {mode === "register" ? <Description>Ít nhất 10 ký tự.</Description> : null}
-        <FieldError />
+        <FieldError>
+          {(v) =>
+            v.validationDetails.valueMissing ? "Hãy nhập mật khẩu." : "Mật khẩu cần ít nhất 10 ký tự."
+          }
+        </FieldError>
       </TextField>
       {submit.isError ? (
         <p role="alert" className="text-sm text-danger">

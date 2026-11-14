@@ -525,9 +525,9 @@ function AmountField({
         {label} ({unit})
       </Label>
       <NumberField.Group>
-        <NumberField.DecrementButton />
+        <NumberField.DecrementButton aria-label="Giảm" />
         <NumberField.Input className="tabular-nums" />
-        <NumberField.IncrementButton />
+        <NumberField.IncrementButton aria-label="Tăng" />
       </NumberField.Group>
       {description ? <Description>{description}</Description> : null}
     </NumberField>

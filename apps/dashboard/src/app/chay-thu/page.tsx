@@ -139,6 +139,13 @@ export default function TrialPage() {
     live.reset();
     simulate.mutate(c.value);
   };
+  /** The transaction changed: the result on screen is of another one, so it goes (a run in flight keeps going). */
+  const edited = () => {
+    setInputError(null);
+    if (running) return;
+    simulate.reset();
+    live.reset();
+  };
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !running) {
       e.preventDefault();
@@ -190,7 +197,7 @@ export default function TrialPage() {
               selectedKey={source}
               onSelectionChange={(k) => {
                 setSource(k as Source);
-                setInputError(null);
+                edited();
                 if (k === "json" && !json.trim()) {
                   const from =
                     source === "chuyen" ? transferCall(deployment.usdc, 6, to, amountText(amount)) : null;
@@ -224,7 +231,9 @@ export default function TrialPage() {
                   onSelectionChange={(keys) => {
                     if (keys === "all") return;
                     const next = [...keys][0];
-                    if (next) setScenarioId(String(next) as Scenario["id"]);
+                    if (!next || next === scenarioId) return;
+                    setScenarioId(String(next) as Scenario["id"]);
+                    edited();
                   }}
                   className="flex flex-col gap-1 p-0"
                 >
@@ -263,7 +272,7 @@ export default function TrialPage() {
                   value={to}
                   onChange={(v) => {
                     setTo(v);
-                    setInputError(null);
+                    edited();
                   }}
                   mono
                   error={source === "chuyen" ? inputError : null}
@@ -274,7 +283,7 @@ export default function TrialPage() {
                   value={amount}
                   onChange={(v) => {
                     setAmount(v);
-                    setInputError(null);
+                    edited();
                   }}
                   minValue={0}
                   step={0.5}
@@ -282,9 +291,9 @@ export default function TrialPage() {
                 >
                   <Label>Số tiền (USDC)</Label>
                   <NumberField.Group>
-                    <NumberField.DecrementButton />
+                    <NumberField.DecrementButton aria-label="Giảm số tiền" />
                     <NumberField.Input className="tabular-nums" />
-                    <NumberField.IncrementButton />
+                    <NumberField.IncrementButton aria-label="Tăng số tiền" />
                   </NumberField.Group>
                 </NumberField>
               </Tabs.Panel>
@@ -294,7 +303,7 @@ export default function TrialPage() {
                   value={json}
                   onChange={(v) => {
                     setJson(v);
-                    setInputError(null);
+                    edited();
                   }}
                   isInvalid={source === "json" && Boolean(inputError)}
                 >
@@ -326,7 +335,14 @@ export default function TrialPage() {
               </TechDetails>
             ) : null}
 
-            <RadioGroup value={effectiveMode} onChange={(v) => setMode(v as RunMode)} className="gap-3">
+            <RadioGroup
+              value={effectiveMode}
+              onChange={(v) => {
+                setMode(v as RunMode);
+                edited();
+              }}
+              className="gap-3"
+            >
               <Label>Chạy thế nào</Label>
               <Radio value="simulate" isDisabled={!canSimulate}>
                 <Radio.Content>
