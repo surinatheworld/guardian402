@@ -20,7 +20,7 @@
 
 <p align="center">
   <img alt="197 contract tests" src="https://img.shields.io/badge/forge%20test-197%20passed-22C55E?style=flat-square&logo=ethereum&logoColor=white" />
-  <img alt="348 TypeScript tests" src="https://img.shields.io/badge/vitest-348%20passed-22C55E?style=flat-square&logo=vitest&logoColor=white" />
+  <img alt="357 TypeScript tests" src="https://img.shields.io/badge/vitest-357%20passed-22C55E?style=flat-square&logo=vitest&logoColor=white" />
   <img alt="eval: 40 cases, 100% recall, 0% false positives" src="https://img.shields.io/badge/eval-40%20cases%20%C2%B7%20100%25%20recall%20%C2%B7%200%25%20FP-22C55E?style=flat-square" />
   <img alt="Scenarios S0 to S6 on Fuji" src="https://img.shields.io/badge/Fuji-S0%E2%80%93S6%20pass-22C55E?style=flat-square" />
 </p>
@@ -287,7 +287,7 @@ Két [`0xff0d…9C2d`](https://testnet.snowtrace.io/address/0xff0db552A0Ffe04642
 | Bộ                                                                               | Kết quả                                                                    |
 | :------------------------------------------------------------------------------- | :------------------------------------------------------------------------- |
 | Contract (`forge test`: unit, fuzz, invariant)                                   | 197/197                                                                    |
-| TypeScript (`pnpm test`: shared, guardian, guardian-mcp, agent, dashboard, eval) | 348/348                                                                    |
+| TypeScript (`pnpm test`: shared, guardian, guardian-mcp, agent, dashboard, eval) | 357/357                                                                    |
 | Guardian trên fork Fuji (`test:fork`)                                            | 18/18                                                                      |
 | Eval, 40 ca có nhãn (`pnpm eval`)                                                | precision 100%, recall 100%, dương tính giả 0% ([báo cáo](eval/report.md)) |
 
