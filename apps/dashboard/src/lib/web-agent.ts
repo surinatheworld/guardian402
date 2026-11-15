@@ -78,12 +78,16 @@ export function vaultReasonVi(error: string): string {
     BudgetExceeded: "Đã dùng hết tổng ngân sách; chủ két cần làm mới.",
     RiskTooHigh: "Mức rủi ro vượt mức két chấp nhận.",
     VerdictExpired: "Phê duyệt của Guardian đã hết hạn; thử lại.",
+    InvalidVerdict: "Phê duyệt không khớp giao dịch này hoặc đã được dùng; két không nhận.",
+    BadSignature: "Phê duyệt không do Guardian của két ký.",
+    VerdictRequired: "Khoản này cần phê duyệt của Guardian.",
+    BadBatch: "Giao dịch rỗng hoặc quá 8 bước.",
   };
   return reasons[error] ?? `Két sẽ từ chối (${error}).`;
 }
 
 /** The vault error name a failed call reverted with (or the RPC message). */
-function revertName(e: unknown): string {
+export function revertName(e: unknown): string {
   const r = e instanceof BaseError ? e.walk((x) => x instanceof ContractFunctionRevertedError) : null;
   return r instanceof ContractFunctionRevertedError
     ? (r.data?.errorName ?? r.reason ?? "unknown")

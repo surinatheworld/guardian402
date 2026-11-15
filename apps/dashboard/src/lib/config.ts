@@ -62,3 +62,12 @@ const names: Record<string, string> = {
   [deployment.deployer.toLowerCase()]: "Treasury",
 };
 export const knownName = (address: string): string | undefined => names[address.toLowerCase()];
+
+/**
+ * `NEXT_PUBLIC_SOURCE_URL`: the source repository, linked from every page so a reviewer can go from the app to the
+ * code; README and docs are linked under it (`docUrl`).
+ */
+export const SOURCE_URL = (
+  process.env.NEXT_PUBLIC_SOURCE_URL?.trim() || "https://github.com/surinatheworld/guardian402"
+).replace(/\/$/, "");
+export const docUrl = (path: string) => `${SOURCE_URL}/blob/main/${path}`;

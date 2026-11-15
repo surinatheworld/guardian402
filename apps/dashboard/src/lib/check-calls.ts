@@ -19,6 +19,18 @@ export type { CallJson };
 export type Parsed<T> = { ok: true; value: T } | { ok: false; error: string };
 
 export const MAX_CALLS = 8;
+
+/**
+ * Why `v` is not a usable address, or null. EIP-55: an address in mixed case must match its checksum (a wrong
+ * case means a mistyped or altered character); all lowercase carries no checksum and is accepted. All-uppercase hex
+ * is rejected, as viem's strict check does.
+ */
+export function addressProblem(v: string): string | null {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(v)) return "cần 0x và 40 ký tự 0–9, a–f";
+  if (!isAddress(v))
+    return "sai checksum EIP-55 (chữ hoa, chữ thường không khớp), có thể đã gõ nhầm một ký tự; dán lại địa chỉ từ ví hoặc viết toàn chữ thường";
+  return null;
+}
 const HEX = /^0x[0-9a-fA-F]*$/;
 const UINT = /^\d+$/;
 
@@ -37,8 +49,9 @@ export function parseCalls(text: string): Parsed<CallJson[]> {
     const at = `Lệnh ${i + 1}`;
     if (!item || typeof item !== "object") return { ok: false, error: `${at} phải là một object.` };
     const { target, value, data } = item as Record<string, unknown>;
-    if (typeof target !== "string" || !isAddress(target, { strict: false }))
-      return { ok: false, error: `${at}: target phải là địa chỉ 0x… hợp lệ.` };
+    if (typeof target !== "string") return { ok: false, error: `${at}: thiếu target (địa chỉ 0x…).` };
+    const bad = addressProblem(target);
+    if (bad) return { ok: false, error: `${at}: target ${bad}.` };
     const v = value === undefined ? "0" : String(value);
     if (!UINT.test(v)) return { ok: false, error: `${at}: value phải là số nguyên (wei).` };
     const d = data === undefined ? "0x" : data;
@@ -57,8 +70,8 @@ export function transferCall(
   amount: string,
 ): Parsed<CallJson[]> {
   const recipient = to.trim();
-  if (!isAddress(recipient, { strict: false }))
-    return { ok: false, error: "Người nhận phải là địa chỉ 0x… hợp lệ (42 ký tự)." };
+  const badRecipient = addressProblem(recipient);
+  if (badRecipient) return { ok: false, error: `Người nhận không hợp lệ: ${badRecipient}.` };
   const text = amount.trim().replace(",", ".");
   if (!/^\d+(\.\d+)?$/.test(text)) return { ok: false, error: "Số tiền phải là số lớn hơn 0." };
   if ((text.split(".")[1] ?? "").replace(/0+$/, "").length > decimals)
@@ -91,8 +104,8 @@ export function approveCall(
   unlimited: boolean,
 ): Parsed<CallJson[]> {
   const who = spender.trim();
-  if (!isAddress(who, { strict: false }))
-    return { ok: false, error: "Địa chỉ được cấp quyền phải là địa chỉ 0x… hợp lệ (42 ký tự)." };
+  const badSpender = addressProblem(who);
+  if (badSpender) return { ok: false, error: `Địa chỉ được cấp quyền không hợp lệ: ${badSpender}.` };
   let units = 2n ** 256n - 1n;
   if (!unlimited) {
     const text = amount.trim().replace(",", ".");
@@ -117,8 +130,8 @@ export function approveCall(
 /** One raw transaction as a wallet shows it: to, value in AVAX, calldata. */
 export function rawCall(to: string, avax: string, data: string): Parsed<CallJson[]> {
   const target = to.trim();
-  if (!isAddress(target, { strict: false }))
-    return { ok: false, error: "Địa chỉ nhận (to) phải là địa chỉ 0x… hợp lệ (42 ký tự)." };
+  const badTarget = addressProblem(target);
+  if (badTarget) return { ok: false, error: `Địa chỉ nhận (to) không hợp lệ: ${badTarget}.` };
   const text = (avax.trim() || "0").replace(",", ".");
   if (!/^\d+(\.\d+)?$/.test(text)) return { ok: false, error: "Số AVAX phải là số." };
   if ((text.split(".")[1] ?? "").length > 18)

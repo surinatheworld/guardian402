@@ -9,11 +9,14 @@ import { useFactoryStats } from "@/lib/events";
 import { formatAmount, formatCount, formatTime } from "@/lib/format";
 import { ENDPOINT_LABEL, PAGE, RISK_TITLE } from "@/lib/labels";
 import { useVaultPolicy } from "@/lib/vault";
+import { useSelectedVault } from "@/lib/vault-context";
 
 export default function AboutPage() {
   const health = useGuardianHealth();
   const stats = useStats();
   const p = useVaultPolicy().data;
+  const { address: shown } = useSelectedVault();
+  const demoVault = shown.toLowerCase() === deployment.vault.toLowerCase();
   const factory = useFactoryStats();
   const s = stats.data;
   return (
@@ -56,8 +59,17 @@ export default function AboutPage() {
                   {p ? (
                     p.guardian.toLowerCase() === health.data.signer.toLowerCase() ? (
                       <span className="text-xs text-success-soft-foreground">khớp Guardian của két</span>
+                    ) : demoVault ? (
+                      <span className="text-xs text-muted">
+                        Két demo tin khoá <AddressLink address={p.guardian} /> của máy chạy kịch bản S0–S6,
+                        không phải khoá này. Bản công khai chỉ chấm thử két demo, không ký cho nó; két tạo ở
+                        trang Bắt đầu dùng đúng khoá này.
+                      </span>
                     ) : (
-                      <span className="text-xs text-danger">khác Guardian của két: két sẽ từ chối</span>
+                      <span className="text-xs text-danger">
+                        Két đang xem tin khoá <AddressLink address={p.guardian} />: phê duyệt do khoá này ký
+                        sẽ bị két từ chối (BadSignature). Chủ két đổi Guardian ở trang Quy tắc.
+                      </span>
                     )
                   ) : null}
                 </span>,
@@ -104,7 +116,7 @@ export default function AboutPage() {
       </Card>
       <Card
         title="Phí kiểm tra (x402)"
-        description="0,005 USDC mỗi lần kiểm tra, 0,01 USDC mỗi lần kiểm tra và duyệt; chỉ thu khi Guardian trả lời thành công"
+        description="0,005 USDC mỗi lần kiểm tra, 0,01 USDC mỗi lần kiểm tra và duyệt; chỉ thu khi Guardian trả lời thành công. Số liệu của cả Guardian này, mọi ví đã trả, không riêng két đang xem."
       >
         {stats.isError ? (
           <ErrorBox
@@ -116,8 +128,8 @@ export default function AboutPage() {
         {s ? (
           <>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <Stat label="Lần thanh toán" value={formatCount(s.payments.count)} />
-              <Stat label="Tổng thu" value={`${formatAmount(s.payments.totalAtomic, 6, 6)} USDC`} />
+              <Stat label="Lần thu phí" value={formatCount(s.payments.count)} />
+              <Stat label="Guardian đã thu" value={`${formatAmount(s.payments.totalAtomic, 6, 6)} USDC`} />
               <Stat label="Thời gian xử lý (p50)" value={`${s.latencyMs.p50} ms`} />
               <Stat label="Thời gian xử lý (p95)" value={`${s.latencyMs.p95} ms`} />
             </div>

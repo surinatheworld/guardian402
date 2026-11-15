@@ -68,8 +68,11 @@ const uint = (v: unknown, field: string): string => {
 };
 
 const addr = (v: unknown, field: string, vault?: Address): Address => {
-  if (typeof v !== "string" || !isAddress(v, { strict: false }))
-    throw new SpecError(field, `${field}: không phải địa chỉ hợp lệ.`);
+  if (typeof v !== "string" || !isAddress(v))
+    throw new SpecError(
+      field,
+      `${field}: không phải địa chỉ hợp lệ (cần 0x và 40 ký tự hex, đúng checksum EIP-55).`,
+    );
   const a = getAddress(v);
   if (a === zeroAddress) throw new SpecError(field, `${field}: không dùng địa chỉ 0x0.`);
   if (vault && a === getAddress(vault)) throw new SpecError(field, `${field}: không thể là chính két.`);

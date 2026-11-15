@@ -42,7 +42,7 @@ import { avalancheFuji } from "wagmi/chains";
 import { agentVaultAbi } from "@guardian402/shared";
 import { accountApi, ME_KEY, useMe } from "@/lib/account";
 import { useAgentHealth, useGuardianHealth } from "@/lib/api";
-import { deployment, NETWORK } from "@/lib/config";
+import { deployment, docUrl, NETWORK, SOURCE_URL } from "@/lib/config";
 import { formatTime, shortHex } from "@/lib/format";
 import { PAGE } from "@/lib/labels";
 import { useVaultPolicy } from "@/lib/vault";
@@ -616,6 +616,37 @@ function redirectFor(
   return null;
 }
 
+const SOURCE_LINKS = [
+  { href: SOURCE_URL, label: "Mã nguồn (GitHub)" },
+  { href: docUrl("README.md"), label: "README" },
+  { href: docUrl("docs/API.md"), label: "Tài liệu API" },
+  { href: docUrl("docs/THREAT_MODEL.md"), label: "Mô hình đe doạ" },
+];
+
+/** Source and docs on every page: the way from the app to the code. */
+export function SiteFooter({ className = "" }: { className?: string }) {
+  return (
+    <footer
+      className={`flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-separator pt-4 text-xs text-muted ${className}`}
+    >
+      {SOURCE_LINKS.map((l) => (
+        <a
+          key={l.href}
+          href={l.href}
+          target="_blank"
+          rel="noreferrer"
+          className="underline-offset-2 hover:text-foreground hover:underline"
+        >
+          {l.label}
+        </a>
+      ))}
+      <span>
+        Guardian402 · MIT · {NETWORK === "fuji" ? "Avalanche Fuji, mạng thử" : "fork của Fuji, DEMO"}
+      </span>
+    </footer>
+  );
+}
+
 export function AppFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -651,9 +682,10 @@ export function AppFrame({ children }: { children: ReactNode }) {
             {me.data ? <AccountMenu /> : null}
           </div>
         </header>
-        <main id="noi-dung" className="flex w-full flex-1 flex-col px-4 pb-16 sm:px-8">
+        <main id="noi-dung" className="flex w-full flex-1 flex-col px-4 pb-10 sm:px-8">
           {children}
         </main>
+        <SiteFooter className="mx-4 mb-6 sm:mx-8" />
       </div>
     );
 
@@ -668,10 +700,13 @@ export function AppFrame({ children }: { children: ReactNode }) {
         <main
           key={address}
           id="noi-dung"
-          className="mx-auto flex w-full max-w-[1160px] flex-col gap-6 px-4 pt-2 pb-24 sm:px-6 lg:px-8 lg:pb-12"
+          className="mx-auto flex w-full max-w-[1160px] flex-1 flex-col gap-6 px-4 pt-2 pb-8 sm:px-6 lg:px-8"
         >
           {children}
         </main>
+        <div className="mx-auto w-full max-w-[1160px] px-4 pb-24 sm:px-6 lg:px-8 lg:pb-8">
+          <SiteFooter />
+        </div>
       </div>
       <BottomNav />
     </div>

@@ -594,18 +594,19 @@ function AgentCard({
         <Card.Content className="flex flex-col gap-3">
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <div className="flex flex-col gap-0.5 rounded-xl bg-surface-secondary p-3">
-              <dt className="text-muted">Phí mạng</dt>
+              <dt className="text-muted">AVAX trả phí mạng</dt>
               <dd className={`font-semibold tabular-nums ${lowGas ? "text-danger" : ""}`}>
-                {b.avax === undefined ? "…" : `${formatAmount(b.avax, 18, 3)} AVAX`}
+                {b.avax === undefined ? "…" : `${formatAmount(b.avax, 18, 4)} AVAX`}
               </dd>
             </div>
             <div className="flex flex-col gap-0.5 rounded-xl bg-surface-secondary p-3">
-              <dt className="text-muted">Phí Guardian</dt>
+              <dt className="text-muted">USDC trả phí Guardian</dt>
               <dd className={`font-semibold tabular-nums ${lowFee ? "text-danger" : ""}`}>
                 {b.usdc === undefined ? "…" : `${formatAmount(b.usdc, 6, 2)} USDC`}
               </dd>
             </div>
           </dl>
+          <p className="text-xs text-muted">Số dư còn lại trong ví agent, không phải phí đã trả.</p>
           {lowGas || lowFee ? (
             <p className="text-sm text-danger">Ví agent sắp hết phí: agent sẽ không gửi được giao dịch.</p>
           ) : null}

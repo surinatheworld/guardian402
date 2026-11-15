@@ -1,14 +1,16 @@
 "use client";
 // Chạy thử: see what the Guardian and the vault do with one transaction. Pick a scenario (or write a USDC
 // transfer, or paste calls), then either simulate it for free (DEMO /v1/demo/check, nothing sent) or have the
-// demo agent run it for real on the test network (x402 fee + a vault transaction). One page replaces the old
-// Kiểm tra giao dịch, Thử demo and the scenario buttons of Điều khiển.
+// demo agent run it for real on the test network (x402 fee + a vault transaction). S5 and S6 end at the vault, so
+// their simulation asks the demo vault itself with eth_call (src/lib/vault-trial.ts). Every scenario links its
+// real run on Fuji. One page replaces the old Kiểm tra giao dịch, Thử demo and the scenario buttons of Điều khiển.
 import { Description } from "@heroui/react/description";
 import { Button } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { FieldError } from "@heroui/react/field-error";
 import { Kbd } from "@heroui/react/kbd";
 import { Label } from "@heroui/react/label";
+import { Link } from "@heroui/react/link";
 import { ListBox } from "@heroui/react/list-box";
 import { NumberField } from "@heroui/react/number-field";
 import { Radio } from "@heroui/react/radio";
@@ -20,7 +22,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import NextLink from "next/link";
 import { buttonVariants } from "@heroui/react/button";
 import { useMemo, useState, type KeyboardEvent } from "react";
-import { FUJI_CHAIN_ID, type CheckResponse } from "@guardian402/shared";
+import { ArrowUpRightFromSquare } from "@gravity-ui/icons";
+import { FUJI_CHAIN_ID, SNOWTRACE_URL, type CheckResponse } from "@guardian402/shared";
 import { DetailBody } from "@/components/activity-view";
 import { Journey } from "@/components/journey";
 import { TextInput } from "@/components/fields";
@@ -33,6 +36,7 @@ import { PAGE } from "@/lib/labels";
 import { SCENARIOS, type Scenario } from "@/lib/scenarios";
 import type { Attempt } from "@/lib/types";
 import { useVaultPolicy } from "@/lib/vault";
+import { runVaultTrial, type VaultTrial } from "@/lib/vault-trial";
 import { useSelectedVault } from "@/lib/vault-context";
 
 type Source = "kich-ban" | "chuyen" | "json";
@@ -79,8 +83,11 @@ export default function TrialPage() {
           ? "Kịch bản này cần ví chủ két demo và không thể chạy ở đây."
           : null;
   const canLive = source === "kich-ban" && scenario.live && liveReason === null;
-  const canSimulate = source !== "kich-ban" || Boolean(scenario.preset);
+  const vaultSim = source === "kich-ban" && Boolean(scenario.vaultTrial);
+  const canSimulate = source !== "kich-ban" || Boolean(scenario.preset) || vaultSim;
   const effectiveMode: RunMode = mode === "live" && canLive ? "live" : canSimulate ? "simulate" : "live";
+  /** Nothing can run: a real run is not available here and the scenario has no simulation. */
+  const blocked = effectiveMode === "live" && !canLive;
 
   const calls = (): Parsed<CallJson[]> => {
     if (source === "kich-ban")
@@ -121,13 +128,24 @@ export default function TrialPage() {
       void queryClient.invalidateQueries();
     },
   });
-  const running = simulate.isPending || live.isPending;
-  const last = effectiveMode === "live" ? live : simulate;
+  const vaultTrial = useMutation({
+    mutationFn: (id: "S5" | "S6") => runVaultTrial(id),
+  });
+  const running = simulate.isPending || live.isPending || vaultTrial.isPending;
+  const last = effectiveMode === "live" ? live : vaultSim ? vaultTrial : simulate;
 
   const run = () => {
+    if (blocked) return;
     if (effectiveMode === "live") {
       simulate.reset();
+      vaultTrial.reset();
       live.mutate(scenario.id);
+      return;
+    }
+    if (vaultSim) {
+      simulate.reset();
+      live.reset();
+      vaultTrial.mutate(scenario.id as "S5" | "S6");
       return;
     }
     const c = calls();
@@ -137,6 +155,7 @@ export default function TrialPage() {
     }
     setInputError(null);
     live.reset();
+    vaultTrial.reset();
     simulate.mutate(c.value);
   };
   /** The transaction changed: the result on screen is of another one, so it goes (a run in flight keeps going). */
@@ -145,6 +164,7 @@ export default function TrialPage() {
     if (running) return;
     simulate.reset();
     live.reset();
+    vaultTrial.reset();
   };
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !running) {
@@ -252,9 +272,9 @@ export default function TrialPage() {
                               Tấn công mô phỏng
                             </Chip>
                           ) : null}
-                          {!s.preset ? (
+                          {s.vaultTrial ? (
                             <Chip size="sm" variant="tertiary">
-                              Chỉ chạy thật
+                              Két tự trả lời
                             </Chip>
                           ) : null}
                         </div>
@@ -352,9 +372,11 @@ export default function TrialPage() {
                   Mô phỏng
                 </Radio.Content>
                 <Description>
-                  {canSimulate
-                    ? "Miễn phí, không gửi giao dịch lên mạng."
-                    : "Kịch bản này cần chạy thật mới có kết quả."}
+                  {vaultSim
+                    ? "Miễn phí: hỏi thẳng két demo trên Fuji bằng eth_call, không gửi giao dịch."
+                    : canSimulate
+                      ? "Miễn phí, không gửi giao dịch lên mạng."
+                      : "Kịch bản này cần chạy thật mới có kết quả."}
                 </Description>
               </Radio>
               <Radio value="live" isDisabled={!canLive}>
@@ -372,10 +394,10 @@ export default function TrialPage() {
                 </Description>
               </Radio>
             </RadioGroup>
-            {effectiveMode === "live" && !isDemoVault ? (
+            {(effectiveMode === "live" || vaultSim) && !isDemoVault ? (
               <p className="text-xs text-muted">
-                Chạy thật luôn dùng két demo <AddressLink address={deployment.vault} />, không phải két đang
-                chọn.
+                {effectiveMode === "live" ? "Chạy thật" : "Kịch bản này"} luôn dùng két demo{" "}
+                <AddressLink address={deployment.vault} />, không phải két đang chọn.
               </p>
             ) : null}
 
@@ -383,7 +405,7 @@ export default function TrialPage() {
               <Button
                 variant="primary"
                 isPending={running}
-                isDisabled={demoOff && effectiveMode === "simulate"}
+                isDisabled={blocked || (demoOff && effectiveMode === "simulate" && !vaultSim)}
                 onPress={run}
               >
                 {running ? "Đang chạy…" : effectiveMode === "live" ? "Chạy thật" : "Chạy thử"}
@@ -417,7 +439,13 @@ export default function TrialPage() {
                       value: effectiveMode === "live" ? scenario.title : "Giao dịch đã soạn",
                       tone: "info",
                     },
-                    { label: "Guardian kiểm tra", value: "Đang chạy thử trên fork Fuji…", tone: "active" },
+                    vaultSim && effectiveMode === "simulate"
+                      ? { label: "Két demo", value: "Đang hỏi két bằng eth_call…", tone: "active" }
+                      : {
+                          label: "Guardian kiểm tra",
+                          value: "Đang chạy thử trên fork Fuji…",
+                          tone: "active",
+                        },
                     {
                       label: effectiveMode === "live" ? "Két quyết định" : "Két quyết định (dự đoán)",
                       value: effectiveMode === "live" ? "Chờ agent gửi giao dịch" : "Chờ kết quả",
@@ -443,6 +471,12 @@ export default function TrialPage() {
                     </Notice>
                   ) : null}
                   <DetailBody item={resultItem} />
+                  {source === "kich-ban" ? <Evidence scenario={scenario} /> : null}
+                </>
+              ) : vaultTrial.data && vaultSim ? (
+                <>
+                  <VaultTrialResult trial={vaultTrial.data} scenario={scenario} />
+                  <Evidence scenario={scenario} />
                 </>
               ) : (
                 <p className="py-8 text-center text-sm text-muted">
@@ -454,5 +488,57 @@ export default function TrialPage() {
         </div>
       </div>
     </>
+  );
+}
+
+/** The scenario's real run on Fuji: the vault transactions, on Snowtrace. */
+function Evidence({ scenario }: { scenario: Scenario }) {
+  return (
+    <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-separator pt-3 text-xs text-muted">
+      <span>Đã chạy thật trên Fuji:</span>
+      {scenario.evidence.map((e) => (
+        <Link
+          key={e.tx}
+          href={`${SNOWTRACE_URL}/tx/${e.tx}`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-xs"
+        >
+          {e.label}
+          <ArrowUpRightFromSquare aria-hidden="true" className="size-3" />
+          <span className="sr-only"> (mở trên Snowtrace)</span>
+        </Link>
+      ))}
+    </p>
+  );
+}
+
+/** What the demo vault answered to S5 or S6, step by step. */
+function VaultTrialResult({ trial, scenario }: { trial: VaultTrial; scenario: Scenario }) {
+  const ok = trial.steps.every((s) => s.expected);
+  return (
+    <div className="flex flex-col gap-3">
+      <Notice status={ok ? "success" : "warning"} title={ok ? "Đúng như mong đợi" : "Kết quả khác mong đợi"}>
+        {scenario.expected} Két demo trả lời qua eth_call từ ví agent của nó; không có giao dịch nào được gửi.
+      </Notice>
+      <ol className="flex flex-col gap-2">
+        {trial.steps.map((s, i) => (
+          <li key={s.label} className="flex flex-col gap-1 rounded-xl border border-separator p-3">
+            <span className="text-sm font-medium">
+              {i + 1}. {s.label}
+            </span>
+            <span
+              className={`text-sm ${s.error && s.error !== "VerdictRequired" ? "text-danger" : "text-success"}`}
+            >
+              {s.answer}
+            </span>
+            {s.error ? <code className="text-xs text-muted">{s.error}</code> : null}
+          </li>
+        ))}
+      </ol>
+      <p className="text-xs text-muted">
+        <AddressLink address={trial.vault} /> · ví agent <AddressLink address={trial.agent} />
+      </p>
+    </div>
   );
 }

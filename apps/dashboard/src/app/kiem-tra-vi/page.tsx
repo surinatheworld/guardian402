@@ -13,13 +13,14 @@ import { TextArea } from "@heroui/react/textarea";
 import { TextField } from "@heroui/react/textfield";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { getAddress, isAddress, type Address } from "viem";
+import { getAddress, type Address } from "viem";
 import { useAccount } from "wagmi";
 import { FUJI_CHAIN_ID, type CheckResponse } from "@guardian402/shared";
 import { TextInput } from "@/components/fields";
 import { Card, ErrorBox, Notice, PageHeader, RiskBadge, RuleChips, TechDetails } from "@/components/ui";
 import { errorText, getJson, HttpError, useGuardianHealth } from "@/lib/api";
 import {
+  addressProblem,
   approveCall,
   describeCall,
   rawCall,
@@ -44,8 +45,10 @@ function parseBook(text: string): Parsed<Address[]> {
     .split(/[\s,]+/)
     .map((x) => x.trim())
     .filter(Boolean);
-  const bad = parts.find((x) => !isAddress(x, { strict: false }));
-  if (bad) return { ok: false, error: `"${bad}" không phải địa chỉ 0x… hợp lệ.` };
+  for (const x of parts) {
+    const why = addressProblem(x);
+    if (why) return { ok: false, error: `"${x}" không hợp lệ: ${why}.` };
+  }
   if (parts.length > 20) return { ok: false, error: "Tối đa 20 địa chỉ quen." };
   return { ok: true, value: [...new Set(parts.map((x) => getAddress(x)))] };
 }
@@ -109,8 +112,9 @@ export default function WalletCheckPage() {
     if (!check.isPending) check.reset();
   };
   const run = () => {
-    if (!isAddress(wallet.trim(), { strict: false })) {
-      setError("Địa chỉ ví phải là địa chỉ 0x… hợp lệ (42 ký tự).");
+    const badWallet = addressProblem(wallet.trim());
+    if (badWallet) {
+      setError(`Địa chỉ ví không hợp lệ: ${badWallet}.`);
       return;
     }
     const c = calls();
@@ -375,8 +379,13 @@ export default function WalletCheckPage() {
                 </ul>
               ) : null}
               <p className="text-xs text-muted">
-                Mức rủi ro do bộ luật cố định quyết định; AI chỉ viết lời giải thích. {r.explanation.en}
+                Mức rủi ro do bộ luật cố định quyết định; AI chỉ viết lời giải thích.
               </p>
+              <TechDetails label="Lời giải thích tiếng Anh">
+                <p lang="en" className="text-sm leading-6">
+                  {r.explanation.en}
+                </p>
+              </TechDetails>
               <TechDetails>
                 <pre className="overflow-x-auto font-mono text-xs">{JSON.stringify(r.findings, null, 2)}</pre>
               </TechDetails>

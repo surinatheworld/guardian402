@@ -245,14 +245,14 @@ function Identity({
       {agent ? (
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div className="flex flex-col gap-0.5 rounded-xl bg-surface-secondary p-4">
-            <dt className="text-muted">Phí mạng trong ví agent</dt>
+            <dt className="text-muted">Số dư AVAX trả phí mạng</dt>
             <dd className={`text-heading tabular-nums ${lowGas ? "text-danger" : ""}`}>
               {b.avax === undefined ? "…" : `${formatAmount(b.avax, 18, 4)} AVAX`}
             </dd>
             <dd className="text-xs text-muted">Mỗi giao dịch của agent tốn khoảng 0,001 AVAX.</dd>
           </div>
           <div className="flex flex-col gap-0.5 rounded-xl bg-surface-secondary p-4">
-            <dt className="text-muted">Phí Guardian trong ví agent</dt>
+            <dt className="text-muted">Số dư USDC trả phí Guardian</dt>
             <dd className={`text-heading tabular-nums ${lowFee ? "text-danger" : ""}`}>
               {b.usdc === undefined ? "…" : `${formatAmount(b.usdc, 6, 2)} USDC`}
             </dd>
