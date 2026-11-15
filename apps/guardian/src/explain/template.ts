@@ -88,10 +88,16 @@ const SENTENCES: Record<RuleId, Sentence> = {
       );
     return facts.length ? `${base} (${facts.join(", ")}).` : `${base}.`;
   },
-  ADDRESS_POISONING: (f, i, lang) =>
-    lang === "vi"
-      ? `${label(i, f.evidence.address)} là địa chỉ nhái, trông giống ${label(i, f.evidence.looksLike)}.`
-      : `${label(i, f.evidence.address)} is a lookalike of ${label(i, f.evidence.looksLike)}.`,
+  ADDRESS_POISONING: (f, i, lang) => {
+    // Both in full: shortened, a lookalike reads exactly like the address it imitates.
+    const fake = String(f.evidence.address);
+    const real = String(f.evidence.looksLike);
+    const name = i.names[real.toLowerCase()];
+    const realText = name ? `${name} (${real})` : real;
+    return lang === "vi"
+      ? `Địa chỉ nhái ${fake} trông giống ${realText} nhưng là ví khác.`
+      : `Lookalike address ${fake} imitates ${realText} but is a different wallet.`;
+  },
   DRAIN_PATTERN: (f, i, lang) =>
     lang === "vi"
       ? `Chuyển ${String(f.evidence.percent).replace(".", ",")}% số dư (${amount(i, f.evidence.token, f.evidence.outflow, lang)}) ra khỏi ${whose(i, lang)}.`

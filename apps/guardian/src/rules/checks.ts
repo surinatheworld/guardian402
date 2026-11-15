@@ -280,10 +280,21 @@ export const unknownContract: Rule = (sim, ctx, cfg) => {
 
 // ------------------------------------------------------------------ ADDRESS_POISONING
 
+/** Hex characters that differ, position by position, between two 40-character address bodies. */
+const hexDiff = (a: string, b: string) => {
+  let n = 0;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) n++;
+  return n;
+};
+
+// Two shapes of lookalike: the same first and last characters as a trusted address (what a wallet shows, mined
+// cheaply), or nearly the same address throughout (a typo-style twin: one or a few characters changed). Two
+// unrelated addresses share either shape by chance about once in 16^8.
 export const addressPoisoning: Rule = (sim, ctx, cfg) => {
   const book = addressBook(ctx);
   const prefix = ctx.demoMode ? cfg.addressPoisoning.demoPrefix : cfg.addressPoisoning.prefix;
   const suffix = ctx.demoMode ? cfg.addressPoisoning.demoSuffix : cfg.addressPoisoning.suffix;
+  const maxDiff = cfg.addressPoisoning.maxDiff;
   const body = (a: string) => lc(a).slice(2);
   const counterparties: { address: Address; role: string }[] = [
     ...vaultTransfers(sim, ctx).map((t) => ({ address: t.to, role: "recipient" })),
@@ -297,17 +308,29 @@ export const addressPoisoning: Rule = (sim, ctx, cfg) => {
   for (const { address, role } of counterparties) {
     const a = body(address);
     if (book.has(lc(address)) || seen.has(a)) continue;
-    const twin = [...book].find((b) => {
+    let match: { twin: string; shape: "edges" | "near-identical"; differences: number } | undefined;
+    for (const b of book) {
       const k = body(b);
-      return k !== a && k.slice(0, prefix) === a.slice(0, prefix) && k.slice(-suffix) === a.slice(-suffix);
-    });
-    if (!twin) continue;
+      if (k === a) continue;
+      const differences = hexDiff(k, a);
+      if (k.slice(0, prefix) === a.slice(0, prefix) && k.slice(-suffix) === a.slice(-suffix)) {
+        match = { twin: b, shape: "edges", differences };
+        break;
+      }
+      if (differences <= maxDiff) {
+        match = { twin: b, shape: "near-identical", differences };
+        break;
+      }
+    }
+    if (!match) continue;
     seen.add(a);
     out.push(
       finding("ADDRESS_POISONING", "HIGH", "Lookalike of a trusted address", {
         address: getAddress(address),
         role,
-        looksLike: getAddress(twin),
+        looksLike: getAddress(match.twin),
+        shape: match.shape,
+        differences: match.differences,
         prefix,
         suffix,
       }),

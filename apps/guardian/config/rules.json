@@ -1,7 +1,7 @@
 {
   "weights": { "HIGH": 60, "MEDIUM": 25 },
   "unlimitedApproval": { "threshold": "340282366920938463463374607431768211456" },
-  "addressPoisoning": { "prefix": 4, "suffix": 4, "demoPrefix": 3, "demoSuffix": 3 },
+  "addressPoisoning": { "prefix": 4, "suffix": 4, "demoPrefix": 3, "demoSuffix": 3, "maxDiff": 4 },
   "drainPattern": { "percent": 50 },
   "abnormalSlippage": { "mediumBps": 200, "highBps": 1000 },
   "unprotectedSwap": { "maxGapBps": 300 },

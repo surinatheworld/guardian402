@@ -332,6 +332,26 @@ describe("rule details", () => {
     expect(fire("ADDRESS_POISONING", f, { ...f.ctx, demoMode: true })).toHaveLength(1);
   });
 
+  it("ADDRESS_POISONING catches a near-identical address (only the last character changed)", () => {
+    const f = fx("poisoned-approval");
+    const router = must(f.ctx.policy.targets[0]).target.toLowerCase();
+    const last = router.slice(-1) === "5" ? "6" : "5";
+    const twin = `${router.slice(0, -1)}${last}` as `0x${string}`;
+    must(f.sim.approvals[0]).spender = twin;
+    const [p] = fire("ADDRESS_POISONING", f);
+    expect(p?.evidence).toMatchObject({ shape: "near-identical", differences: 1 });
+    expect(String(p?.evidence.looksLike).toLowerCase()).toBe(router);
+  });
+
+  it("ADDRESS_POISONING ignores an unrelated address", () => {
+    const f = fx("poisoned-approval");
+    const router = must(f.ctx.policy.targets[0]).target.toLowerCase();
+    // Every character differs from the router's.
+    const other = `0x${[...router.slice(2)].map((c) => (c === "a" ? "b" : "a")).join("")}` as `0x${string}`;
+    must(f.sim.approvals[0]).spender = other;
+    expect(fire("ADDRESS_POISONING", f)).toEqual([]);
+  });
+
   it("SIMULATION_FAILED on a timeout, without any revert text in the evidence", () => {
     const f = fx("normal-swap");
     f.sim.timedOut = true;

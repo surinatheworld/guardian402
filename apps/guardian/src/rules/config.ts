@@ -12,6 +12,7 @@ const ruleConfigSchema = z
       suffix: z.number().int().min(1).max(20),
       demoPrefix: z.number().int().min(1).max(20),
       demoSuffix: z.number().int().min(1).max(20),
+      maxDiff: z.number().int().min(0).max(39),
     }),
     drainPattern: z.object({ percent: z.number().int().min(1).max(100) }),
     abnormalSlippage: z

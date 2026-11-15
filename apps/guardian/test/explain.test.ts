@@ -57,9 +57,14 @@ describe("TemplateExplainer", () => {
     expect(high.en).toContain("100% of the balance");
   });
 
-  it("shortens unknown addresses and names known ones", async () => {
+  it("shows a lookalike and the address it imitates in full, so they cannot read the same", async () => {
     const e = await template.explain(input("poisoned-approval"));
-    expect(e.en).toMatch(/0x[0-9a-fA-F]{4}…[0-9a-fA-F]{4} is a lookalike of MockRouter \(DEMO\)/);
+    expect(e.en).toMatch(
+      /Lookalike address 0x[0-9a-fA-F]{40} imitates MockRouter \(DEMO\) \(0x[0-9a-fA-F]{40}\)/,
+    );
+    expect(e.vi).toMatch(
+      /Địa chỉ nhái 0x[0-9a-fA-F]{40} trông giống MockRouter \(DEMO\) \(0x[0-9a-fA-F]{40}\)/,
+    );
   });
 
   it("never contradicts its own risk and stays within 400 characters", async () => {

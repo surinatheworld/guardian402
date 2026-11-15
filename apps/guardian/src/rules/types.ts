@@ -78,7 +78,14 @@ export type Context = {
 export type RuleConfig = {
   weights: { HIGH: number; MEDIUM: number };
   unlimitedApproval: { threshold: bigint };
-  addressPoisoning: { prefix: number; suffix: number; demoPrefix: number; demoSuffix: number };
+  /** `maxDiff`: an address within this many differing hex characters of a trusted one is a lookalike too. */
+  addressPoisoning: {
+    prefix: number;
+    suffix: number;
+    demoPrefix: number;
+    demoSuffix: number;
+    maxDiff: number;
+  };
   drainPattern: { percent: number };
   abnormalSlippage: { mediumBps: number; highBps: number };
   unprotectedSwap: { maxGapBps: number };

@@ -168,6 +168,10 @@ describe("contacts", () => {
     // The DEMO lookalike of the Fuji router matches only 3+3 characters; the address book still catches it.
     expect(looksLike("0xE20b3196DcAf7663E8E834bA881a513cF761d1d9", ROUTER)).toBe(true);
     expect(looksLike(ROUTER, ROUTER)).toBe(false);
+    // A near-identical twin: only the last character changed (QA case …5555 vs …5556).
+    const last = ROUTER.slice(-1).toLowerCase() === "5" ? "6" : "5";
+    expect(looksLike(`${ROUTER.slice(0, -1)}${last}`, ROUTER)).toBe(true);
+    expect(looksLike(`0x${"a".repeat(40)}`, `0x${"b".repeat(40)}`)).toBe(false);
     expect(await err(() => ws.createContact(v, { name: "Router?", address: lookalikeRouter }))).toBe(
       "409 lookalike",
     );

@@ -221,8 +221,16 @@ export function createApp(d: AppDeps) {
       thresholds: {
         unlimitedApproval: c.unlimitedApproval.threshold.toString(),
         addressPoisoning: d.demoMode
-          ? { prefix: c.addressPoisoning.demoPrefix, suffix: c.addressPoisoning.demoSuffix }
-          : { prefix: c.addressPoisoning.prefix, suffix: c.addressPoisoning.suffix },
+          ? {
+              prefix: c.addressPoisoning.demoPrefix,
+              suffix: c.addressPoisoning.demoSuffix,
+              maxDiff: c.addressPoisoning.maxDiff,
+            }
+          : {
+              prefix: c.addressPoisoning.prefix,
+              suffix: c.addressPoisoning.suffix,
+              maxDiff: c.addressPoisoning.maxDiff,
+            },
         drainPercent: c.drainPattern.percent,
         slippageBps: c.abnormalSlippage,
         weights: c.weights,
