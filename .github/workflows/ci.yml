@@ -1,0 +1,59 @@
+# Every push to main and every pull request: the contract suite (unit, fuzz, invariant) and the TypeScript
+# workspace (typecheck, lint, format, tests). No secrets and no network beyond package downloads: the fork tests
+# (`test:fork`), the eval and anything on Fuji stay local (see CLAUDE.md, Commands).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Contracts (forge)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.8.5
+      - name: Build
+        working-directory: contracts
+        run: forge build
+      - name: Test
+        working-directory: contracts
+        run: forge test
+
+  typescript:
+    name: TypeScript (typecheck, lint, tests)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.8.5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The eval reads the contract artifacts.
+      - name: Contract artifacts
+        working-directory: contracts
+        run: forge build
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm test
