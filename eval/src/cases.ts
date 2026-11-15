@@ -62,7 +62,7 @@ export function loadCases(dir: string): EvalCase[] {
     .sort();
   return files.map((f) => {
     const parsed = caseSchema.safeParse(JSON.parse(readFileSync(join(dir, f), "utf8")));
-    if (!parsed.success) throw new Error(`${f}: ${JSON.stringify(parsed.error.flatten())}`);
+    if (!parsed.success) throw new Error(`${f}: ${JSON.stringify(z.flattenError(parsed.error))}`);
     if (`${parsed.data.id}.json` !== f)
       throw new Error(`${f}: id "${parsed.data.id}" does not match the file name`);
     return parsed.data;

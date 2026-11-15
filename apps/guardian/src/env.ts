@@ -10,18 +10,18 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 const schema = z.object({
   NETWORK: z.enum(NETWORKS).default("local"),
-  FUJI_RPC_URL: z.string().url().default(FUJI_RPC_URL),
-  CHAIN_RPC_URL: z.string().url().default("http://127.0.0.1:8545"),
-  FORK_RPC_URL: z.string().url().default("http://127.0.0.1:8545"),
+  FUJI_RPC_URL: z.url().default(FUJI_RPC_URL),
+  CHAIN_RPC_URL: z.url().default("http://127.0.0.1:8545"),
+  FORK_RPC_URL: z.url().default("http://127.0.0.1:8545"),
   GUARDIAN_SIGNER_PK: z
     .string()
     .regex(/^0x[0-9a-fA-F]{64}$/, "GUARDIAN_SIGNER_PK must be a 0x-prefixed 32-byte hex key"),
   PAY_TO: z.string().refine((v) => isAddress(v), "PAY_TO must be an address"),
-  FACILITATOR_URL: z.string().url().default(DEFAULT_FACILITATOR_URL),
+  FACILITATOR_URL: z.url().default(DEFAULT_FACILITATOR_URL),
   LLM_PROVIDER: z.string().default("none"),
   LLM_MODEL: z.string().optional(),
   LLM_API_KEY: z.string().optional(),
-  LLM_BASE_URL: z.string().url().optional(),
+  LLM_BASE_URL: z.url().optional(),
   DEMO_MODE: z
     .string()
     .default("false")
@@ -33,7 +33,6 @@ const schema = z.object({
     .transform((v) => v === "true" || v === "1"),
   // Public base URL of the Guardian API (e.g. https://host/api/guardian): the x402 resource URL behind a proxy.
   GUARDIAN_PUBLIC_URL: z
-    .string()
     .url()
     .optional()
     .or(z.literal("").transform(() => undefined)),

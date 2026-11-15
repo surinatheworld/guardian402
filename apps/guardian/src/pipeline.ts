@@ -11,6 +11,7 @@ import {
   type Address,
   type PublicClient,
 } from "viem";
+import { z } from "zod";
 import {
   agentVaultAbi,
   checkRequestSchema,
@@ -105,7 +106,7 @@ export class Pipeline {
   /** Throws InputError on a body that does not match CheckRequest (→ 400, the payment is not settled). */
   parse(body: unknown): CheckRequest {
     const parsed = checkRequestSchema.safeParse(body);
-    if (!parsed.success) throw new InputError(parsed.error.flatten());
+    if (!parsed.success) throw new InputError(z.flattenError(parsed.error));
     return parsed.data;
   }
 
@@ -206,7 +207,7 @@ export class Pipeline {
   /** Throws InputError on a body that does not match WalletCheckRequest (→ 400, not settled). */
   parseWallet(body: unknown): WalletCheckRequest {
     const parsed = walletCheckRequestSchema.safeParse(body);
-    if (!parsed.success) throw new InputError(parsed.error.flatten());
+    if (!parsed.success) throw new InputError(z.flattenError(parsed.error));
     return parsed.data;
   }
 

@@ -15,7 +15,6 @@ export function rpcUrls(primary: string): string[] {
   return [...new Set([primary, FUJI_RPC_URL, FUJI_RPC_FALLBACK_URL])];
 }
 
-/** A viem transport for `primary`, falling back to the other public Fuji endpoints when it is remote. */
 /**
  * viem `fallback` over `urls`: one attempt per endpoint, in order. No retries: viem's http transport waits the
  * server's `Retry-After` before retrying, and the public Fuji RPC sends `Retry-After: 2990` with its 429, so a
@@ -29,6 +28,7 @@ export function fallbackTransport(urls: string[]): Transport {
   );
 }
 
+/** A viem transport for `primary`, falling back to the other public Fuji endpoints when it is remote. */
 export function rpcTransport(primary: string): Transport {
   const urls = rpcUrls(primary);
   if (urls.length === 1) return http(primary);

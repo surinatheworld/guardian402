@@ -21,7 +21,7 @@ export const registrationSchema = z.object({
   type: z.literal(ERC8004_REGISTRATION_TYPE),
   name: z.string().min(1),
   description: z.string().min(1),
-  image: z.string().url().optional(),
+  image: z.url().optional(),
   services: z
     .array(
       z.object({

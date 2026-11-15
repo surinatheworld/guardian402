@@ -11,8 +11,8 @@ export const AGENT_DIR = join(ROOT, "apps/agent");
 const key = z.string().regex(/^0x[0-9a-fA-F]{64}$/, "must be a 0x-prefixed 32-byte hex key");
 const schema = z.object({
   NETWORK: z.enum(NETWORKS).default("local"),
-  CHAIN_RPC_URL: z.string().url().default("http://127.0.0.1:8545"),
-  GUARDIAN_URL: z.string().url().default("http://127.0.0.1:4402"),
+  CHAIN_RPC_URL: z.url().default("http://127.0.0.1:8545"),
+  GUARDIAN_URL: z.url().default("http://127.0.0.1:4402"),
   AGENT_PK: key,
   OWNER_PK: key.optional(),
   DEMO_MODE: z
