@@ -93,6 +93,20 @@ Verdicts carry the vault address in the EIP-712 domain, the chain id, a single-u
 
 Lookalike recipients and spenders are flagged by `ADDRESS_POISONING` (4+4 hex characters in production, 3+3 in DEMO because mining 4+4 takes too long on a laptop). They are also outside the allowlist, so the vault rejects them anyway.
 
+### Payments without the Guardian (verdict threshold)
+
+A vault created from `/bat-dau` lets payments of at most its verdict threshold (default 1 USDC) to an allowed recipient run without a verdict, so the agent's `pay` sends them with no Guardian fee. A compromised agent key can therefore move that much per payment without the Guardian, but only to recipients the owner allowed and within the per-payment cap, the daily cap and the total budget, which the vault enforces either way. Any approval, any call to an allowed app, and any payment above the threshold still needs a verdict. An owner who wants every payment checked sets the field to 0.
+
+### Wallet check (any wallet, no vault)
+
+`/v1/wallet/check` and the free `/v1/demo/wallet-check` simulate a transaction from any address and explain it; they sign nothing and change nothing, so a wrong answer is a wrong warning, not a moved fund. The address is the caller's input and is not proven to be theirs: the result is about the transaction, not an attestation about the wallet. The free route is DEMO only and rate-limited per caller and overall, like `/v1/demo/check`. The rules run without a vault policy (no allowlist), so a large payment to a friend is reported as a drain: a warning to read, not a block.
+
+### Explorer lookup and ERC-8004 reputation
+
+The explorer lookup (`EXPLORER_LOOKUP`) asks Routescan whether an unknown contract is verified and how old it is. It can only raise a finding's severity (unverified or new → HIGH); a failed, slow or wrong answer leaves the rule as it was without the lookup, and a contract in the known-contracts registry is never looked up. Routescan is a dependency for that extra signal only.
+
+The ReputationRegistry accepts feedback from any address, so a score over every client could be inflated or sunk with throwaway wallets. The dashboard counts only feedback from wallets that own a vault the VaultFactory created (read from its `VaultCreated` events). Creating such a vault costs a transaction, which raises the cost of faking a score but does not make it impossible; the score is a track record to read, never an input to a verdict. The Guardian's own key cannot rate itself: the registry refuses self-feedback.
+
 ## Findings of the P11 review
 
 Review of `contracts/src/AgentVault.sol` acting as an outside auditor. Each finding has a test in `contracts/test/AgentVault.audit.t.sol`.

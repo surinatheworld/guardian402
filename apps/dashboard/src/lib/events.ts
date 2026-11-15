@@ -177,7 +177,13 @@ export function useVaultsWithAgent(wallet: Address | undefined) {
   });
 }
 
-export type FactoryStats = { vaults: number; owners: number; agents: number };
+export type FactoryStats = {
+  vaults: number;
+  owners: number;
+  agents: number;
+  /** Lowercase owner wallets of the factory's vaults (the reputation page counts only their feedback). */
+  ownerWallets: string[];
+};
 
 /** Every vault the VaultFactory has created on Fuji, from Routescan: how many, and for how many owners and agents. */
 export async function fetchFactoryStats(fetcher: typeof fetch = fetch): Promise<FactoryStats | null> {
@@ -195,7 +201,7 @@ export async function fetchFactoryStats(fetcher: typeof fetch = fetch): Promise<
   if (!res.ok) throw new Error(`Routescan HTTP ${res.status}`);
   const body = (await res.json()) as { message?: string; result: RoutescanLog[] | string };
   if (!Array.isArray(body.result)) {
-    if (/no records/i.test(body.message ?? "")) return { vaults: 0, owners: 0, agents: 0 };
+    if (/no records/i.test(body.message ?? "")) return { vaults: 0, owners: 0, agents: 0, ownerWallets: [] };
     throw new Error("Routescan: no result");
   }
   const owners = new Set<string>();
@@ -215,7 +221,7 @@ export async function fetchFactoryStats(fetcher: typeof fetch = fetch): Promise<
       // not a VaultCreated log
     }
   }
-  return { vaults, owners: owners.size, agents: agents.size };
+  return { vaults, owners: owners.size, agents: agents.size, ownerWallets: [...owners] };
 }
 
 /** Always Fuji's factory (Routescan), whatever network the dashboard runs on. */

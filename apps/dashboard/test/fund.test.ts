@@ -84,9 +84,10 @@ describe("vaults created through the factory", () => {
           ],
         }),
       )) as typeof fetch;
-    expect(await fetchFactoryStats(fetcher)).toEqual({ vaults: 3, owners: 2, agents: 1 });
+    expect(await fetchFactoryStats(fetcher)).toMatchObject({ vaults: 3, owners: 2, agents: 1 });
+    expect((await fetchFactoryStats(fetcher))?.ownerWallets.sort()).toEqual([O1, O2]);
     const none = (async () =>
       new Response(JSON.stringify({ status: "0", message: "No records found", result: [] }))) as typeof fetch;
-    expect(await fetchFactoryStats(none)).toEqual({ vaults: 0, owners: 0, agents: 0 });
+    expect(await fetchFactoryStats(none)).toEqual({ vaults: 0, owners: 0, agents: 0, ownerWallets: [] });
   });
 });

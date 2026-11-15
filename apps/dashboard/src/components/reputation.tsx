@@ -1,8 +1,10 @@
 "use client";
 // The Guardian's track record on the official ERC-8004 ReputationRegistry (Fuji): owners who reviewed a check
 // write "right" (100) or "false alarm" (0) on chain, tagged "tx-risk", with the checkId as the feedback hash.
-// The Guardian's own key cannot write feedback (the registry refuses self-feedback), so the score comes only
-// from owners. Reading needs no wallet; writing is an owner transaction like any other.
+// The Guardian's own key cannot write feedback (the registry refuses self-feedback). The registry takes feedback
+// from any address, so a score over every client could be inflated or sunk with throwaway wallets (sybil): the
+// page counts only clients that own a vault the VaultFactory created (its VaultCreated events).
+// Reading needs no wallet; writing is an owner transaction like any other.
 import { Button } from "@heroui/react/button";
 import { Description } from "@heroui/react/description";
 import type { Address, Hex } from "viem";
@@ -19,6 +21,7 @@ import {
   type FeedbackKind,
 } from "@guardian402/shared";
 import { GUARDIAN_URL } from "@/lib/config";
+import { useFactoryStats } from "@/lib/events";
 import { formatCount } from "@/lib/format";
 import { useOwnerAction } from "./owner-action";
 import { AddressLink, Facts, LoadingRows, Stat } from "./ui";
@@ -39,7 +42,10 @@ function useReputation() {
     chainId: avalancheFuji.id,
     query: { enabled: agentId !== undefined, refetchInterval: 30_000 },
   });
-  const list = clients.data ?? [];
+  const factory = useFactoryStats();
+  const owners = new Set(factory.data?.ownerWallets ?? []);
+  const all = clients.data ?? [];
+  const list = all.filter((c) => owners.has(c.toLowerCase()));
   const summary = useReadContract({
     address: ERC8004_FUJI.reputationRegistry,
     abi: reputationRegistryAbi,
@@ -50,9 +56,10 @@ function useReputation() {
   });
   const [count, value, decimals] = summary.data ?? [0n, 0n, 0];
   return {
-    loading: clients.isPending || (list.length > 0 && summary.isPending),
-    error: clients.isError || summary.isError,
+    loading: clients.isPending || factory.isPending || (list.length > 0 && summary.isPending),
+    error: clients.isError || factory.isError || summary.isError,
     owners: list.length,
+    ignored: all.length - list.length,
     count,
     score: reputationScore(count, value, decimals),
   };
@@ -86,8 +93,10 @@ export function GuardianReputation() {
         ]}
       />
       <p className="text-sm text-muted">
-        Điểm do chính các chủ két ghi lên chain sau khi xem lại một lần Guardian chấm (ở trang Hoạt động).
-        Khoá của Guardian không tự chấm được cho mình: registry từ chối.
+        Điểm do chính các chủ két ghi lên chain sau khi xem lại một lần Guardian chấm (ở trang Hoạt động). Chỉ
+        tính đánh giá của ví đã tạo két qua VaultFactory, để ví rác không kéo điểm lên hay xuống được
+        {r.ignored > 0 ? ` (đã bỏ qua ${formatCount(r.ignored)} ví khác)` : ""}. Khoá của Guardian không tự
+        chấm được cho mình: registry từ chối.
       </p>
     </div>
   );
