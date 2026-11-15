@@ -27,11 +27,18 @@ import NextLink from "next/link";
 import { useState, type ReactNode } from "react";
 import type { Address, Hex } from "viem";
 import { checkIdOf, moneyEffects, type ActivityItem } from "@/lib/activity";
-import { useCheckDetail, useCheckDetails, type CheckDetail } from "@/lib/activity-hooks";
+import {
+  useCheckDetail,
+  useCheckDetails,
+  useExecutionFlows,
+  type CheckDetail,
+  type ExecutionFlow,
+} from "@/lib/activity-hooks";
 import { errorText } from "@/lib/api";
 import { useMe } from "@/lib/account";
 import { vaultDecision } from "@/lib/check-calls";
-import { formatAmount, formatTime } from "@/lib/format";
+import { knownName, tokenMeta } from "@/lib/config";
+import { formatAmount, formatTime, shortHex } from "@/lib/format";
 import { ENDPOINT_PATH, findingLabel, revertLabel } from "@/lib/labels";
 import { scenarioTitle } from "@/lib/scenarios";
 import { useVaultPolicy } from "@/lib/vault";
@@ -44,9 +51,36 @@ import { ErrorBox, LoadingRows, RiskBadge, TechDetails, TxLink } from "./ui";
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** The headline of an item: what happened, in one line. */
-function headline(item: ActivityItem, detail: CheckDetail | undefined, vault: string) {
+/** "Chuyển 1,5 USDC tới Treasury": an execution's transfers out of the vault, from its receipt. */
+function flowText(flows: ExecutionFlow[] | undefined): string | undefined {
+  if (!flows?.length) return undefined;
+  return flows
+    .map((x) => {
+      const m = tokenMeta(x.token);
+      return `Chuyển ${formatAmount(x.amount, m.decimals, 4)} ${m.symbol} tới ${knownName(x.to) ?? shortHex(x.to)}`;
+    })
+    .join(" · ");
+}
+
+/** "−1,5 USDC" for the first transfer out, or undefined. */
+function flowAmount(flows: ExecutionFlow[] | undefined): string | undefined {
+  const x = flows?.[0];
+  if (!x) return undefined;
+  const m = tokenMeta(x.token);
+  return `−${formatAmount(x.amount, m.decimals, 4)} ${m.symbol}`;
+}
+
+const flowsOf = (item: ActivityItem, flows: Map<string, ExecutionFlow[]>) =>
+  item.execution && !item.check ? flows.get(item.execution.txHash.toLowerCase()) : undefined;
+
+function headline(
+  item: ActivityItem,
+  detail: CheckDetail | undefined,
+  vault: string,
+  flows?: ExecutionFlow[],
+) {
   if (item.attempt) return scenarioTitle(item.attempt.scenario);
-  return proposalText(item, detail, vault);
+  return proposalText(item, detail, vault, flowText(flows));
 }
 
 type Tone = "ok" | "bad" | "neutral";
@@ -148,6 +182,9 @@ function outflow(detail: CheckDetail | undefined): string {
 const guardianCell = (item: ActivityItem, withScore: boolean) =>
   item.risk ? (
     <RiskBadge risk={item.risk} score={withScore ? item.check?.score : undefined} />
+  ) : item.execution?.withVerdict ? (
+    // Approved, but by a Guardian whose check is not in this one's history (e.g. another instance).
+    <span className="text-sm text-success-soft-foreground">Đã duyệt</span>
   ) : (
     <span className="text-sm text-muted">Không cần duyệt</span>
   );
@@ -159,6 +196,7 @@ export function ActivityTable({ items, label, onOpen }: ListProps) {
   const { address: vault } = useSelectedVault();
   const policy = useVaultPolicy();
   const details = useCheckDetails(items.flatMap((i) => (i.check ? [i.check.checkId] : [])));
+  const flows = useExecutionFlows(items, vault);
   return (
     <table aria-label={label} className="w-full table-fixed border-collapse text-left">
       <thead>
@@ -173,8 +211,10 @@ export function ActivityTable({ items, label, onOpen }: ListProps) {
       <tbody>
         {items.map((item) => {
           const detail = item.check ? details.get(item.check.checkId) : undefined;
-          const title = headline(item, detail, vault);
+          const itemFlows = flowsOf(item, flows);
+          const title = headline(item, detail, vault, itemFlows);
           const view = vaultView(item, detail, policy.data?.maxAgentRisk);
+          const amount = detail ? outflow(detail) : (flowAmount(itemFlows) ?? "—");
           return (
             <tr
               key={item.id}
@@ -206,7 +246,7 @@ export function ActivityTable({ items, label, onOpen }: ListProps) {
                 className={`hidden px-3 text-right text-sm tabular-nums xl:table-cell ${amountClass(item)}`}
                 title={amountTitle(item)}
               >
-                {outflow(detail)}
+                {amount}
               </td>
               <td className="py-3 pr-4 pl-3 text-right align-top text-xs text-muted tabular-nums md:align-middle">
                 {/* Below xl the amount column is hidden: the amount sits above the time instead. */}
@@ -214,7 +254,7 @@ export function ActivityTable({ items, label, onOpen }: ListProps) {
                   className={`mb-0.5 block text-sm xl:hidden ${amountClass(item)}`}
                   title={amountTitle(item)}
                 >
-                  {outflow(detail)}
+                  {amount}
                 </span>
                 {item.at ? formatTime(item.at) : ""}
               </td>
@@ -239,15 +279,23 @@ export function ActivityRows({ items, label, onOpen }: ListProps) {
   const { address: vault } = useSelectedVault();
   const policy = useVaultPolicy();
   const details = useCheckDetails(items.flatMap((i) => (i.check ? [i.check.checkId] : [])));
+  const flows = useExecutionFlows(items, vault);
   return (
     <ul aria-label={label} className="flex flex-col gap-1">
       {items.map((item) => {
         const detail = item.check ? details.get(item.check.checkId) : undefined;
-        const title = headline(item, detail, vault);
+        const itemFlows = flowsOf(item, flows);
+        const title = headline(item, detail, vault, itemFlows);
         const view = vaultView(item, detail, policy.data?.maxAgentRisk);
         const out = projectedOutflow(detail);
-        const amount = out ? `−${formatAmount(-out.raw, out.decimals, 4)}` : "—";
-        const unit = out?.symbol === "USDC" ? "" : out?.symbol;
+        const first = itemFlows?.[0];
+        const firstMeta = first ? tokenMeta(first.token) : undefined;
+        const amount = out
+          ? `−${formatAmount(-out.raw, out.decimals, 4)}`
+          : first && firstMeta
+            ? `−${formatAmount(first.amount, firstMeta.decimals, 4)}`
+            : "—";
+        const unit = (out?.symbol ?? firstMeta?.symbol) === "USDC" ? "" : (out?.symbol ?? firstMeta?.symbol);
         const time = item.at ? (
           <time dateTime={new Date(item.at).toISOString()} title={formatTime(item.at)}>
             {shortTime.format(item.at)}
@@ -417,6 +465,7 @@ export function DetailBody({ item }: { item: ActivityItem }) {
   const checkId = checkIdOf(item);
   const q = useCheckDetail(checkId);
   const detail = q.data;
+  const drawerFlows = useExecutionFlows([item], vault);
   const findings = detail?.findings ?? [];
   const explanation = detail?.explanation ?? item.check?.explanation ?? null;
   const o = item.outcome;
@@ -481,7 +530,7 @@ export function DetailBody({ item }: { item: ActivityItem }) {
       <ol aria-label="Hành trình giao dịch" className="flex flex-col">
         <Stop n={1} label="Agent đề xuất" tone="neutral">
           <p className="text-sm">
-            {proposalText(item, detail, vault)}
+            {proposalText(item, detail, vault, flowText(flowsOf(item, drawerFlows)))}
             {item.attempt?.mode === "scripted-attack" ? (
               <Chip size="sm" variant="tertiary" className="ml-2 align-middle">
                 Tấn công mô phỏng

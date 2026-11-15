@@ -18,7 +18,7 @@ import { useAccount } from "wagmi";
 import { FUJI_CHAIN_ID, type CheckResponse } from "@guardian402/shared";
 import { TextInput } from "@/components/fields";
 import { Card, ErrorBox, Notice, PageHeader, RiskBadge, RuleChips, TechDetails } from "@/components/ui";
-import { errorText, getJson, useGuardianHealth } from "@/lib/api";
+import { errorText, getJson, HttpError, useGuardianHealth } from "@/lib/api";
 import {
   approveCall,
   describeCall,
@@ -75,9 +75,12 @@ export default function WalletCheckPage() {
         : rawCall(rawTo, rawValue, rawData);
   const preview = calls();
 
+  const [retrying, setRetrying] = useState(false);
   const check = useMutation({
-    mutationFn: (p: { wallet: Address; calls: CallJson[]; addressBook: Address[] }) =>
-      getJson<CheckResponse>(`${GUARDIAN_URL}/v1/demo/wallet-check`, {
+    // A 503 is the Guardian catching up (its fork loading state for an address it has not seen, or busy): not
+    // charged and usually gone in seconds, so ask again twice before showing an error.
+    mutationFn: async (p: { wallet: Address; calls: CallJson[]; addressBook: Address[] }) => {
+      const init = {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -87,7 +90,18 @@ export default function WalletCheckPage() {
           lang: "vi",
           ...(p.addressBook.length ? { addressBook: p.addressBook } : {}),
         }),
-      }),
+      };
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await getJson<CheckResponse>(`${GUARDIAN_URL}/v1/demo/wallet-check`, init);
+        } catch (e) {
+          if (!(e instanceof HttpError) || e.status !== 503 || attempt >= 2) throw e;
+          setRetrying(true);
+          await new Promise((r) => setTimeout(r, 3000));
+        }
+      }
+    },
+    onSettled: () => setRetrying(false),
   });
 
   const edited = () => {
@@ -316,13 +330,18 @@ export default function WalletCheckPage() {
             <ErrorBox
               title="Chưa kiểm tra được"
               detail={errorText(check.error)}
-              onRetry={() => check.reset()}
+              onRetry={() => {
+                check.reset();
+                run();
+              }}
             />
           ) : null}
           {!r && !check.isError ? (
             <p className="text-sm text-muted">
               {check.isPending
-                ? "Đang chạy thử giao dịch trên bản sao của Avalanche Fuji…"
+                ? retrying
+                  ? "Guardian đang nạp dữ liệu cho ví này, đang thử lại…"
+                  : "Đang chạy thử giao dịch trên bản sao của Avalanche Fuji…"
                 : "Kết quả hiện ở đây: mức rủi ro, lý do, và tiền sẽ ra vào ví bạn ra sao."}
             </p>
           ) : null}

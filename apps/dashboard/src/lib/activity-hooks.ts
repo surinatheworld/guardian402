@@ -1,6 +1,8 @@
 "use client";
 // Browser reads behind the activity feed. A check never changes once stored, so its detail is cached forever.
 import { useQueries, useQuery } from "@tanstack/react-query";
+import { erc20Abi, parseEventLogs, type Address, type Hex } from "viem";
+import { usePublicClient } from "wagmi";
 import type { Diff, Explanation, Finding, RiskLevel, Simulation } from "@guardian402/shared";
 import { buildActivity, type ActivityItem } from "./activity";
 import { getJson, useAgentHealth, useAttempts, useChecks } from "./api";
@@ -81,4 +83,36 @@ export function useActivity(limit = 50) {
       if (attemptsOn) void attempts.refetch();
     },
   };
+}
+
+/** One ERC-20 transfer out of the vault in an executed transaction. */
+export type ExecutionFlow = { token: Address; to: Address; amount: bigint };
+
+/**
+ * For executions this Guardian has no check for (a small payment the vault ran without approval, or one approved
+ * by another Guardian instance): what left the vault, read from the receipt's ERC-20 Transfer logs. Keyed by tx.
+ */
+export function useExecutionFlows(items: ActivityItem[], vault: string) {
+  const client = usePublicClient();
+  const txs = items.flatMap((i) => (i.execution && !i.check ? [i.execution.txHash] : []));
+  const results = useQueries({
+    queries: txs.map((tx) => ({
+      queryKey: ["vault", "flows", tx],
+      staleTime: Number.POSITIVE_INFINITY,
+      enabled: Boolean(client),
+      queryFn: async (): Promise<ExecutionFlow[]> => {
+        if (!client) return [];
+        const receipt = await client.getTransactionReceipt({ hash: tx as Hex });
+        return parseEventLogs({ abi: erc20Abi, eventName: "Transfer", logs: receipt.logs })
+          .filter((l) => l.args.from.toLowerCase() === vault.toLowerCase())
+          .map((l) => ({ token: l.address, to: l.args.to, amount: l.args.value }));
+      },
+    })),
+  });
+  const byTx = new Map<string, ExecutionFlow[]>();
+  results.forEach((r, i) => {
+    const tx = txs[i];
+    if (tx && r.data) byTx.set(tx.toLowerCase(), r.data);
+  });
+  return byTx;
 }

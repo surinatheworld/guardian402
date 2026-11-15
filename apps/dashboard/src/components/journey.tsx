@@ -68,11 +68,19 @@ export function Journey({ stops, compact = false }: { stops: Stop[]; compact?: b
 }
 
 /** What the agent proposed, in words, from the simulated money flow (or the scenario, or the execution). */
-export function proposalText(item: ActivityItem, detail: CheckDetail | undefined, vault: string): string {
+export function proposalText(
+  item: ActivityItem,
+  detail: CheckDetail | undefined,
+  vault: string,
+  /** What left the vault, read from the receipt, for an execution without a known check. */
+  flows?: string,
+): string {
   if (detail) return summarizeDiff(detail.diff, vault, knownName, tokenMeta);
   if (item.attempt) return scenarioTitle(item.attempt.scenario);
   if (item.check) return "Đang đọc nội dung giao dịch…";
-  return "Giao dịch dưới ngưỡng cần Guardian duyệt";
+  if (flows) return flows;
+  if (item.execution?.withVerdict) return "Giao dịch có phê duyệt của Guardian";
+  return "Khoản nhỏ két chi thẳng";
 }
 
 /** The three stops of an activity item. `maxAgentRisk` lets a trial show the vault's predicted decision. */
@@ -94,7 +102,14 @@ export function stopsFor(
       }
     : item.execution && !item.execution.withVerdict
       ? { label: "Guardian kiểm tra", value: "Không cần duyệt", sub: "Số tiền dưới ngưỡng", tone: "neutral" }
-      : { label: "Guardian kiểm tra", value: "Không qua Guardian", tone: "neutral" };
+      : item.execution?.withVerdict
+        ? {
+            label: "Guardian kiểm tra",
+            value: "Đã duyệt",
+            sub: "Phê duyệt có chữ ký, két đã kiểm trên chain",
+            tone: "ok",
+          }
+        : { label: "Guardian kiểm tra", value: "Không qua Guardian", tone: "neutral" };
 
   const o = item.outcome;
   let vaultStop: Stop;
