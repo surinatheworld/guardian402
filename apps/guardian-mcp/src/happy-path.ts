@@ -172,7 +172,7 @@ if (resume) {
   vault = event.args.vault;
   say(`  két ${vault} · ${txUrl(created.transactionHash)}`);
 
-  say("\n2. Chủ két nạp 6 USDC vào két");
+  say(`\n2. Chủ két nạp ${formatUnits(usdc(6), 6)} USDC vào két`);
   const deposit = await send(
     await ownerWallet.writeContract({
       address: d.usdc,
@@ -256,22 +256,25 @@ for (const line of (rules.guideline as string[]) ?? []) say(`    · ${line}`);
 expect(rules.youAreTheVaultAgent === true, "agent là agent của két");
 
 // fee: whether the Guardian is paid (cosign). A reused vault (HAPPY_PATH_VAULT) may have another threshold.
+// Amounts in units of HAPPY_PATH_UNIT; the labels print the real amounts.
+const real = (n: number) => Math.round(n * UNIT * 1e6) / 1e6;
+const vn = (n: number) => String(real(n)).replace(".", ",");
 const plan: [number, "paid" | "blocked", boolean, string][] = [
-  [0.5, "paid", false, "trả 0,5 USDC: két chi thẳng, không tốn phí Guardian"],
-  [1, "paid", true, "trả 1 USDC cho Treasury, Guardian duyệt"],
-  [2.5, "blocked", false, "2,5 USDC vượt hạn mức 2 USDC mỗi giao dịch, két chặn miễn phí"],
-  [2, "paid", true, "trả 2 USDC (dùng hết tổng 3,5 USDC)"],
-  [0.5, "blocked", false, "0,5 USDC sau khi đã dùng hết tổng ngân sách, két chặn miễn phí"],
+  [0.5, "paid", false, `trả ${vn(0.5)} USDC: két chi thẳng, không tốn phí Guardian`],
+  [1, "paid", true, `trả ${vn(1)} USDC cho Treasury, Guardian duyệt`],
+  [2.5, "blocked", false, `${vn(2.5)} USDC vượt hạn mức ${vn(2)} USDC mỗi giao dịch, két chặn miễn phí`],
+  [2, "paid", true, `trả ${vn(2)} USDC (dùng hết tổng ${vn(3.5)} USDC)`],
+  [0.5, "blocked", false, `${vn(0.5)} USDC sau khi đã dùng hết tổng ngân sách, két chặn miễn phí`],
 ];
 for (const [amount, want, fee, what] of plan) {
-  const r = await call("pay", { to: treasury, amount: String(Math.round(amount * UNIT * 1e6) / 1e6) });
+  const r = await call("pay", { to: treasury, amount: String(real(amount)) });
   const detail =
     r.outcome === "paid"
       ? String(r.txUrl)
       : r.outcome === "blocked"
         ? `${String(r.by ?? "")}: ${[r.vaultError, ...((r.reasons as string[]) ?? [])].filter(Boolean).join("; ")}`
         : JSON.stringify(r);
-  say(`  pay ${amount} USDC → ${String(r.outcome)} (${String(r.risk ?? "?")}) ${detail}`);
+  say(`  pay ${real(amount)} USDC → ${String(r.outcome)} (${String(r.risk ?? "?")}) ${detail}`);
   expect(r.outcome === want, what);
   if (!resume) expect((r.guardianFee != null) === fee, `${what}: ${fee ? "có" : "không"} phí Guardian`);
 }
