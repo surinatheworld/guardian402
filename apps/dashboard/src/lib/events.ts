@@ -137,6 +137,8 @@ const vaultCreated = getAbiItem({ abi: vaultFactoryAbi, name: "VaultCreated" });
 export async function fetchVaultsWithAgent(
   wallet: Address,
   fetcher: typeof fetch = fetch,
+  /** The chain head: Routescan caches an answer per URL, so a fixed toBlock can return an old list. */
+  toBlock?: bigint,
 ): Promise<Address[]> {
   if (!deployment.factory) return [];
   const url = new URL(ROUTESCAN);
@@ -148,7 +150,7 @@ export async function fetchVaultsWithAgent(
     topic3: pad(wallet.toLowerCase() as Hex, { size: 32 }),
     topic0_3_opr: "and",
     fromBlock: String(deployment.factoryStartBlock ?? 0),
-    toBlock: "99999999",
+    toBlock: toBlock === undefined ? "99999999" : toBlock.toString(),
   }).toString();
   const res = await fetcher(url, { cache: "no-store" });
   if (!res.ok) return [];
@@ -169,9 +171,13 @@ export async function fetchVaultsWithAgent(
 }
 
 export function useVaultsWithAgent(wallet: Address | undefined) {
+  const client = usePublicClient();
   return useQuery({
     queryKey: ["factory", "vaults-with-agent", wallet],
-    queryFn: () => fetchVaultsWithAgent(wallet as Address),
+    queryFn: async () => {
+      const head = client ? await client.getBlockNumber().catch(() => undefined) : undefined;
+      return fetchVaultsWithAgent(wallet as Address, fetch, head);
+    },
     enabled: NETWORK === "fuji" && Boolean(wallet),
     staleTime: 60_000,
   });
@@ -186,7 +192,11 @@ export type FactoryStats = {
 };
 
 /** Every vault the VaultFactory has created on Fuji, from Routescan: how many, and for how many owners and agents. */
-export async function fetchFactoryStats(fetcher: typeof fetch = fetch): Promise<FactoryStats | null> {
+export async function fetchFactoryStats(
+  fetcher: typeof fetch = fetch,
+  /** The chain head: Routescan caches an answer per URL, so a fixed toBlock kept answering 10 vaults after the 11th. */
+  toBlock?: bigint,
+): Promise<FactoryStats | null> {
   if (!deployment.factory) return null;
   const url = new URL(ROUTESCAN);
   url.search = new URLSearchParams({
@@ -195,7 +205,7 @@ export async function fetchFactoryStats(fetcher: typeof fetch = fetch): Promise<
     address: deployment.factory,
     topic0: toEventSelector(vaultCreated),
     fromBlock: String(deployment.factoryStartBlock ?? 0),
-    toBlock: "99999999",
+    toBlock: toBlock === undefined ? "99999999" : toBlock.toString(),
   }).toString();
   const res = await fetcher(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Routescan HTTP ${res.status}`);
@@ -226,9 +236,13 @@ export async function fetchFactoryStats(fetcher: typeof fetch = fetch): Promise<
 
 /** Always Fuji's factory (Routescan), whatever network the dashboard runs on. */
 export function useFactoryStats() {
+  const client = usePublicClient();
   return useQuery({
     queryKey: ["factory", "stats"],
-    queryFn: () => fetchFactoryStats(),
+    queryFn: async () => {
+      const head = client ? await client.getBlockNumber().catch(() => undefined) : undefined;
+      return fetchFactoryStats(fetch, head);
+    },
     staleTime: 60_000,
     refetchInterval: 120_000,
   });
