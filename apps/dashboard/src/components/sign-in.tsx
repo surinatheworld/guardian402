@@ -18,6 +18,7 @@ import { avalancheFuji } from "wagmi/chains";
 import { accountApi, signInWithWallet, useRefreshMe } from "@/lib/account";
 import { NETWORK } from "@/lib/config";
 import { shortHex } from "@/lib/format";
+import { walletOptions } from "@/lib/wallets";
 import { errorOf } from "./form";
 import { Notice } from "./ui";
 
@@ -45,11 +46,15 @@ export function WalletSignIn() {
   const { connectAsync, connectors } = useConnect();
   const { signMessageAsync } = useSignMessage();
   const [phase, setPhase] = useState<"idle" | "connect" | "sign">("idle");
+  // Core first when installed; the visitor can pick another installed wallet.
+  const options = walletOptions(connectors);
+  const [pick, setPick] = useState<string | null>(null);
+  const chosen = options.find((o) => o.uid === pick) ?? options[0];
   const run = useMutation({
     mutationFn: async () => {
       let who = address;
       if (!isConnected || !who) {
-        const connector = connectors[0];
+        const connector = chosen;
         if (!connector) throw new Error("Trình duyệt chưa có ví. Cài Core hoặc MetaMask rồi tải lại trang.");
         setPhase("connect");
         who = (await connectAsync({ connector, chainId: avalancheFuji.id })).accounts[0];
@@ -77,8 +82,22 @@ export function WalletSignIn() {
             ? "Ký trong ví để đăng nhập…"
             : isConnected && address
               ? `Đăng nhập bằng ${shortHex(address)}`
-              : "Đăng nhập bằng ví"}
+              : chosen && chosen.id !== "injected"
+                ? `Đăng nhập bằng ${chosen.name}`
+                : "Đăng nhập bằng ví"}
       </Button>
+      {!isConnected && options.length > 1 ? (
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+          Dùng ví khác:
+          {options
+            .filter((o) => o.uid !== chosen?.uid)
+            .map((o) => (
+              <Button key={o.uid} size="sm" variant="ghost" onPress={() => setPick(o.uid)}>
+                {o.name}
+              </Button>
+            ))}
+        </p>
+      ) : null}
       <p className="text-sm text-muted">
         Ví ký một thông điệp miễn phí để đăng nhập. Nếu chưa có tài khoản, tài khoản sẽ được tạo.
       </p>

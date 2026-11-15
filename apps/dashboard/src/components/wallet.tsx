@@ -1,8 +1,9 @@
 "use client";
 // The owner's wallet: connect, switch to Fuji, disconnect, and the gate every owner action goes through.
-// The dashboard holds no key: owner actions are signed in the wallet (Core or MetaMask).
+// The dashboard holds no key: owner actions are signed in the wallet (Core or MetaMask). Core, the Avalanche
+// wallet, is offered first when installed (src/lib/wallets.ts).
 import { Wallet } from "@gravity-ui/icons";
-import { Button } from "@heroui/react/button";
+import { Button, buttonVariants } from "@heroui/react/button";
 import { Chip } from "@heroui/react/chip";
 import { Dropdown } from "@heroui/react/dropdown";
 import { Label } from "@heroui/react/label";
@@ -12,7 +13,14 @@ import { useAccount, useChainId, useConnect, useDisconnect, useSwitchChain } fro
 import { avalancheFuji } from "wagmi/chains";
 import { NETWORK } from "@/lib/config";
 import { shortHex } from "@/lib/format";
+import { CORE_INSTALL_URL, isCore, walletLabel, walletOptions } from "@/lib/wallets";
 import { Notice } from "./ui";
+
+/** The wallet's own EIP-6963 icon (a data URI it announced), else the generic wallet icon. */
+function WalletIcon({ icon }: { icon?: string | undefined }) {
+  if (!icon || !icon.startsWith("data:image/")) return <Wallet aria-hidden="true" />;
+  return <img src={icon} alt="" aria-hidden="true" className="size-4 rounded-sm" />;
+}
 
 export function ConnectWalletButton({
   size = "md",
@@ -25,20 +33,60 @@ export function ConnectWalletButton({
   compact?: boolean;
 }) {
   const { connect, connectors, isPending, error } = useConnect();
-  const connector = connectors[0];
+  const options = walletOptions(connectors);
+  const [first] = options;
+  const label = (text: string) => (
+    <span className={compact ? "hidden sm:inline" : ""}>{isPending ? "Đang mở ví…" : text}</span>
+  );
   return (
     <div className="flex flex-col items-start gap-1">
-      <Button
-        variant={variant}
-        size={size}
-        isDisabled={!connector}
-        isPending={isPending}
-        aria-label="Kết nối ví"
-        onPress={() => connector && connect({ connector, chainId: avalancheFuji.id })}
-      >
-        <Wallet aria-hidden="true" />
-        <span className={compact ? "hidden sm:inline" : ""}>{isPending ? "Đang mở ví…" : "Kết nối ví"}</span>
-      </Button>
+      {!first ? (
+        <a
+          href={CORE_INSTALL_URL}
+          target="_blank"
+          rel="noreferrer"
+          className={buttonVariants({ variant, size })}
+        >
+          <Wallet aria-hidden="true" />
+          {label("Cài ví Core")}
+        </a>
+      ) : options.length === 1 ? (
+        <Button
+          variant={variant}
+          size={size}
+          isPending={isPending}
+          aria-label={`Kết nối ${walletLabel(first)}`}
+          onPress={() => connect({ connector: first, chainId: avalancheFuji.id })}
+        >
+          <WalletIcon icon={first.icon} />
+          {label(first.id === "injected" ? "Kết nối ví" : `Kết nối ${first.name}`)}
+        </Button>
+      ) : (
+        <Dropdown>
+          <Button variant={variant} size={size} isPending={isPending} aria-label="Kết nối ví">
+            <Wallet aria-hidden="true" />
+            {label("Kết nối ví")}
+          </Button>
+          <Dropdown.Popover placement="bottom end" className="min-w-56">
+            <Dropdown.Menu
+              aria-label="Chọn ví"
+              onAction={(key) => {
+                const c = options.find((o) => o.uid === key);
+                if (c) connect({ connector: c, chainId: avalancheFuji.id });
+              }}
+            >
+              {options.map((c) => (
+                <Dropdown.Item key={c.uid} id={c.uid} textValue={c.name}>
+                  <span className="flex items-center gap-2">
+                    <WalletIcon icon={c.icon} />
+                    <Label>{isCore(c) ? `${c.name} (ví của Avalanche)` : c.name}</Label>
+                  </span>
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          </Dropdown.Popover>
+        </Dropdown>
+      )}
       {error ? (
         <span role="alert" className="text-xs text-danger">
           Không kết nối được ví: {error.message.split("\n")[0]}
