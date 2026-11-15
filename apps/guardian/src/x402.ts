@@ -27,6 +27,17 @@ export function paidRoutes(payTo: Address): RoutesConfig {
       description: "Guardian402: simulate and score a transaction",
       mimeType: "application/json",
     },
+    "POST /v1/wallet/check": {
+      accepts: {
+        scheme: "exact",
+        price: usdc(PRICES.check),
+        network: FUJI_CAIP2,
+        payTo,
+        maxTimeoutSeconds: 60,
+      },
+      description: "Guardian402: simulate and score a transaction from any wallet before it signs",
+      mimeType: "application/json",
+    },
     "POST /v1/cosign": {
       accepts: {
         scheme: "exact",

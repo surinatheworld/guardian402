@@ -57,6 +57,22 @@ export const checkRequestSchema = z
   })
   .strict();
 
+/**
+ * A transaction from any wallet, checked before the wallet signs it (POST /v1/wallet/check): simulated from that
+ * address on the fork and scored with the rules that do not depend on an AgentVault policy. No verdict is signed:
+ * there is no vault to enforce one. `addressBook`: addresses the wallet already trusts, for the lookalike rule.
+ */
+export const walletCheckRequestSchema = z
+  .object({
+    chainId: z.literal(FUJI_CHAIN_ID),
+    wallet: addressSchema,
+    calls: z.array(callSchema).min(1).max(MAX_CALLS),
+    lang: z.enum(["vi", "en"]).optional(),
+    addressBook: z.array(addressSchema).max(20).optional(),
+  })
+  .strict();
+export type WalletCheckRequest = z.infer<typeof walletCheckRequestSchema>;
+
 export const findingSchema = z.object({
   ruleId: ruleIdSchema,
   severity: riskLevelSchema,

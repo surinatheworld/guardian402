@@ -1,7 +1,7 @@
 "use client";
 // Đăng nhập: the door to the app. Left, what the product does in three steps (a newcomer learns the model before
 // the first click); right, sign in with the wallet or email, or look at the demo vault without an account.
-import { Cpu, Eye, ShieldCheck, Vault } from "@gravity-ui/icons";
+import { Cpu, Eye, FileMagnifier, ShieldCheck, Vault } from "@gravity-ui/icons";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Separator } from "@heroui/react/separator";
@@ -105,6 +105,15 @@ export default function SignInPage() {
               Xem két demo
             </Button>
             <p className="text-center text-xs text-muted">Không cần tài khoản. Chỉ xem, trên mạng thử.</p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Button variant="tertiary" fullWidth onPress={() => router.push("/kiem-tra-vi")}>
+              <FileMagnifier aria-hidden="true" />
+              Kiểm tra một giao dịch của ví bạn
+            </Button>
+            <p className="text-center text-xs text-muted">
+              Cấp quyền, chuyển tiền hay dữ liệu từ trang web: xem trước khi ký. Không cần két.
+            </p>
           </div>
         </Card.Content>
       </Card>

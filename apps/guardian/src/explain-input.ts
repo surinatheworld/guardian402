@@ -12,6 +12,7 @@ export function explainInput(
   findings: Finding[],
   risk: RiskLevel,
   ctx: Context,
+  subject: "vault" | "wallet" = "vault",
 ): ExplainInput {
   // A token's symbol() is its deployer's text, and any token can call itself "USDC". The explanation uses the
   // symbol only of tokens we already trust: the known-contracts registry and the tokens the owner tracks in the
@@ -25,9 +26,10 @@ export function explainInput(
     const key = t.token.toLowerCase();
     tokens[key] = { symbol: trusted.has(key) ? t.symbol : `token ${short(t.token)}`, decimals: t.decimals };
   }
-  const names: ExplainInput["names"] = { [ctx.vault.toLowerCase()]: "AgentVault" };
+  // A checked wallet is the reader's own: named by its address, never "AgentVault".
+  const names: ExplainInput["names"] = subject === "vault" ? { [ctx.vault.toLowerCase()]: "AgentVault" } : {};
   for (const [addr, c] of Object.entries(ctx.knownContracts)) names[addr.toLowerCase()] = c.name;
   // Copies: the explainer must not be able to edit the findings the pipeline reports and stores.
   const copy = findings.map((f) => ({ ...f, evidence: { ...f.evidence } }));
-  return { risk, findings: copy, diff: toDiff(sim), tokens, names };
+  return { risk, findings: copy, diff: toDiff(sim), tokens, names, subject };
 }

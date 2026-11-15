@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { decodeFunctionData, encodeFunctionData, erc20Abi, maxUint256, type Address } from "viem";
-import { describeCall, parseCalls, transferCall, vaultDecision } from "@/lib/check-calls";
+import {
+  approveCall,
+  describeCall,
+  parseCalls,
+  rawCall,
+  transferCall,
+  vaultDecision,
+} from "@/lib/check-calls";
 
 const USDC: Address = "0x5425890298aed601595a70AB815c96711a31Bc65";
 const LOOKALIKE: Address = "0xE20b3196DcAf7663E8E834bA881a513cF761d1d9";
@@ -91,5 +98,35 @@ describe("vault decision", () => {
       text: "Quy tắc của két không chặn giao dịch này.",
     });
     expect(vaultDecision({ findings: [], riskCode: 2 }, undefined).blocked).toBe(false);
+  });
+});
+
+describe("wallet check builders", () => {
+  const USDC_ADDR = "0x5425890298aed601595a70AB815c96711a31Bc65";
+  const SPENDER = "0x1111111111111111111111111111111111111111";
+
+  it("builds an unlimited or a capped approval", () => {
+    const max = approveCall(USDC_ADDR, 6, SPENDER, "", true);
+    if (!max.ok) throw new Error(max.error);
+    const a = decodeFunctionData({ abi: erc20Abi, data: max.value[0]?.data ?? "0x" });
+    expect(a.functionName).toBe("approve");
+    expect(a.args?.[1]).toBe(2n ** 256n - 1n);
+    const capped = approveCall(USDC_ADDR, 6, SPENDER, "2,5", false);
+    if (!capped.ok) throw new Error(capped.error);
+    expect(decodeFunctionData({ abi: erc20Abi, data: capped.value[0]?.data ?? "0x" }).args?.[1]).toBe(
+      2_500_000n,
+    );
+    expect(approveCall(USDC_ADDR, 6, "nope", "1", false).ok).toBe(false);
+    expect(approveCall(USDC_ADDR, 6, SPENDER, "1.1234567", false).ok).toBe(false);
+  });
+
+  it("takes a raw transaction as a wallet shows it", () => {
+    expect(rawCall(SPENDER, "0,5", "0xabcd")).toEqual({
+      ok: true,
+      value: [{ target: SPENDER, value: "500000000000000000", data: "0xabcd" }],
+    });
+    expect(rawCall(SPENDER, "", "")).toMatchObject({ ok: true, value: [{ value: "0", data: "0x" }] });
+    expect(rawCall(SPENDER, "1", "0xabc").ok).toBe(false);
+    expect(rawCall("0x12", "1", "0x").ok).toBe(false);
   });
 });

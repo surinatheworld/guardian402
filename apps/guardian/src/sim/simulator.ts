@@ -73,6 +73,9 @@ const DEFAULTS = {
   gasBuffer: 10n ** 18n, // 1 AVAX for gas, added to the vault's own balance inside the snapshot
 };
 
+/** Per simulation: `anyAccount` runs from any address (a wallet check), not only an AgentVault with code. */
+export type SimulateOptions = { anyAccount?: boolean };
+
 type TokenMeta = { symbol: string; decimals: number };
 /** Lower-case address → storage slots read by the simulated transactions. */
 type TouchedState = Map<string, Set<Hex>>;
@@ -135,9 +138,11 @@ export class Simulator {
     vault: Address,
     calls: readonly Call[],
     trackedTokens: readonly Address[] = [],
+    /** `anyAccount`: `vault` is any address (a wallet check), not an AgentVault that must have code. */
+    opts: SimulateOptions = {},
   ): Promise<SimResult> {
     const started = performance.now();
-    const first = await this.#attempt(vault, calls, trackedTokens, started);
+    const first = await this.#attempt(vault, calls, trackedTokens, started, opts);
     const sinceReset = Date.now() - this.#lastReset;
     if (!retryOnFreshFork(first, this.#upstream !== undefined, sinceReset, this.#opts.staleRevertMs))
       return first;
@@ -151,7 +156,7 @@ export class Simulator {
     }
     // The reset emptied the fork's cache: the first runs on it time out while they fill it, so this attempt may
     // take a few more retries (still within `maxWaitMs`).
-    return this.#attempt(vault, calls, trackedTokens, started, this.#opts.retries + 3);
+    return this.#attempt(vault, calls, trackedTokens, started, opts, this.#opts.retries + 3);
   }
 
   async #attempt(
@@ -159,11 +164,12 @@ export class Simulator {
     calls: readonly Call[],
     trackedTokens: readonly Address[],
     started: number,
+    opts: SimulateOptions,
     retries = this.#opts.retries,
   ): Promise<SimResult> {
     const outcome = await runWithBudget(
       this.#mutex,
-      () => this.#simulateLocked(vault, calls, trackedTokens, started),
+      () => this.#simulateLocked(vault, calls, trackedTokens, started, opts),
       { timeoutMs: this.#opts.timeoutMs, maxWaitMs: this.#opts.maxWaitMs, retries },
     );
     if (outcome.kind === "done") return outcome.value;
@@ -245,15 +251,20 @@ export class Simulator {
     if (this.#opts.onReset) setImmediate(this.#opts.onReset);
   }
 
-  /** Per simulation, with local calls only unless a reset is needed: the vault must have code on the fork. */
-  async #checkVault(vault: Address): Promise<void> {
+  /**
+   * Per simulation, with local calls only unless a reset is needed: the vault must have code on the fork. A wallet
+   * check (`anyAccount`) runs from any address, which may have no code.
+   */
+  async #checkVault(vault: Address, anyAccount = false): Promise<void> {
     if (this.#lastReset === Number.NEGATIVE_INFINITY) await this.#reset(); // first use, no startup check ran
-    let hasCode = (await this.#public.getCode({ address: vault })) !== undefined;
-    if (!hasCode && this.#upstream) {
-      await this.#reset();
-      hasCode = (await this.#public.getCode({ address: vault })) !== undefined;
+    if (!anyAccount) {
+      let hasCode = (await this.#public.getCode({ address: vault })) !== undefined;
+      if (!hasCode && this.#upstream) {
+        await this.#reset();
+        hasCode = (await this.#public.getCode({ address: vault })) !== undefined;
+      }
+      if (!hasCode) throw new Error(`vault ${vault} has no code on the fork`);
     }
-    if (!hasCode) throw new Error(`vault ${vault} has no code on the fork`);
     // Mining directly on the fork block makes Anvil fetch from the upstream every time the snapshot is reverted
     // to it (~40 ms per mined block); with one local block on top, mining stays local (~1 ms).
     const [head, forkedAt] = await Promise.all([this.#public.getBlockNumber(), this.#forkBlockNumber()]);
@@ -274,8 +285,9 @@ export class Simulator {
     calls: readonly Call[],
     trackedTokens: readonly Address[],
     started: number,
+    opts: SimulateOptions = {},
   ): Promise<SimResult> {
-    await this.#checkVault(vault);
+    await this.#checkVault(vault, opts.anyAccount);
     const forkBlock = await this.#public.getBlockNumber();
     this.#lastForkBlock = forkBlock;
     const snapshot = await this.#test.snapshot();

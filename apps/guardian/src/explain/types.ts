@@ -12,6 +12,8 @@ export type ExplainInput = {
   tokens: Record<string, { symbol: string; decimals: number }>;
   /** Trusted labels by lowercase address: the vault and the known-contracts registry. */
   names: Record<string, string>;
+  /** Whose balances the diff is: an AgentVault (default) or any wallet checked before it signs. */
+  subject?: "vault" | "wallet";
 };
 
 export interface Explainer {

@@ -137,14 +137,17 @@ export function createApp(d: AppDeps) {
   // Before the paywall: a busy Guardian answers 503 and nobody is charged.
   if (d.busy) {
     const busy = d.busy;
-    app.use(["/v1/check", "/v1/cosign", "/v1/demo/check"], (req, res, next) => {
-      if (req.method === "POST" && busy()) {
-        res.setHeader("Retry-After", "5");
-        res.status(503).json({ error: "busy, try again in a few seconds" });
-        return;
-      }
-      next();
-    });
+    app.use(
+      ["/v1/check", "/v1/cosign", "/v1/demo/check", "/v1/wallet/check", "/v1/demo/wallet-check"],
+      (req, res, next) => {
+        if (req.method === "POST" && busy()) {
+          res.setHeader("Retry-After", "5");
+          res.status(503).json({ error: "busy, try again in a few seconds" });
+          return;
+        }
+        next();
+      },
+    );
   }
 
   if (d.resourceServer) {
@@ -159,35 +162,42 @@ export function createApp(d: AppDeps) {
     );
   }
 
-  const handle = (endpoint: Endpoint) => async (req: Request, res: Response) => {
-    try {
-      const body = d.pipeline.parse(req.body);
-      const out = await d.pipeline.run(body, endpoint);
-      res.json(out);
-    } catch (e) {
-      if (e instanceof InputError) {
-        res.status(400).json({ error: "invalid request", details: e.details });
-        return;
+  const handle =
+    (endpoint: Endpoint, wallet = false) =>
+    async (req: Request, res: Response) => {
+      try {
+        const out = wallet
+          ? await d.pipeline.runWallet(d.pipeline.parseWallet(req.body), endpoint)
+          : await d.pipeline.run(d.pipeline.parse(req.body), endpoint);
+        res.json(out);
+      } catch (e) {
+        if (e instanceof InputError) {
+          res.status(400).json({ error: "invalid request", details: e.details });
+          return;
+        }
+        if (e instanceof UnavailableError) {
+          // The fork could not run the batch (error or timeout). ≥ 400, so not settled: nobody pays for the
+          // Guardian's own outage, and no HIGH verdict is signed for a batch that was never simulated.
+          d.log?.warn({ err: e.detail, endpoint }, "simulation unavailable");
+          res.setHeader("Retry-After", "5");
+          res.status(503).json({ error: "simulation unavailable, try again in a few seconds" });
+          return;
+        }
+        d.log?.error({ err: (e as Error).message, endpoint }, "check failed");
+        // ≥ 400: the x402 middleware does not settle, so the caller is not charged. The cause stays in the
+        // log: an internal message (RPC URLs, node errors) is not for callers (P13).
+        res.status(502).json({ error: "check failed" });
       }
-      if (e instanceof UnavailableError) {
-        // The fork could not run the batch (error or timeout). ≥ 400, so not settled: nobody pays for the
-        // Guardian's own outage, and no HIGH verdict is signed for a batch that was never simulated.
-        d.log?.warn({ err: e.detail, endpoint }, "simulation unavailable");
-        res.setHeader("Retry-After", "5");
-        res.status(503).json({ error: "simulation unavailable, try again in a few seconds" });
-        return;
-      }
-      d.log?.error({ err: (e as Error).message, endpoint }, "check failed");
-      // ≥ 400: the x402 middleware does not settle, so the caller is not charged. The cause stays in the
-      // log: an internal message (RPC URLs, node errors) is not for callers (P13).
-      res.status(502).json({ error: "check failed" });
-    }
-  };
+    };
 
   app.post("/v1/check", handle("check"));
   app.post("/v1/cosign", handle("cosign"));
-  if (d.demoMode)
+  app.post("/v1/wallet/check", handle("wallet", true));
+  if (d.demoMode) {
     app.post("/v1/demo/check", demoRateLimit(d.demoLimit ?? DEFAULT_DEMO_LIMIT), handle("demo"));
+    // The free wallet check (dashboard "Kiểm tra ví"): its own limiter, stored as a demo check.
+    app.post("/v1/demo/wallet-check", demoRateLimit(d.demoLimit ?? DEFAULT_DEMO_LIMIT), handle("demo", true));
+  }
 
   app.get("/v1/health", async (_req, res) => {
     const forkBlock = await d.forkBlock().catch(() => null);

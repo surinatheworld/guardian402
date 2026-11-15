@@ -83,6 +83,7 @@ export type ContextInput = {
   /** Explorer facts for unknown contracts (flagged lookup, never in tests or eval). Lowercase keys. */
   explorer?: Record<string, ExplorerInfo>;
   demoMode: boolean;
+  subject?: "vault" | "wallet";
 };
 
 export function buildContext(input: ContextInput): Context {
@@ -95,5 +96,6 @@ export function buildContext(input: ContextInput): Context {
     demoMode: input.demoMode,
     ...(input.oracle ? { oracle: input.oracle } : {}),
     ...(input.explorer ? { explorer: input.explorer } : {}),
+    ...(input.subject ? { subject: input.subject } : {}),
   };
 }

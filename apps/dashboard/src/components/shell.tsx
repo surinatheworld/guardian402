@@ -13,6 +13,7 @@ import {
   Lock,
   LockOpen,
   Person,
+  FileMagnifier,
   Play,
   Plus,
   Pulse,
@@ -59,17 +60,20 @@ export const NAV = [
   { href: "/agent", label: PAGE.agents, icon: Cpu },
 ] as const;
 const DEMO_NAV = { href: "/chay-thu", label: PAGE.trial, icon: Play } as const;
+/** Any wallet, no vault needed: a transaction checked before it is signed. */
+const WALLET_NAV = { href: "/kiem-tra-vi", label: PAGE.walletCheck, icon: FileMagnifier } as const;
 
 /** Routes without the app navigation: sign-in and the guided vault creation. */
 const FOCUS_ROUTES = ["/dang-nhap", "/bat-dau"];
 /** Routes anyone may open signed out. */
-const PUBLIC_ROUTES = ["/dang-nhap", "/ve-guardian"];
+const PUBLIC_ROUTES = ["/dang-nhap", "/ve-guardian", "/kiem-tra-vi"];
 /** Routes a signed-in user without a vault may open (everything else sends them to /bat-dau). */
-const NO_VAULT_ROUTES = ["/bat-dau", "/tai-khoan", "/ve-guardian", "/chay-thu"];
+const NO_VAULT_ROUTES = ["/bat-dau", "/tai-khoan", "/ve-guardian", "/chay-thu", "/kiem-tra-vi"];
 
 const activeHref = (pathname: string) =>
-  [...NAV, DEMO_NAV].find((n) => (n.href === "/" ? pathname === "/" : pathname.startsWith(n.href)))?.href ??
-  "";
+  [...NAV, DEMO_NAV, WALLET_NAV].find((n) =>
+    n.href === "/" ? pathname === "/" : pathname.startsWith(n.href),
+  )?.href ?? "";
 
 // ------------------------------------------------------------------ pieces
 
@@ -256,6 +260,7 @@ function Sidebar() {
         <nav aria-label="Demo" className="-mt-3 flex flex-col gap-1">
           <span className={GROUP_LABEL}>Demo</span>
           <NavLink {...DEMO_NAV} />
+          <NavLink {...WALLET_NAV} />
         </nav>
       ) : null}
       <div className="mt-auto flex flex-col gap-1">

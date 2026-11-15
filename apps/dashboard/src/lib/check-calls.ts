@@ -82,6 +82,56 @@ export function transferCall(
   };
 }
 
+/** token.approve(spender, amount), or the max uint256 when `unlimited`: what a dapp asks a wallet to sign. */
+export function approveCall(
+  token: Address,
+  decimals: number,
+  spender: string,
+  amount: string,
+  unlimited: boolean,
+): Parsed<CallJson[]> {
+  const who = spender.trim();
+  if (!isAddress(who, { strict: false }))
+    return { ok: false, error: "Địa chỉ được cấp quyền phải là địa chỉ 0x… hợp lệ (42 ký tự)." };
+  let units = 2n ** 256n - 1n;
+  if (!unlimited) {
+    const text = amount.trim().replace(",", ".");
+    if (!/^\d+(\.\d+)?$/.test(text)) return { ok: false, error: "Số tiền phải là số." };
+    if ((text.split(".")[1] ?? "").replace(/0+$/, "").length > decimals)
+      return { ok: false, error: `Số tiền chỉ có tối đa ${decimals} chữ số thập phân.` };
+    units = parseUnits(text, decimals);
+    if (units >= 2n ** 256n) return { ok: false, error: "Số tiền vượt phạm vi cho phép." };
+  }
+  return {
+    ok: true,
+    value: [
+      {
+        target: token,
+        value: "0",
+        data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [getAddress(who), units] }),
+      },
+    ],
+  };
+}
+
+/** One raw transaction as a wallet shows it: to, value in AVAX, calldata. */
+export function rawCall(to: string, avax: string, data: string): Parsed<CallJson[]> {
+  const target = to.trim();
+  if (!isAddress(target, { strict: false }))
+    return { ok: false, error: "Địa chỉ nhận (to) phải là địa chỉ 0x… hợp lệ (42 ký tự)." };
+  const text = (avax.trim() || "0").replace(",", ".");
+  if (!/^\d+(\.\d+)?$/.test(text)) return { ok: false, error: "Số AVAX phải là số." };
+  if ((text.split(".")[1] ?? "").length > 18)
+    return { ok: false, error: "AVAX có tối đa 18 chữ số thập phân." };
+  const hex = data.trim() || "0x";
+  if (!HEX.test(hex) || hex.length % 2 !== 0)
+    return { ok: false, error: "Dữ liệu (data) phải là hex bắt đầu bằng 0x, độ dài chẵn." };
+  return {
+    ok: true,
+    value: [{ target: getAddress(target), value: parseUnits(text, 18).toString(), data: hex as Hex }],
+  };
+}
+
 type Meta = { symbol: string; decimals: number };
 
 /** "USDC.approve(0xE20b…d1d9, không giới hạn)": what a call does, for the preview above the JSON. */

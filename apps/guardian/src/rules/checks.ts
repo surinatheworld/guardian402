@@ -196,8 +196,11 @@ export const unlimitedApproval: Rule = (sim, ctx, cfg) => {
     const tracked = trackedPolicy(ctx, a.token);
     const reasons: string[] = [];
     if (a.amount >= cfg.unlimitedApproval.threshold) reasons.push("unlimited");
-    if (tracked && a.amount > tracked.maxApproval) reasons.push("above-max-approval");
-    if (!recipients.has(lc(a.spender))) reasons.push("spender-not-allowlisted");
+    // A wallet check has no owner policy: only an unlimited approval is a finding there.
+    if (ctx.subject !== "wallet") {
+      if (tracked && a.amount > tracked.maxApproval) reasons.push("above-max-approval");
+      if (!recipients.has(lc(a.spender))) reasons.push("spender-not-allowlisted");
+    }
     if (reasons.length === 0) continue;
     out.push(
       finding("UNLIMITED_APPROVAL", "HIGH", "Risky token approval", {

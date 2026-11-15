@@ -71,6 +71,8 @@ export type Context = {
   oracle?: OracleReference;
   explorer?: Record<string, ExplorerInfo>;
   demoMode: boolean;
+  /** "wallet": a wallet check, `vault` is any wallet and `policy` a stand-in with no owner limits. */
+  subject?: "vault" | "wallet";
 };
 
 export type RuleConfig = {

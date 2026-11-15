@@ -4,6 +4,10 @@ import type { Explanation, Finding, RiskLevel, RuleId } from "@guardian402/share
 import { amount, clip, label, type Lang } from "./format.ts";
 import type { ExplainInput, Explainer } from "./types.ts";
 
+/** "két"/"vault", or "ví"/"wallet" for a wallet check. */
+const whose = (i: ExplainInput, lang: Lang) =>
+  i.subject === "wallet" ? (lang === "vi" ? "ví" : "wallet") : lang === "vi" ? "két" : "vault";
+
 const HEADER: Record<RiskLevel, Record<Lang, string>> = {
   LOW: { vi: "Rủi ro THẤP.", en: "LOW risk." },
   MEDIUM: { vi: "Rủi ro TRUNG BÌNH.", en: "MEDIUM risk." },
@@ -90,8 +94,8 @@ const SENTENCES: Record<RuleId, Sentence> = {
       : `${label(i, f.evidence.address)} is a lookalike of ${label(i, f.evidence.looksLike)}.`,
   DRAIN_PATTERN: (f, i, lang) =>
     lang === "vi"
-      ? `Chuyển ${String(f.evidence.percent).replace(".", ",")}% số dư (${amount(i, f.evidence.token, f.evidence.outflow, lang)}) ra khỏi két.`
-      : `Moves ${f.evidence.percent}% of the balance (${amount(i, f.evidence.token, f.evidence.outflow, lang)}) out of the vault.`,
+      ? `Chuyển ${String(f.evidence.percent).replace(".", ",")}% số dư (${amount(i, f.evidence.token, f.evidence.outflow, lang)}) ra khỏi ${whose(i, lang)}.`
+      : `Moves ${f.evidence.percent}% of the balance (${amount(i, f.evidence.token, f.evidence.outflow, lang)}) out of the ${whose(i, lang)}.`,
   ABNORMAL_SLIPPAGE: (f, _i, lang) => {
     const pct = (Number(f.evidence.slippageBps) / 100).toString();
     return lang === "vi"
@@ -106,16 +110,17 @@ const SENTENCES: Record<RuleId, Sentence> = {
       : lang === "vi"
         ? `${amount(i, f.evidence.token, f.evidence.amount, lang)} rời két tới ${label(i, f.evidence.recipient)}, ngoài danh sách cho phép.`
         : `${amount(i, f.evidence.token, f.evidence.amount, lang)} leaves the vault to ${label(i, f.evidence.recipient)}, outside the allowlist.`,
-  UNPROTECTED_SWAP: (f, _i, lang) => {
+  UNPROTECTED_SWAP: (f, i, lang) => {
+    const w = whose(i, lang);
     if (f.evidence.minOut === "0") {
       return lang === "vi"
-        ? "Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, két vẫn phải nhận."
-        : "The swap sets no minimum output (minOut = 0): if the price moves before it really runs, the vault still takes it.";
+        ? `Hoán đổi không đặt mức nhận tối thiểu (minOut = 0): nếu giá đổi trước khi giao dịch chạy thật, ${w} vẫn phải nhận.`
+        : `The swap sets no minimum output (minOut = 0): if the price moves before it really runs, the ${w} still takes it.`;
     }
     const pct = (Number(f.evidence.gapBps) / 100).toString();
     return lang === "vi"
-      ? `Mức nhận tối thiểu thấp hơn kết quả chạy thử ${pct.replace(".", ",")}%: nếu giá xấu đi trước khi giao dịch chạy thật, két vẫn phải nhận.`
-      : `The minimum output is ${pct}% below the simulated output: if the price gets worse before it really runs, the vault still takes it.`;
+      ? `Mức nhận tối thiểu thấp hơn kết quả chạy thử ${pct.replace(".", ",")}%: nếu giá xấu đi trước khi giao dịch chạy thật, ${w} vẫn phải nhận.`
+      : `The minimum output is ${pct}% below the simulated output: if the price gets worse before it really runs, the ${w} still takes it.`;
   },
 };
 
@@ -129,8 +134,9 @@ function changes(input: ExplainInput, lang: Lang): string {
     const a = amount(input, "0x0000000000000000000000000000000000000000", input.diff.nativeDelta, lang);
     parts.push(a.startsWith("-") ? a : `+${a}`);
   }
-  if (parts.length === 0) return lang === "vi" ? "Số dư két không đổi." : "Vault balances do not change.";
-  return `${lang === "vi" ? "Két" : "Vault"}: ${parts.join(", ")}.`;
+  const w = whose(input, lang);
+  if (parts.length === 0) return lang === "vi" ? `Số dư ${w} không đổi.` : `The ${w} balances do not change.`;
+  return `${w[0]?.toUpperCase()}${w.slice(1)}: ${parts.join(", ")}.`;
 }
 
 function write(input: ExplainInput, lang: Lang): string {

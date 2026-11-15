@@ -47,6 +47,7 @@ function fakeChain(ctxFor: () => Context): PublicClient {
       throw new Error(`unexpected read ${functionName}`);
     },
     getBlock: async () => ({ timestamp: BigInt(Math.floor(Date.now() / 1000)) }),
+    getBalance: async () => ctxFor().policy.nativeBalance,
     getCode: async ({ address }: { address: string }) =>
       ctxFor().contracts.some((a) => a.toLowerCase() === address.toLowerCase()) ? "0x6000" : undefined,
   } as unknown as PublicClient;
@@ -151,6 +152,48 @@ describe("POST /v1/check", () => {
       expect(res.status).toBe(400);
       expect((await json(res)).error).toBe("invalid request");
     }
+  });
+});
+
+describe("wallet check (any wallet, before it signs)", () => {
+  const walletBody = (f: RuleFixture) => ({
+    chainId: 43113,
+    wallet: f.ctx.vault,
+    calls: f.sim.calls.map((c) => ({ target: c.target, value: c.value.toString(), data: c.data })),
+    lang: "vi",
+  });
+  async function walletCheck(name: string, path = "/v1/wallet/check") {
+    current = fixture(name);
+    const res = await post(path, walletBody(current));
+    expect(res.status).toBe(200);
+    return checkResponseSchema.parse(await res.json());
+  }
+
+  it("flags a drain without the vault-only rules, signs nothing, and speaks of the wallet", async () => {
+    const r = await walletCheck("drain-to-attacker");
+    expect(r.risk).toBe("HIGH");
+    const ids = r.findings.map((f) => f.ruleId);
+    expect(ids).toContain("DRAIN_PATTERN");
+    expect(ids).not.toContain("POLICY_PRECHECK");
+    expect(ids).not.toContain("RECIPIENT_NOT_ALLOWLISTED");
+    expect(r.verdict).toBeUndefined();
+    expect(r.explanation.vi).toContain("ra khỏi ví");
+    expect(r.explanation.vi).not.toContain("két");
+  });
+
+  it("LOW for a normal swap, and the free trial route answers the same way", async () => {
+    const r = await walletCheck("normal-swap");
+    expect(r).toMatchObject({ risk: "LOW", findings: [] });
+    expect(r.explanation.vi).toMatch(/^Rủi ro THẤP. Ví: /);
+    const demo = await walletCheck("normal-swap", "/v1/demo/wallet-check");
+    expect(demo.risk).toBe("LOW");
+  });
+
+  it("400 for a vault-shaped body or too many trusted addresses", async () => {
+    current = fixture("normal-swap");
+    expect((await post("/v1/wallet/check", body(current))).status).toBe(400);
+    const many = { ...walletBody(current), addressBook: Array(21).fill(current.ctx.vault) };
+    expect((await post("/v1/wallet/check", many)).status).toBe(400);
   });
 });
 

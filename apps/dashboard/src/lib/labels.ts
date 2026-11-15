@@ -89,6 +89,7 @@ export const PAGE = {
   home: "Tổng quan",
   activity: "Hoạt động",
   trial: "Chạy thử",
+  walletCheck: "Kiểm tra ví",
   rules: "Quy tắc chi tiêu",
   agents: "Agent",
   account: "Tài khoản",

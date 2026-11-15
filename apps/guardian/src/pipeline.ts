@@ -14,29 +14,37 @@ import {
 import {
   agentVaultAbi,
   checkRequestSchema,
+  walletCheckRequestSchema,
   FUJI_CHAIN_ID,
   hashCalls,
   type Call,
   type CheckRequest,
   type CheckResponse,
   type Deployment,
+  type WalletCheckRequest,
 } from "@guardian402/shared";
 import { buildContext, readOracle, readPolicy, withCode } from "./context.ts";
 import { toDiff } from "./diff.ts";
 import { explainInput } from "./explain-input.ts";
 import type { Explainer } from "./explain/types.ts";
 import type { ExplorerLookup } from "./explorer.ts";
-import { aggregate, defaultRuleConfig, runRules } from "./rules/index.ts";
+import { aggregate, defaultRuleConfig, runRules, WALLET_RULE_IDS } from "./rules/index.ts";
 import type { KnownContract, OracleReference, PolicySnapshot, RuleConfig } from "./rules/types.ts";
 import type { VerdictSigner } from "./sign/index.ts";
 import type { SimResult } from "./sim/types.ts";
 import type { Store } from "./store.ts";
 
-export type Endpoint = "check" | "cosign" | "demo";
+/** "wallet": a paid wallet check (POST /v1/wallet/check); the free wallet trial is stored as "demo". */
+export type Endpoint = "check" | "cosign" | "demo" | "wallet";
 
 /** The simulator as the pipeline sees it (the real one, or a stub in unit tests). */
 export type SimulatorLike = {
-  simulate(vault: Address, calls: readonly Call[], trackedTokens?: readonly Address[]): Promise<SimResult>;
+  simulate(
+    vault: Address,
+    calls: readonly Call[],
+    trackedTokens?: readonly Address[],
+    opts?: { anyAccount?: boolean },
+  ): Promise<SimResult>;
 };
 
 export type PipelineDeps = {
@@ -195,6 +203,84 @@ export class Pipeline {
     return res;
   }
 
+  /** Throws InputError on a body that does not match WalletCheckRequest (→ 400, not settled). */
+  parseWallet(body: unknown): WalletCheckRequest {
+    const parsed = walletCheckRequestSchema.safeParse(body);
+    if (!parsed.success) throw new InputError(parsed.error.flatten());
+    return parsed.data;
+  }
+
+  /**
+   * A transaction from any wallet, before it signs (topic 14): simulate it from that address on the fork, score
+   * it with the rules that need no vault policy (WALLET_RULE_IDS), explain it. No verdict: no vault enforces one.
+   */
+  async runWallet(req: WalletCheckRequest, endpoint: Endpoint): Promise<CheckResponse> {
+    const d = this.#d;
+    const started = performance.now();
+    const calls: Call[] = req.calls.map((c) => ({ target: c.target, value: BigInt(c.value), data: c.data }));
+    const callsHash = hashCalls(calls);
+    const checkId = keccak256(
+      encodePacked(
+        ["bytes32", "address", "uint256", "bytes16"],
+        [callsHash, req.wallet, BigInt(d.now()), toHex(randomBytes(16))],
+      ),
+    );
+    const known = [d.deployment.usdc, d.deployment.mWAVAX];
+    // The simulator tops the wallet up with gas: its real AVAX balance is read before.
+    const [oracle, nativeBalance] = await Promise.all([
+      this.#readOracle(),
+      d.chain.getBalance({ address: req.wallet }),
+    ]);
+    const sim = await d.simulator.simulate(req.wallet, calls, known, { anyAccount: true });
+    if (sim.unavailable !== undefined) throw new UnavailableError(sim.unavailable);
+    const policy = walletPolicy(req.wallet, sim, nativeBalance);
+    const contracts = await withCode(d.chain, [
+      ...calls.map((c) => c.target),
+      ...sim.approvals.map((a) => a.spender),
+      ...sim.transfers.map((t) => t.to),
+    ]);
+    const unknown = contracts.filter(
+      (a) => !d.knownContracts[a.toLowerCase()] && a.toLowerCase() !== req.wallet.toLowerCase(),
+    );
+    const explorer =
+      d.explorer && d.ruleConfig.explorerLookup.enabled && unknown.length > 0
+        ? await d.explorer(unknown)
+        : undefined;
+    const ctx = buildContext({
+      vault: req.wallet,
+      policy,
+      knownContracts: d.knownContracts,
+      contracts,
+      ...(explorer ? { explorer } : {}),
+      oracle,
+      addressBook: req.addressBook ?? [],
+      demoMode: d.demoMode,
+      subject: "wallet",
+    });
+    const findings = runRules(sim, ctx, d.ruleConfig, WALLET_RULE_IDS);
+    const { risk, riskCode, score } = aggregate(findings, d.ruleConfig);
+    const explanation = await d.explainer.explain(explainInput(sim, findings, risk, ctx, "wallet"));
+    const res: CheckResponse = {
+      checkId,
+      risk,
+      riskCode,
+      score,
+      findings,
+      simulation: {
+        success: sim.success,
+        ...(sim.revertReason ? { revertReason: sim.revertReason } : {}),
+        gasUsed: sim.gasUsed.toString(),
+        forkBlock: sim.forkBlock.toString(),
+      },
+      diff: toDiff(sim),
+      explanation,
+      latencyMs: Math.round(performance.now() - started),
+      demoMode: d.demoMode,
+    };
+    d.store?.insertCheck(endpoint, req.wallet, callsHash, res, d.now());
+    return res;
+  }
+
   async #readPolicy(vault: Address): Promise<PolicySnapshot> {
     const key = vault.toLowerCase();
     const hit = this.#policy.get(key);
@@ -222,4 +308,34 @@ export class Pipeline {
     this.#oracle = { at: this.#d.now(), value };
     return value;
   }
+}
+
+/**
+ * The policy view a wallet check runs the rules against: the wallet itself, the tokens the simulation saw with
+ * their balances before, its real AVAX balance, and no allowlist (so a large outflow is a drain to anyone).
+ */
+export function walletPolicy(wallet: Address, sim: SimResult, nativeBalance: bigint): PolicySnapshot {
+  return {
+    owner: wallet,
+    agent: wallet,
+    guardian: wallet,
+    paused: false,
+    verdictNonce: 0n,
+    maxAgentRisk: 0,
+    day: 0n,
+    tokens: sim.tokenDeltas.map((t) => ({
+      token: t.token,
+      dailyCap: 0n,
+      maxApproval: 0n,
+      verdictThreshold: 0n,
+      spentToday: 0n,
+      balance: t.before,
+    })),
+    nativeDailyCap: 0n,
+    nativeVerdictThreshold: 0n,
+    nativeSpentToday: 0n,
+    nativeBalance,
+    targets: [],
+    recipients: [],
+  };
 }
