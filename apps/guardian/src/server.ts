@@ -20,6 +20,7 @@ const app = createApp({
   deployment,
   signerAddress: core.signerAddress,
   payTo: env.PAY_TO,
+  ...(env.GUARDIAN_PUBLIC_URL ? { publicUrl: env.GUARDIAN_PUBLIC_URL } : {}),
   demoMode: env.DEMO_MODE,
   dashboardOrigin: env.DASHBOARD_ORIGIN,
   busy: () => simulator.queueDepth >= env.MAX_QUEUED_CHECKS,

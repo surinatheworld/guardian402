@@ -19,6 +19,8 @@ export type AppDeps = {
   deployment: Deployment;
   signerAddress: Address;
   payTo: Address;
+  /** Public base URL of this API (GUARDIAN_PUBLIC_URL), named as the x402 resource behind a proxy. */
+  publicUrl?: string;
   demoMode: boolean;
   dashboardOrigin: string;
   /**
@@ -153,7 +155,7 @@ export function createApp(d: AppDeps) {
   if (d.resourceServer) {
     app.use(
       paymentMiddleware(
-        paidRoutes(d.payTo),
+        paidRoutes(d.payTo, d.publicUrl),
         d.resourceServer,
         undefined,
         undefined,

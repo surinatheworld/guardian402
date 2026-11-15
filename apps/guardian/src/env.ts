@@ -31,6 +31,12 @@ const schema = z.object({
     .string()
     .default("false")
     .transform((v) => v === "true" || v === "1"),
+  // Public base URL of the Guardian API (e.g. https://host/api/guardian): the x402 resource URL behind a proxy.
+  GUARDIAN_PUBLIC_URL: z
+    .string()
+    .url()
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
   GUARDIAN_PORT: z.coerce.number().int().positive().default(4402),
   DASHBOARD_ORIGIN: z.string().default("http://localhost:3000"),
   // Accepted Host headers, comma-separated host:port; empty = this machine on GUARDIAN_PORT (P13).

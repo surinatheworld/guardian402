@@ -14,9 +14,17 @@ export const usdc = (atomic: string) => ({
   extra: { name: USDC_FUJI.eip712Name, version: USDC_FUJI.eip712Version },
 });
 
-export function paidRoutes(payTo: Address): RoutesConfig {
+/**
+ * `publicUrl`: the Guardian's public base URL (GUARDIAN_PUBLIC_URL). Behind a proxy the request's own URL is an
+ * internal one (http://127.0.0.1:…), and x402 puts it in the payment requirements as the resource; with the base
+ * set, each route names its public URL instead.
+ */
+export function paidRoutes(payTo: Address, publicUrl?: string): RoutesConfig {
+  const base = publicUrl?.replace(/\/$/, "");
+  const at = (path: string) => (base ? { resource: `${base}${path}` } : {});
   return {
     "POST /v1/check": {
+      ...at("/v1/check"),
       accepts: {
         scheme: "exact",
         price: usdc(PRICES.check),
@@ -28,6 +36,7 @@ export function paidRoutes(payTo: Address): RoutesConfig {
       mimeType: "application/json",
     },
     "POST /v1/wallet/check": {
+      ...at("/v1/wallet/check"),
       accepts: {
         scheme: "exact",
         price: usdc(PRICES.check),
@@ -39,6 +48,7 @@ export function paidRoutes(payTo: Address): RoutesConfig {
       mimeType: "application/json",
     },
     "POST /v1/cosign": {
+      ...at("/v1/cosign"),
       accepts: {
         scheme: "exact",
         price: usdc(PRICES.cosign),
