@@ -1,16 +1,10 @@
-// What the policy builder offers for this deployment: the assets a vault can track, the contracts and
-// functions an agent can be allowed to call, and the starting templates. Names come from here and from the
+// What the policy builder offers for this deployment: the contracts and functions an agent can be allowed
+// to call, and the starting templates. Names come from here and from the
 // owner's address book.
 import { getAbiItem, toFunctionSelector, type Address, type Hex } from "viem";
 import { mockRouterAbi } from "@guardian402/shared";
 import { deployment, knownName, tokenMeta } from "./config";
 import { EMPTY_SPEC, type Naming, type PolicySpec } from "./policy-spec";
-
-export type CatalogAsset = { token: Address; symbol: string; decimals: number; demo: boolean };
-export const ASSETS: CatalogAsset[] = [
-  { token: deployment.usdc, symbol: "USDC", decimals: 6, demo: false },
-  { token: deployment.mWAVAX, symbol: "mWAVAX", decimals: 18, demo: true },
-];
 
 export type CatalogFunction = { selector: Hex; name: string; signature: string; hint: string };
 export type CatalogContract = { address: Address; name: string; demo: boolean; functions: CatalogFunction[] };

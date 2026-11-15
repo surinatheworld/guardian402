@@ -47,5 +47,3 @@ export function addressBook(ctx: Context): Set<string> {
 
 /** Calls of the batch, each with its index. */
 export const indexed = (calls: readonly Call[]) => calls.map((call, index) => ({ call, index }));
-
-export const shortAddress = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;

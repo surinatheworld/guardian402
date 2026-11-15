@@ -99,8 +99,6 @@ function compare(exp: Expected, g: GuardianResult | undefined, outcomes: VaultOu
   return undefined;
 }
 
-export type Runner = ReturnType<typeof createRunner>;
-
 export function createRunner(env: AgentEnv, print: (line: string) => void = console.log) {
   const d: Deployment = getAddresses(env.NETWORK);
   const agent = privateKeyToAccount(env.AGENT_PK);

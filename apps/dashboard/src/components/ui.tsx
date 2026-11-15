@@ -86,7 +86,6 @@ const riskColor: Record<RiskLevel, "default" | "danger"> = {
   MEDIUM: "default",
   HIGH: "danger",
 };
-export const RISK_CHIP = riskColor;
 const RiskIcon = ({ risk }: { risk: RiskLevel }) =>
   risk === "LOW" ? (
     <CircleCheckFill aria-hidden="true" className="size-3.5" />

@@ -13,11 +13,8 @@ import { Spinner } from "@heroui/react/spinner";
 import type { ReactNode } from "react";
 import { summarizeDiff, type ActivityItem } from "@/lib/activity";
 import type { CheckDetail } from "@/lib/activity-hooks";
-import { vaultDecision } from "@/lib/check-calls";
 import { knownName, tokenMeta } from "@/lib/config";
-import { revertLabel } from "@/lib/labels";
 import { scenarioTitle } from "@/lib/scenarios";
-import { RiskBadge, TxLink } from "./ui";
 
 export type StopTone = "ok" | "bad" | "warn" | "info" | "neutral" | "active" | "waiting";
 export type Stop = { label: string; value: ReactNode; sub?: ReactNode; tone: StopTone };
@@ -81,99 +78,4 @@ export function proposalText(
   if (flows) return flows;
   if (item.execution?.withVerdict) return "Giao dịch có phê duyệt của Guardian";
   return "Khoản nhỏ két chi thẳng";
-}
-
-/** The three stops of an activity item. `maxAgentRisk` lets a trial show the vault's predicted decision. */
-export function stopsFor(
-  item: ActivityItem,
-  detail: CheckDetail | undefined,
-  vault: string,
-  maxAgentRisk?: number,
-): Stop[] {
-  const proposal: Stop = { label: "Agent đề xuất", value: proposalText(item, detail, vault), tone: "info" };
-
-  const reasons = item.check?.ruleIds.length ?? item.attempt?.guardian?.findings?.length ?? 0;
-  const guardian: Stop = item.risk
-    ? {
-        label: "Guardian kiểm tra",
-        value: <RiskBadge risk={item.risk} score={item.check?.score} />,
-        sub: reasons ? `${reasons} lý do` : "Không thấy dấu hiệu bất thường",
-        tone: item.risk === "HIGH" ? "bad" : item.risk === "MEDIUM" ? "warn" : "ok",
-      }
-    : item.execution && !item.execution.withVerdict
-      ? { label: "Guardian kiểm tra", value: "Không cần duyệt", sub: "Số tiền dưới ngưỡng", tone: "neutral" }
-      : item.execution?.withVerdict
-        ? {
-            label: "Guardian kiểm tra",
-            value: "Đã duyệt",
-            sub: "Phê duyệt có chữ ký, két đã kiểm trên chain",
-            tone: "ok",
-          }
-        : { label: "Guardian kiểm tra", value: "Không qua Guardian", tone: "neutral" };
-
-  const o = item.outcome;
-  let vaultStop: Stop;
-  if (o.kind === "executed")
-    vaultStop = {
-      label: "Két quyết định",
-      value: "Đã thực hiện",
-      sub: o.tx ? <TxLink hash={o.tx} label="Xem giao dịch" /> : "Trên mạng khác",
-      tone: "ok",
-    };
-  else if (o.kind === "rejected")
-    vaultStop = {
-      label: "Két quyết định",
-      value: "Đã từ chối",
-      sub: o.tx ? (
-        <>
-          {revertLabel(o.reason)} · <TxLink hash={o.tx} label="giao dịch" />
-        </>
-      ) : (
-        revertLabel(o.reason)
-      ),
-      tone: "bad",
-    };
-  else if (o.kind === "trial") {
-    const d = detail
-      ? vaultDecision(
-          {
-            findings: detail.findings,
-            riskCode: ["LOW", "MEDIUM", "HIGH"].indexOf(detail.risk) as 0 | 1 | 2,
-          },
-          maxAgentRisk,
-        )
-      : null;
-    vaultStop = {
-      label: "Két quyết định (dự đoán)",
-      value: d ? (d.blocked ? "Sẽ từ chối" : "Sẽ chấp nhận") : "Chỉ chạy thử",
-      sub: d ? d.text : "Không gửi lên chain",
-      tone: d ? (d.blocked ? "bad" : "ok") : "neutral",
-    };
-  } else if (o.kind === "check-only")
-    vaultStop = {
-      label: "Két quyết định",
-      value: "Chưa gửi",
-      sub: "Chỉ kiểm tra, Guardian không ký duyệt",
-      tone: "neutral",
-    };
-  else {
-    const d = detail
-      ? vaultDecision(
-          {
-            findings: detail.findings,
-            riskCode: ["LOW", "MEDIUM", "HIGH"].indexOf(detail.risk) as 0 | 1 | 2,
-          },
-          maxAgentRisk,
-        )
-      : null;
-    vaultStop = d?.blocked
-      ? { label: "Két quyết định", value: "Chặn trước khi gửi", sub: d.text, tone: "bad" }
-      : {
-          label: "Két quyết định",
-          value: "Chưa thấy trên két",
-          sub: "Agent chưa gửi giao dịch này",
-          tone: "neutral",
-        };
-  }
-  return [proposal, guardian, vaultStop];
 }

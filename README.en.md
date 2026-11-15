@@ -318,7 +318,6 @@ Runs the seven scenarios S0–S6 (a single one: `scenario S2`).
 
 - [docs/SPEC.md](docs/SPEC.md): technical specification and change log
 - [docs/API.md](docs/API.md): public endpoints, Guardian API, Agent REST API, MCP server
-- [docs/PRODUCT_FLOWS.md](docs/PRODUCT_FLOWS.md): product flows
 - [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md): threat model and review history
 - [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md): pitch runbook
 

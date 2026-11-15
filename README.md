@@ -318,7 +318,6 @@ Chạy bảy kịch bản S0–S6 (một kịch bản: `scenario S2`).
 
 - [docs/SPEC.md](docs/SPEC.md): đặc tả kỹ thuật và change log
 - [docs/API.md](docs/API.md): endpoint public, Guardian API, Agent REST API, MCP server
-- [docs/PRODUCT_FLOWS.md](docs/PRODUCT_FLOWS.md): các luồng sản phẩm
 - [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md): mô hình đe doạ và các lần rà soát
 - [docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md): kịch bản thuyết trình
 

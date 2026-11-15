@@ -139,8 +139,6 @@ export const checkResponseSchema = z.object({
   demoMode: z.boolean(),
 });
 
-export const errorResponseSchema = z.object({ error: z.string(), details: z.unknown().optional() });
-
 export type CallInput = z.infer<typeof callSchema>;
 export type CheckRequest = z.infer<typeof checkRequestSchema>;
 export type Finding = z.infer<typeof findingSchema>;
@@ -149,4 +147,3 @@ export type Diff = z.infer<typeof diffSchema>;
 export type Explanation = z.infer<typeof explanationSchema>;
 export type SignedVerdict = z.infer<typeof signedVerdictSchema>;
 export type CheckResponse = z.infer<typeof checkResponseSchema>;
-export type ErrorResponse = z.infer<typeof errorResponseSchema>;

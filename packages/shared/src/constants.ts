@@ -1,4 +1,4 @@
-import type { Address, Hex } from "viem";
+import type { Hex } from "viem";
 import { avalancheFuji } from "viem/chains";
 
 // Network (docs/SPEC.md §2). Fuji only.
@@ -51,4 +51,3 @@ export const RULE_IDS = [
 export type RuleId = (typeof RULE_IDS)[number];
 
 export const txUrl = (hash: Hex) => `${SNOWTRACE_URL}/tx/${hash}`;
-export const addressUrl = (address: Address) => `${SNOWTRACE_URL}/address/${address}`;

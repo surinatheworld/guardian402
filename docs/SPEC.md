@@ -521,7 +521,7 @@ The top bar carries the protection status and the emergency lock (pause/unpause)
   verifies vault, calldata, sender and status on chain), alert rules and notifications (Guardian risk or rule per
   check, daily cap usage per day) and reviews of Guardian checks. A vault that changes hands on chain loses the
   previous owner's workspace before the link moves.
-- Policies and the agent API (added 2026-11-10, `docs/API.md`; product model in `docs/PRODUCT_FLOWS.md`):
+- Policies and the agent API (added 2026-11-10, `docs/API.md`):
   named, versioned policies owned by the user (assets and daily budgets, recipients, contracts and functions,
   approval limits, verdict thresholds, maximum risk), one per agent; in force only when the vault's on-chain
   state matches and the agent is `agent()`. Applying drafts the owner transactions (removals first, the agent

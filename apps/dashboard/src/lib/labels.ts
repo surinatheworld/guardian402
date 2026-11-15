@@ -96,13 +96,6 @@ export const PAGE = {
   about: "Về Guardian",
 } as const;
 
-/** Display names of the DEMO deployment (MockRouter, mWAVAX) in the owner's words. */
-export const DEMO_NAME = {
-  router: "Sàn swap thử nghiệm",
-  oracle: "Bảng giá thử nghiệm",
-  wavax: "WAVAX thử nghiệm",
-} as const;
-
 /** A finding in words; a vault-rule finding names the rule it breaks ("… : vượt hạn mức mỗi ngày"). */
 export const findingLabel = (f: { ruleId: string; evidence: Record<string, unknown> }) => {
   const reason = f.ruleId === "POLICY_PRECHECK" ? String(f.evidence.reason ?? "") : "";
