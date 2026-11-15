@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="Guardian402: transaction firewall and co-signer for AI-agent wallets" width="100%" />
+  <img width="1600" height="400" alt="ảnh" src="https://github.com/user-attachments/assets/6d916fa5-051e-4d36-9d43-ecac695b401c" />
 </p>
 
 # Guardian402
