@@ -4,6 +4,8 @@
 import { GuardianReputation } from "@/components/reputation";
 import { Card, ErrorBox, Facts, LoadingRows, PageHeader, Stat, TxLink, AddressLink } from "@/components/ui";
 import { errorText, useGuardianHealth, useStats } from "@/lib/api";
+import { deployment } from "@/lib/config";
+import { useFactoryStats } from "@/lib/events";
 import { formatAmount, formatCount, formatTime } from "@/lib/format";
 import { ENDPOINT_LABEL, PAGE, RISK_TITLE } from "@/lib/labels";
 import { useVaultPolicy } from "@/lib/vault";
@@ -12,6 +14,7 @@ export default function AboutPage() {
   const health = useGuardianHealth();
   const stats = useStats();
   const p = useVaultPolicy().data;
+  const factory = useFactoryStats();
   const s = stats.data;
   return (
     <>
@@ -70,6 +73,29 @@ export default function AboutPage() {
           />
         ) : null}
       </Card>
+      {deployment.factory ? (
+        <Card
+          title="Két tạo trên Avalanche Fuji"
+          description="Đếm từ sự kiện VaultCreated của VaultFactory trên chain (qua Snowtrace), không phải số liệu tự khai"
+        >
+          {factory.isPending ? <LoadingRows rows={1} /> : null}
+          {factory.isError ? (
+            <ErrorBox
+              title="Không đọc được sự kiện trên Snowtrace"
+              detail={errorText(factory.error)}
+              onRetry={() => void factory.refetch()}
+            />
+          ) : null}
+          {factory.data ? (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+              <Stat label="Két đã tạo" value={formatCount(factory.data.vaults)} />
+              <Stat label="Ví chủ két" value={formatCount(factory.data.owners)} />
+              <Stat label="Ví agent" value={formatCount(factory.data.agents)} />
+            </div>
+          ) : null}
+          <Facts rows={[["VaultFactory", <AddressLink key="f" address={deployment.factory} />]]} />
+        </Card>
+      ) : null}
       <Card
         title="Uy tín trên chain (ERC-8004)"
         description="Điểm do các chủ két ghi lên ReputationRegistry chính thức trên Avalanche Fuji"

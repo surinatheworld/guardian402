@@ -176,3 +176,54 @@ export function useVaultsWithAgent(wallet: Address | undefined) {
     staleTime: 60_000,
   });
 }
+
+export type FactoryStats = { vaults: number; owners: number; agents: number };
+
+/** Every vault the VaultFactory has created on Fuji, from Routescan: how many, and for how many owners and agents. */
+export async function fetchFactoryStats(fetcher: typeof fetch = fetch): Promise<FactoryStats | null> {
+  if (!deployment.factory) return null;
+  const url = new URL(ROUTESCAN);
+  url.search = new URLSearchParams({
+    module: "logs",
+    action: "getLogs",
+    address: deployment.factory,
+    topic0: toEventSelector(vaultCreated),
+    fromBlock: String(deployment.factoryStartBlock ?? 0),
+    toBlock: "99999999",
+  }).toString();
+  const res = await fetcher(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Routescan HTTP ${res.status}`);
+  const body = (await res.json()) as { message?: string; result: RoutescanLog[] | string };
+  if (!Array.isArray(body.result)) {
+    if (/no records/i.test(body.message ?? "")) return { vaults: 0, owners: 0, agents: 0 };
+    throw new Error("Routescan: no result");
+  }
+  const owners = new Set<string>();
+  const agents = new Set<string>();
+  let vaults = 0;
+  for (const l of body.result) {
+    try {
+      const { args } = decodeEventLog({
+        abi: [vaultCreated],
+        topics: l.topics as [Hex, ...Hex[]],
+        data: l.data,
+      });
+      vaults += 1;
+      owners.add(String(args.owner).toLowerCase());
+      agents.add(String(args.agent).toLowerCase());
+    } catch {
+      // not a VaultCreated log
+    }
+  }
+  return { vaults, owners: owners.size, agents: agents.size };
+}
+
+/** Always Fuji's factory (Routescan), whatever network the dashboard runs on. */
+export function useFactoryStats() {
+  return useQuery({
+    queryKey: ["factory", "stats"],
+    queryFn: () => fetchFactoryStats(),
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  });
+}

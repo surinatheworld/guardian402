@@ -1,9 +1,9 @@
-import { getAbiItem, toEventSelector } from "viem";
+import { encodeEventTopics, getAbiItem, toEventSelector } from "viem";
 import { describe, expect, it } from "vitest";
 import { vaultFactoryAbi } from "@guardian402/shared";
 import { AGENT_FEE_AVAX, AGENT_FEE_USDC } from "../src/lib/balances";
 import { fundingPlan } from "../src/components/fund";
-import { fetchVaultsWithAgent } from "../src/lib/events";
+import { fetchFactoryStats, fetchVaultsWithAgent } from "../src/lib/events";
 
 describe("one press to fund", () => {
   it("deposits, then tops up only the fees the agent lacks", () => {
@@ -52,5 +52,41 @@ describe("an owner wallet that is another vault's agent", () => {
     expect(seen[0]?.searchParams.get("topic3")).toBe(
       `0x${"0".repeat(24)}419ef6cc38e492b390c42f3dd25b3d0a6ad6cf60`,
     );
+  });
+});
+
+describe("vaults created through the factory", () => {
+  it("counts VaultCreated logs, distinct owners and distinct agents", async () => {
+    const event = getAbiItem({ abi: vaultFactoryAbi, name: "VaultCreated" });
+    const log = (owner: string, vault: string, agent: string) => ({
+      topics: encodeEventTopics({
+        abi: [event],
+        eventName: "VaultCreated",
+        args: { owner, vault, agent } as never,
+      }),
+      // guardian, the one non-indexed field
+      data: `0x${"0".repeat(24)}${"7".repeat(40)}`,
+      blockNumber: "0x1",
+      timeStamp: "0x1",
+      transactionHash: `0x${"1".repeat(64)}`,
+    });
+    const O1 = "0x1111111111111111111111111111111111111111";
+    const O2 = "0x2222222222222222222222222222222222222222";
+    const A = "0x3333333333333333333333333333333333333333";
+    const fetcher = (async () =>
+      new Response(
+        JSON.stringify({
+          status: "1",
+          result: [
+            log(O1, "0x4444444444444444444444444444444444444444", A),
+            log(O1, "0x5555555555555555555555555555555555555555", A),
+            log(O2, "0x6666666666666666666666666666666666666666", A),
+          ],
+        }),
+      )) as typeof fetch;
+    expect(await fetchFactoryStats(fetcher)).toEqual({ vaults: 3, owners: 2, agents: 1 });
+    const none = (async () =>
+      new Response(JSON.stringify({ status: "0", message: "No records found", result: [] }))) as typeof fetch;
+    expect(await fetchFactoryStats(none)).toEqual({ vaults: 0, owners: 0, agents: 0 });
   });
 });
