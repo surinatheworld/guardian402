@@ -200,11 +200,28 @@ const message = createSiweMessage({
 });
 await api("/api/auth/siwe/verify", "POST", { message, signature: await owner.signMessage({ message }) });
 await api("/api/account/vaults", "POST", { address: vault, label: "Két happy path" });
-const { agent: row } = await api<{ agent: { id: number } }>(`/api/vaults/${vault}/agents`, "POST", {
+// Idempotent: on a fork that was reset, the factory can hand out a vault address an earlier run already
+// registered in the dashboard; then the agent and the contact are there already and are reused.
+const already = (e: unknown) => /HTTP 409/.test((e as Error).message);
+const row = await api<{ agent: { id: number } }>(`/api/vaults/${vault}/agents`, "POST", {
   name: "Agent happy path",
   address: agent.address,
-});
-await api(`/api/vaults/${vault}/contacts`, "POST", { name: "Treasury", address: treasury });
+})
+  .then((r) => r.agent)
+  .catch(async (e: unknown) => {
+    if (!already(e)) throw e;
+    const { agents } = await api<{ agents: { id: number; address: string }[] }>(
+      `/api/vaults/${vault}/agents`,
+    );
+    const found = agents.find((a) => a.address.toLowerCase() === agent.address.toLowerCase());
+    if (!found) throw e;
+    return found;
+  });
+await api(`/api/vaults/${vault}/contacts`, "POST", { name: "Treasury", address: treasury }).catch(
+  (e: unknown) => {
+    if (!already(e)) throw e;
+  },
+);
 const { key } = await api<{ key: string }>(`/api/vaults/${vault}/agents/${row.id}/keys`, "POST", {
   name: "happy path",
 });
