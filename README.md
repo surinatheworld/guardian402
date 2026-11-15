@@ -147,6 +147,18 @@ Két [`0xff0d…9C2d`](https://testnet.snowtrace.io/address/0xff0db552A0Ffe04642
 | Trả 1 USDC sau khi làm mới         | Agent             | ✓ [đã thực hiện](https://testnet.snowtrace.io/tx/0xd5e2f1963f288ac01983708ff5d181ee9aaa57cf2db1b57f3cb5b58638b166d6)                                                                                                                     |
 | Rút 2 USDC về ví                   | Chủ két, MetaMask | ✓                                                                                                                                                                                                                                        |
 
+### Phí theo rủi ro: chỉ trả Guardian khi cần (15/11/2026)
+
+`pnpm happy-path:fuji` với `HAPPY_PATH_UNIT=0.2`. Két [`0x0BBc…A1bE`](https://testnet.snowtrace.io/address/0x0BBcE9a627A205C7C620a556261Fe23d7290A1bE) tạo qua VaultFactory ([tx](https://testnet.snowtrace.io/tx/0x70d022f02d593f860c0c3408f4effb2ed7d1cf47134bc93b5612cb2fce059924), [nạp 1,2 USDC](https://testnet.snowtrace.io/tx/0x37289c1d379b54b2c6c801a8b7cad38e74261e0ce61dc0fb267d85e180fc299f)): chỉ trả cho Treasury, tối đa 0,4 USDC mỗi giao dịch, tổng 0,7 USDC, khoản tới 0,1 USDC không cần Guardian. Agent gọi `pay` của MCP server.
+
+| Khoản    | Két tự kiểm tra (miễn phí) | Guardian                                                                                                                 | Kết quả                                                                                                      |
+| :------- | :------------------------- | :----------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------- |
+| 0,1 USDC | cho chi thẳng              | không gọi, không phí                                                                                                     | [đã chi](https://testnet.snowtrace.io/tx/0x7b4488a4cd85b770e5f849795b504b8ba36783cefa67a1bd0fb09eb04839b5f8) |
+| 0,2 USDC | cần phê duyệt              | LOW, [phí 0,01 USDC](https://testnet.snowtrace.io/tx/0xe5b22ee55c47646680c00b093a68a9091da6b1dbf2e9f66b471bc46e614548d1) | [đã chi](https://testnet.snowtrace.io/tx/0x6690c25d240b54e10936a06af331c40e04de58c54f20b77132dfd3a9be9d3915) |
+| 0,5 USDC | `TxCapExceeded`            | không gọi, không phí                                                                                                     | không gửi gì                                                                                                 |
+| 0,4 USDC | cần phê duyệt              | LOW, [phí 0,01 USDC](https://testnet.snowtrace.io/tx/0x628715afc7c31c8eda72ae2eb72111351e918b235bac418475c6243250412ff4) | [đã chi](https://testnet.snowtrace.io/tx/0x23701067d01e4cfcfea76a0ab7d41a9ed0b0e39a6b41d769d9986de467c5924f) |
+| 0,1 USDC | `BudgetExceeded`           | không gọi, không phí                                                                                                     | không gửi gì                                                                                                 |
+
 ### Kịch bản tấn công S0–S6
 
 | Mã     | Kịch bản                                                | Guardian | Két                                                                                                                                                                                                                                            |

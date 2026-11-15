@@ -147,6 +147,18 @@ Vault [`0xff0d…9C2d`](https://testnet.snowtrace.io/address/0xff0db552A0Ffe0464
 | Pay 1 USDC after the reset             | Agent           | ✓ [executed](https://testnet.snowtrace.io/tx/0xd5e2f1963f288ac01983708ff5d181ee9aaa57cf2db1b57f3cb5b58638b166d6)                                                                                                                 |
 | Withdraw 2 USDC to the wallet          | Owner, MetaMask | ✓                                                                                                                                                                                                                                |
 
+### Risk-based fees: the Guardian is paid only when needed (2026-11-15)
+
+`pnpm happy-path:fuji` with `HAPPY_PATH_UNIT=0.2`. Vault [`0x0BBc…A1bE`](https://testnet.snowtrace.io/address/0x0BBcE9a627A205C7C620a556261Fe23d7290A1bE) created through the VaultFactory ([tx](https://testnet.snowtrace.io/tx/0x70d022f02d593f860c0c3408f4effb2ed7d1cf47134bc93b5612cb2fce059924), [1.2 USDC deposit](https://testnet.snowtrace.io/tx/0x37289c1d379b54b2c6c801a8b7cad38e74261e0ce61dc0fb267d85e180fc299f)): pays only the Treasury, at most 0.4 USDC per transaction, 0.7 USDC in total, payments up to 0.1 USDC need no Guardian. The agent calls the MCP server's `pay`.
+
+| Payment  | Free vault check      | Guardian                                                                                                                 | Result                                                                                                     |
+| :------- | :-------------------- | :----------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------- |
+| 0.1 USDC | runs without approval | not asked, no fee                                                                                                        | [paid](https://testnet.snowtrace.io/tx/0x7b4488a4cd85b770e5f849795b504b8ba36783cefa67a1bd0fb09eb04839b5f8) |
+| 0.2 USDC | needs approval        | LOW, [0.01 USDC fee](https://testnet.snowtrace.io/tx/0xe5b22ee55c47646680c00b093a68a9091da6b1dbf2e9f66b471bc46e614548d1) | [paid](https://testnet.snowtrace.io/tx/0x6690c25d240b54e10936a06af331c40e04de58c54f20b77132dfd3a9be9d3915) |
+| 0.5 USDC | `TxCapExceeded`       | not asked, no fee                                                                                                        | nothing sent                                                                                               |
+| 0.4 USDC | needs approval        | LOW, [0.01 USDC fee](https://testnet.snowtrace.io/tx/0x628715afc7c31c8eda72ae2eb72111351e918b235bac418475c6243250412ff4) | [paid](https://testnet.snowtrace.io/tx/0x23701067d01e4cfcfea76a0ab7d41a9ed0b0e39a6b41d769d9986de467c5924f) |
+| 0.1 USDC | `BudgetExceeded`      | not asked, no fee                                                                                                        | nothing sent                                                                                               |
+
 ### Attack scenarios S0–S6
 
 | ID     | Scenario                                                       | Guardian | Vault                                                                                                                                                                                                                                          |
