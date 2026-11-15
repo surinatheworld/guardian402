@@ -4,6 +4,7 @@ import { getAddress, type Address, type PublicClient } from "viem";
 import { agentVaultAbi, mockOracleAbi, type Deployment } from "@guardian402/shared";
 import type {
   Context,
+  ExplorerInfo,
   KnownContract,
   LimitsSnapshot,
   OracleReference,
@@ -79,6 +80,8 @@ export type ContextInput = {
   contracts: Address[];
   oracle?: OracleReference;
   addressBook?: Address[];
+  /** Explorer facts for unknown contracts (flagged lookup, never in tests or eval). Lowercase keys. */
+  explorer?: Record<string, ExplorerInfo>;
   demoMode: boolean;
 };
 
@@ -91,5 +94,6 @@ export function buildContext(input: ContextInput): Context {
     addressBook: input.addressBook ?? [],
     demoMode: input.demoMode,
     ...(input.oracle ? { oracle: input.oracle } : {}),
+    ...(input.explorer ? { explorer: input.explorer } : {}),
   };
 }

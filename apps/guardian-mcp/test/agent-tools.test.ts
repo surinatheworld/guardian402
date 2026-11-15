@@ -54,7 +54,15 @@ const response = (risk: "LOW" | "MEDIUM" | "HIGH", verdict = true) => ({
 });
 
 function setup(
-  opts: { risk?: "LOW" | "MEDIUM" | "HIGH"; revert?: string; me?: Partial<AgentMe>; status?: number } = {},
+  opts: {
+    risk?: "LOW" | "MEDIUM" | "HIGH";
+    /** Revert of the free simulation without a verdict; null = the vault runs it without the Guardian. */
+    preRevert?: string | null;
+    /** Revert of the simulation with the Guardian's verdict. */
+    revert?: string;
+    me?: Partial<AgentMe>;
+    status?: number;
+  } = {},
 ) {
   const asked: { endpoint: string; calls: Call[] }[] = [];
   const sent: Call[][] = [];
@@ -77,7 +85,13 @@ function setup(
     transaction: async (hash) => ({ found: true, hash }),
   };
   const sender: VaultSender = {
-    simulate: async () => (opts.revert ? { revert: opts.revert } : {}),
+    simulate: async (_vault, _calls, verdict) => {
+      if (!verdict) {
+        const pre = opts.preRevert === undefined ? "VerdictRequired" : opts.preRevert;
+        return pre ? { revert: pre } : {};
+      }
+      return opts.revert ? { revert: opts.revert } : {};
+    },
     send: async (_vault, calls) => {
       sent.push(calls);
       return { tx: B32("e"), status: "success" };
@@ -148,6 +162,38 @@ describe("agent MCP tools", () => {
     const r = result(await client.callTool({ name: "pay", arguments: { to: TREASURY, amount: "1" } }));
     expect(r).toMatchObject({ outcome: "blocked", by: "vault", vaultError: "BudgetExceeded", sent: false });
     expect(s.sent).toHaveLength(0);
+  });
+
+  it("pay: a payment the vault refuses anyway is blocked for free, without asking the Guardian", async () => {
+    for (const [error, reason] of [
+      ["RecipientNotAllowed", /allowed recipients/],
+      ["TxCapExceeded", /limit per payment/],
+      ["BudgetExceeded", /budget is used up/],
+    ] as const) {
+      const s = setup({ preRevert: error });
+      const client = await connect(s.server);
+      const r = result(await client.callTool({ name: "pay", arguments: { to: TREASURY, amount: "3" } }));
+      expect(r).toMatchObject({
+        outcome: "blocked",
+        by: "vault",
+        vaultError: error,
+        charged: false,
+        sent: false,
+      });
+      expect((r.reasons as string[])[0]).toMatch(reason);
+      expect(r.guardianFee).toBeNull();
+      expect(s.asked).toHaveLength(0);
+      expect(s.sent).toHaveLength(0);
+    }
+  });
+
+  it("pay: a small payment the vault runs without approval goes out with no Guardian fee", async () => {
+    const s = setup({ preRevert: null });
+    const client = await connect(s.server);
+    const r = result(await client.callTool({ name: "pay", arguments: { to: TREASURY, amount: "0.5" } }));
+    expect(r).toMatchObject({ outcome: "paid", tx: B32("e"), guardianFee: null, charged: false });
+    expect(s.asked).toHaveLength(0);
+    expect(s.sent).toHaveLength(1);
   });
 
   it("pay: a locked vault or a wallet that is not the agent asks nothing and sends nothing", async () => {

@@ -25,6 +25,7 @@ import { buildContext, readOracle, readPolicy, withCode } from "./context.ts";
 import { toDiff } from "./diff.ts";
 import { explainInput } from "./explain-input.ts";
 import type { Explainer } from "./explain/types.ts";
+import type { ExplorerLookup } from "./explorer.ts";
 import { aggregate, defaultRuleConfig, runRules } from "./rules/index.ts";
 import type { KnownContract, OracleReference, PolicySnapshot, RuleConfig } from "./rules/types.ts";
 import type { VerdictSigner } from "./sign/index.ts";
@@ -46,6 +47,8 @@ export type PipelineDeps = {
   store?: Store;
   deployment: Deployment;
   knownContracts: Record<string, KnownContract>;
+  /** Explorer facts for UNKNOWN_CONTRACT; used only when ruleConfig.explorerLookup.enabled. */
+  explorer?: ExplorerLookup;
   ruleConfig?: RuleConfig;
   demoMode: boolean;
   /** Policy and oracle cache; the vault nonce is never cached (SPEC §6.3 step 2). */
@@ -125,11 +128,21 @@ export class Pipeline {
       ...sim.approvals.map((a) => a.spender),
       ...sim.transfers.map((t) => t.to),
     ];
+    const contracts = await withCode(d.chain, touched);
+    // Explorer facts only for the contracts UNKNOWN_CONTRACT can report: not known, not the vault itself.
+    const unknown = contracts.filter(
+      (a) => !d.knownContracts[a.toLowerCase()] && a.toLowerCase() !== req.vault.toLowerCase(),
+    );
+    const explorer =
+      d.explorer && d.ruleConfig.explorerLookup.enabled && unknown.length > 0
+        ? await d.explorer(unknown)
+        : undefined;
     const ctx = buildContext({
       vault: req.vault,
       policy,
       knownContracts: d.knownContracts,
-      contracts: await withCode(d.chain, touched),
+      contracts,
+      ...(explorer ? { explorer } : {}),
       oracle,
       addressBook: d.store?.paidRecipients(req.vault, [policy.agent, policy.owner]) ?? [],
       demoMode: d.demoMode,

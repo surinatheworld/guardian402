@@ -39,6 +39,7 @@ import {
   limitNotes,
   recipientIssues,
   rulesInWords,
+  type LimitIssue,
   type SetupDraft,
 } from "@/lib/setup";
 import { CopyButton } from "./connect-agent";
@@ -403,9 +404,9 @@ export function RulesStep({ draft, setDraft }: StepProps) {
   const issuesAt = (i: number, field: "name" | "address") =>
     showErrors ? recIssues.find((x) => x.index === i && x.field === field)?.message : undefined;
   const lim = limitIssues(draft);
-  const limitError = (f: "dailyCap" | "maxPerTx" | "budget") => lim.find((x) => x.field === f)?.message;
+  const limitError = (f: LimitIssue["field"]) => lim.find((x) => x.field === f)?.message;
   const notes = limitNotes(draft);
-  const limitNote = (f: "dailyCap" | "maxPerTx" | "budget") => notes.find((x) => x.field === f)?.message;
+  const limitNote = (f: LimitIssue["field"]) => notes.find((x) => x.field === f)?.message;
   const setRecipient = (i: number, patch: Partial<{ name: string; address: string }>) =>
     setDraft({
       ...draft,
@@ -549,6 +550,16 @@ export function RulesStep({ draft, setDraft }: StepProps) {
               ))}
             </div>
           </RadioGroup>
+          <div className="sm:max-w-xs">
+            <UsdcField
+              label="Khoản nhỏ không cần Guardian"
+              description="Khoản tới mức này cho người nhận ở trên két chi thẳng, không tốn phí Guardian; hạn mức vẫn áp dụng. 0 = khoản nào cũng qua Guardian."
+              value={draft.freeBelow}
+              onChange={(n) => setDraft({ ...draft, freeBelow: n })}
+              error={limitError("freeBelow")}
+              note={limitNote("freeBelow")}
+            />
+          </div>
         </section>
       </div>
 

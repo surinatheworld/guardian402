@@ -31,14 +31,20 @@ import { Notice, TxLink } from "./ui";
 const usdc = (raw: bigint) => formatUnits(raw, 6).replace(".", ",");
 const asInput = (raw: bigint) => formatUnits(raw, 6);
 
-/** A small amount that the rules let through: half the per-payment cap, at most 1 USDC and the vault balance. */
+/**
+ * A small amount that the rules let through: half the per-payment cap, at most the vault balance, and 1 USDC, or
+ * 0.5 USDC above the vault's verdict threshold (`freeBelow`) so the try shows the Guardian at work when the caps
+ * leave room for it.
+ */
 export function tryAmounts(p: {
   balance: bigint;
   dailyLeft: bigint;
   maxPerTx: bigint;
   budgetLeft: bigint | null;
+  freeBelow?: bigint;
 }) {
-  const caps = [1_000_000n, p.balance, p.dailyLeft];
+  const preferred = p.freeBelow && p.freeBelow > 0n ? p.freeBelow + 500_000n : 1_000_000n;
+  const caps = [preferred, p.balance, p.dailyLeft];
   if (p.maxPerTx > 0n) caps.push(p.maxPerTx / 2n);
   if (p.budgetLeft !== null) caps.push(p.budgetLeft);
   const ok = caps.reduce((a, b) => (b < a ? b : a));
@@ -94,6 +100,7 @@ export function WebAgentTry({ vault, initialKey }: { vault: Address; initialKey?
         balance: token.balance,
         dailyLeft: token.dailyCap > token.spentToday ? token.dailyCap - token.spentToday : 0n,
         maxPerTx: usdcLimits?.maxPerTx ?? 0n,
+        freeBelow: token.verdictThreshold,
         budgetLeft:
           usdcLimits && usdcLimits.budget > 0n
             ? usdcLimits.budget > usdcLimits.spentSinceReset
@@ -201,8 +208,7 @@ export function WebAgentTry({ vault, initialKey }: { vault: Address; initialKey?
       </div>
       {running ? (
         <p className="text-sm text-muted" aria-live="polite">
-          {running === "ok" ? "Đang xin Guardian duyệt rồi gửi vào két…" : "Đang xin Guardian duyệt…"} Mất vài
-          giây.
+          Đang kiểm tra quy tắc của két, xin Guardian duyệt nếu két yêu cầu, rồi gửi… Mất vài giây.
         </p>
       ) : null}
       {result ? <ResultView r={result} /> : null}
@@ -241,6 +247,14 @@ function ResultView({ r }: { r: WebPayResult }) {
         {resultTitle(r)}
       </p>
       {r.outcome === "blocked" ? <p>{r.reason}</p> : null}
+      {r.outcome === "blocked" && r.by === "vault" && !r.check ? (
+        <p className="text-muted">Két tự kiểm tra miễn phí trước, nên không tốn phí Guardian.</p>
+      ) : null}
+      {r.outcome !== "blocked" && !r.check ? (
+        <p className="text-muted">
+          Khoản nhỏ trong mức chủ két cho chi thẳng: két tự chạy, không cần Guardian, không tốn phí Guardian.
+        </p>
+      ) : null}
       {explanation && !(r.outcome === "blocked" && r.by === "guardian") ? (
         <p className="text-muted">{explanation}</p>
       ) : null}

@@ -106,7 +106,10 @@ function ConnectionRow({
 
 const TOOLS: [string, string][] = [
   ["get_rules", "Đọc quy tắc và hạn mức còn lại. Miễn phí."],
-  ["pay", "Trả tiền: Guardian duyệt rồi két chi, hoặc không gửi gì. 0,01 USDC."],
+  [
+    "pay",
+    "Trả tiền: két kiểm tra miễn phí trước; khoản cần duyệt thì Guardian duyệt (0,01 USDC) rồi két chi; bị két chặn thì không gửi gì và không mất phí.",
+  ],
   ["check_payment", "Kiểm tra trước một khoản chi, không gửi. 0,005 USDC."],
   ["get_transaction", "Xem kết quả một giao dịch. Miễn phí."],
 ];

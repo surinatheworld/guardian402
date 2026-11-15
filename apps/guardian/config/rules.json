@@ -5,5 +5,5 @@
   "drainPattern": { "percent": 50 },
   "abnormalSlippage": { "mediumBps": 200, "highBps": 1000 },
   "unprotectedSwap": { "maxGapBps": 300 },
-  "explorerLookup": { "enabled": false, "timeoutMs": 1000, "cacheTtlMs": 600000, "newContractDays": 7 }
+  "explorerLookup": { "enabled": false, "timeoutMs": 2500, "cacheTtlMs": 600000, "newContractDays": 7 }
 }

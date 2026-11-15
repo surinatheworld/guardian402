@@ -13,8 +13,10 @@ import {
 } from "@guardian402/shared";
 import type { Env } from "./env.ts";
 import { createExplainer } from "./explain/index.ts";
+import { createExplorerLookup } from "./explorer.ts";
 import { Pipeline } from "./pipeline.ts";
-import { loadKnownContracts } from "./rules/index.ts";
+import { defaultRuleConfig, loadKnownContracts } from "./rules/index.ts";
+import type { RuleConfig } from "./rules/types.ts";
 import { createSigner } from "./sign/index.ts";
 import { Simulator } from "./sim/index.ts";
 import { Store } from "./store.ts";
@@ -29,6 +31,8 @@ export type GuardianCore = {
   simulator: Simulator;
   store: Store;
   signerAddress: `0x${string}`;
+  /** The rule thresholds in use (rules.json, with EXPLORER_LOOKUP applied). */
+  ruleConfig: RuleConfig;
   pipeline: Pipeline;
   resourceServer: ReturnType<typeof createResourceServer>;
   /** Fork health check, background maintenance and the first warm-up. */
@@ -97,6 +101,9 @@ export function createGuardianCore(env: Env, log: Logger): GuardianCore {
     LLM_BASE_URL: env.LLM_BASE_URL,
     onFallback: (reason) => log.info({ reason }, "explainer fell back to the template"),
   });
+  const ruleConfig = env.EXPLORER_LOOKUP
+    ? { ...defaultRuleConfig, explorerLookup: { ...defaultRuleConfig.explorerLookup, enabled: true } }
+    : defaultRuleConfig;
   const pipeline = new Pipeline({
     chain,
     simulator,
@@ -105,6 +112,16 @@ export function createGuardianCore(env: Env, log: Logger): GuardianCore {
     store,
     deployment,
     knownContracts: loadKnownContracts(env.NETWORK),
+    ruleConfig,
+    ...(env.EXPLORER_LOOKUP
+      ? {
+          explorer: createExplorerLookup({
+            chain,
+            timeoutMs: ruleConfig.explorerLookup.timeoutMs,
+            cacheTtlMs: ruleConfig.explorerLookup.cacheTtlMs,
+          }),
+        }
+      : {}),
     demoMode: env.DEMO_MODE,
   });
   const resourceServer = createResourceServer({
@@ -120,6 +137,7 @@ export function createGuardianCore(env: Env, log: Logger): GuardianCore {
     simulator,
     store,
     signerAddress: signer.address,
+    ruleConfig,
     pipeline,
     resourceServer,
     start: async () => {

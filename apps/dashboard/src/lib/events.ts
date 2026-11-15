@@ -88,11 +88,18 @@ export function useExecutedEvents() {
       }
       if (!client) return [];
       const to = await client.getBlockNumber();
-      const logs = await client.getLogs({
-        address: vault,
-        event: executed,
-        fromBlock: to > 99n ? to - 99n : 0n,
-        toBlock: to,
+      const from = to > 99n ? to - 99n : 0n;
+      const range = (fromBlock: bigint, toBlock: bigint) =>
+        client.getLogs({ address: vault, event: executed, fromBlock, toBlock });
+      // The fork forwards blocks before its fork point to its upstream RPC, and some upstreams (free tiers)
+      // refuse more than 10 blocks per eth_getLogs. Then read the same 100 blocks in 10-block slices.
+      const logs = await range(from, to).catch(async () => {
+        const slices: Promise<Awaited<ReturnType<typeof range>>>[] = [];
+        for (let a = from; a <= to; a += 10n) {
+          const b = a + 9n < to ? a + 9n : to;
+          slices.push(range(a, b).catch(() => []));
+        }
+        return (await Promise.all(slices)).flat();
       });
       const recent = logs
         .filter((l) => l.transactionHash && l.blockNumber !== null)

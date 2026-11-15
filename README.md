@@ -20,7 +20,7 @@
 
 <p align="center">
   <img alt="197 contract tests" src="https://img.shields.io/badge/forge%20test-197%20passed-22C55E?style=flat-square&logo=ethereum&logoColor=white" />
-  <img alt="359 TypeScript tests" src="https://img.shields.io/badge/vitest-359%20passed-22C55E?style=flat-square&logo=vitest&logoColor=white" />
+  <img alt="368 TypeScript tests" src="https://img.shields.io/badge/vitest-368%20passed-22C55E?style=flat-square&logo=vitest&logoColor=white" />
   <img alt="eval: 40 cases, 100% recall, 0% false positives" src="https://img.shields.io/badge/eval-40%20cases%20%C2%B7%20100%25%20recall%20%C2%B7%200%25%20FP-22C55E?style=flat-square" />
   <img alt="Scenarios S0 to S6 on Fuji" src="https://img.shields.io/badge/Fuji-S0%E2%80%93S6%20pass-22C55E?style=flat-square" />
 </p>
@@ -168,7 +168,7 @@ Két [`0xff0d…9C2d`](https://testnet.snowtrace.io/address/0xff0db552A0Ffe04642
 | Bộ                                             | Kết quả                                                                    |
 | :--------------------------------------------- | :------------------------------------------------------------------------- |
 | Contract (`forge test`: unit, fuzz, invariant) | 197/197                                                                    |
-| TypeScript (`pnpm test`, 6 package)            | 359/359                                                                    |
+| TypeScript (`pnpm test`, 6 package)            | 368/368                                                                    |
 | Guardian trên fork Fuji (`test:fork`)          | 18/18                                                                      |
 | Eval, 40 ca có nhãn (`pnpm eval`)              | precision 100%, recall 100%, dương tính giả 0% ([báo cáo](eval/report.md)) |
 
@@ -196,7 +196,8 @@ Két demo trước (code cũ, giữ nguyên): [`0x6A8C…Cf3c`](https://testnet.
 - USDC của Circle trên C-Chain hỗ trợ EIP-3009 (`transferWithAuthorization`), đúng thứ scheme `exact` của x402 cần: agent chỉ ký, facilitator gửi giao dịch, không cần tài khoản hay thẻ.
 - Settlement trên C-Chain rẻ và nhanh, nên thu phí vài phần nghìn USDC mỗi lần là khả thi, và giao dịch của agent vào block trong hạn 60 giây của phê duyệt.
 - Fork C-Chain bằng Anvil chạy nhanh, nên Guardian chạy thử trên trạng thái gần như mới nhất của Fuji (p50 354 ms trong [eval](eval/report.md)).
-- Guardian có danh tính on-chain trên IdentityRegistry ERC-8004 chính thức trên Fuji.
+- Guardian có danh tính on-chain trên IdentityRegistry ERC-8004 chính thức trên Fuji, và điểm uy tín công khai trên ReputationRegistry chính thức: chủ két xem lại một lần kiểm tra rồi ghi "đúng" hoặc "báo động nhầm" lên chain; khoá của Guardian không tự chấm được cho mình.
+- Guardian tra explorer của Avalanche (Routescan, nguồn của testnet.snowtrace.io) cho contract lạ: chưa verify hoặc mới tạo dưới 7 ngày thì rủi ro cao (`EXPLORER_LOOKUP`).
 
 ## 5. Dùng thử
 
@@ -219,12 +220,12 @@ Mở **https://miho-hackathon.080895.xyz**, bấm **Xem két demo** ở trang đ
 
 Agent cần **địa chỉ API** (`https://<dashboard>/api/agent/v1`), **khoá API** (`g402_…`) và **khoá riêng ví agent**. Khoá riêng chỉ nằm trên máy chạy agent; dashboard không bao giờ nhận nó. Khoá API không rút được tiền và không đổi được quy tắc.
 
-| Công cụ MCP       | Làm gì                                                              | Phí        |
-| :---------------- | :------------------------------------------------------------------ | :--------- |
-| `get_rules`       | Đọc quy tắc và hạn mức còn lại, thành câu hướng dẫn cho agent       | miễn phí   |
-| `check_payment`   | Kiểm tra trước một khoản chi, không gửi                             | 0,005 USDC |
-| `pay`             | Guardian duyệt rồi két chi trong một bước; bị chặn thì không gửi gì | 0,01 USDC  |
-| `get_transaction` | Xem kết quả một giao dịch                                           | miễn phí   |
+| Công cụ MCP       | Làm gì                                                                                                                                         | Phí                                                                   |
+| :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
+| `get_rules`       | Đọc quy tắc và hạn mức còn lại, thành câu hướng dẫn cho agent                                                                                  | miễn phí                                                              |
+| `check_payment`   | Kiểm tra trước một khoản chi, không gửi                                                                                                        | 0,005 USDC                                                            |
+| `pay`             | Két tự kiểm tra miễn phí trước; khoản két cho chi thẳng thì gửi luôn, khoản cần duyệt thì Guardian duyệt rồi két chi; bị chặn thì không gửi gì | 0,01 USDC khi cần Guardian duyệt; khoản bị két chặn hoặc khoản nhỏ: 0 |
+| `get_transaction` | Xem kết quả một giao dịch                                                                                                                      | miễn phí                                                              |
 
 Cấu hình MCP, Agent REST API, Guardian API và các endpoint public: [docs/API.md](docs/API.md).
 

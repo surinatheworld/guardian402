@@ -104,6 +104,10 @@ export function guideline(r: VaultRules): string[] {
     }
     const parts = [`at most ${amount(t.dailyCap, t)} per day (${amount(t.leftToday, t)} left today)`];
     if (t.maxPerTx !== "0") parts.push(`at most ${amount(t.maxPerTx, t)} per transaction`);
+    if (t.approvalAbove !== "0")
+      parts.push(
+        `up to ${amount(t.approvalAbove, t)} to an allowed recipient needs no Guardian approval (no fee)`,
+      );
     if (t.budgetLeft !== null)
       parts.push(
         t.budgetLeft === "0"
@@ -118,7 +122,7 @@ export function guideline(r: VaultRules): string[] {
     );
   }
   out.push(
-    `The Guardian approves a payment only up to ${r.maxRisk} risk. Use the pay tool (or POST /cosign then AgentVault.executeBatch): it checks, pays the Guardian fee and executes in one step.`,
+    `The Guardian approves a payment only up to ${r.maxRisk} risk. Use the pay tool: it checks the vault's rules for free, asks the Guardian (0.01 USDC fee) only when the vault requires an approval, and executes in one step.`,
   );
   return out;
 }

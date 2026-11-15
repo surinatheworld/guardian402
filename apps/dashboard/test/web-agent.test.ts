@@ -32,6 +32,14 @@ describe("web agent", () => {
     );
   });
 
+  it("tries a payment just above the verdict threshold, so the Guardian is part of the try", () => {
+    const base = { balance: 10n * U, dailyLeft: 20n * U, maxPerTx: 5n * U, budgetLeft: 100n * U };
+    expect(tryAmounts({ ...base, freeBelow: U }).ok).toBe((3n * U) / 2n);
+    // The caps win over the preference: then the payment may go out without the Guardian.
+    expect(tryAmounts({ ...base, maxPerTx: 2n * U, freeBelow: 3n * U }).ok).toBe(U);
+    expect(tryAmounts({ ...base, freeBelow: 0n }).ok).toBe(U);
+  });
+
   it("knows an agent key and its address without sending it anywhere", () => {
     const key = `0x${"11".repeat(32)}`;
     expect(isAgentKey(key)).toBe(true);

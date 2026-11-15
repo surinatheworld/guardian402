@@ -236,6 +236,30 @@ describe("rule details", () => {
     expect(fire("UNLIMITED_APPROVAL", f)[0]?.evidence.unlimited).toBe(true);
   });
 
+  it("DRAIN_PATTERN ignores a large payment that goes only to an allowlisted recipient", () => {
+    // 1 USDC to the treasury from a vault holding 2 USDC: the owner allowed this recipient, the vault caps bound it.
+    const f = fx("treasury-transfer");
+    const tr = must(f.sim.transfers.find((t) => t.from.toLowerCase() === f.ctx.vault.toLowerCase()));
+    const d = must(f.sim.tokenDeltas.find((t) => t.token.toLowerCase() === tr.token.toLowerCase()));
+    d.before = tr.amount * 2n;
+    d.delta = -tr.amount;
+    expect(f.ctx.policy.recipients.map((r) => r.toLowerCase())).toContain(tr.to.toLowerCase());
+    expect(fire("DRAIN_PATTERN", f)).toEqual([]);
+    // The same payment to an address the owner did not allow is a drain again.
+    const ctx = structuredClone(f.ctx);
+    ctx.policy.recipients = [];
+    expect(fire("DRAIN_PATTERN", f, ctx)).toHaveLength(1);
+  });
+
+  it("DRAIN_PATTERN still fires when only part of the outflow goes to an allowlisted recipient", () => {
+    const f = fx("drain-to-attacker");
+    const ctx = structuredClone(f.ctx);
+    const first = must(f.sim.transfers.find((t) => t.from.toLowerCase() === f.ctx.vault.toLowerCase()));
+    // A second transfer to an allowlisted recipient does not excuse the one to the attacker.
+    f.sim.transfers.push({ ...first, to: must(ctx.policy.recipients[0]), amount: 1n });
+    expect(fire("DRAIN_PATTERN", f, ctx)).toHaveLength(1);
+  });
+
   it("DRAIN_PATTERN triggers at exactly 50% and not one unit below", () => {
     const f = fx("drain-to-attacker");
     const d = must(f.sim.tokenDeltas.find((t) => t.delta < 0n));
@@ -273,6 +297,29 @@ describe("rule details", () => {
       verified: false,
       ageDays: 2,
     });
+  });
+
+  it("with the lookup on, an unverified or new unknown contract is HIGH; a verified old one stays MEDIUM", () => {
+    const f = fx("unknown-contract-call");
+    const key = must(f.sim.calls[0]).target.toLowerCase();
+    const on = {
+      ...defaultRuleConfig,
+      explorerLookup: { ...defaultRuleConfig.explorerLookup, enabled: true },
+    };
+    const sev = (verified: boolean, ageDays: number) =>
+      RULES.UNKNOWN_CONTRACT(f.sim, { ...f.ctx, explorer: { [key]: { verified, ageDays } } }, on)[0]
+        ?.severity;
+    expect(sev(false, 400)).toBe("HIGH");
+    expect(sev(true, 2)).toBe("HIGH");
+    expect(sev(true, 400)).toBe("MEDIUM");
+    // Off (tests and eval): no facts, the plain rule.
+    expect(
+      RULES.UNKNOWN_CONTRACT(
+        f.sim,
+        { ...f.ctx, explorer: { [key]: { verified: false } } },
+        defaultRuleConfig,
+      )[0]?.severity,
+    ).toBe("MEDIUM");
   });
 
   it("ADDRESS_POISONING uses 3/3 characters in DEMO mode", () => {

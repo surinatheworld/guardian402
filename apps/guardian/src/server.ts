@@ -4,7 +4,6 @@ import { pino } from "pino";
 import { createApp } from "./app.ts";
 import { createGuardianCore } from "./core.ts";
 import { loadEnv } from "./env.ts";
-import { defaultRuleConfig } from "./rules/index.ts";
 
 // Never log keys or payment signatures (pino redaction as a second line of defence).
 const log = pino({ redact: ["*.GUARDIAN_SIGNER_PK", "*.LLM_API_KEY", "*.signature", "*.paymentHeader"] });
@@ -17,7 +16,7 @@ await core.start();
 const app = createApp({
   pipeline: core.pipeline,
   store: core.store,
-  ruleConfig: defaultRuleConfig,
+  ruleConfig: core.ruleConfig,
   deployment,
   signerAddress: core.signerAddress,
   payTo: env.PAY_TO,

@@ -25,6 +25,7 @@ import { toast } from "@heroui/react/toast";
 import { useMutation } from "@tanstack/react-query";
 import NextLink from "next/link";
 import { useState, type ReactNode } from "react";
+import type { Address, Hex } from "viem";
 import { checkIdOf, moneyEffects, type ActivityItem } from "@/lib/activity";
 import { useCheckDetail, useCheckDetails, type CheckDetail } from "@/lib/activity-hooks";
 import { errorText } from "@/lib/api";
@@ -37,6 +38,7 @@ import { useVaultPolicy } from "@/lib/vault";
 import { useSelectedVault } from "@/lib/vault-context";
 import { REVIEW_LABEL, useInvalidate, useWorkspaceChecks, wsApi, type ReviewStatus } from "@/lib/workspace";
 import { proposalText } from "./journey";
+import { OnChainFeedback } from "./reputation";
 import { ErrorBox, LoadingRows, RiskBadge, TechDetails, TxLink } from "./ui";
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -66,7 +68,10 @@ function vaultView(item: ActivityItem, detail: CheckDetail | undefined, maxAgent
     return {
       tone: "ok" as Tone,
       label: "Đã thực hiện",
-      why: item.execution && !item.execution.withVerdict ? "Dưới ngưỡng cần Guardian duyệt" : "",
+      why:
+        item.execution && !item.execution.withVerdict
+          ? "Khoản nhỏ: két chi thẳng, không tốn phí Guardian"
+          : "",
       Icon: CircleCheck,
     };
   if (o.kind === "rejected")
@@ -159,9 +164,9 @@ export function ActivityTable({ items, label, onOpen }: ListProps) {
       <thead>
         <tr className="text-xs text-muted">
           <th className="h-10 pr-3 pl-4 font-medium">Giao dịch</th>
-          <th className="hidden w-56 px-3 font-medium md:table-cell">Guardian</th>
-          <th className="hidden w-40 px-3 font-medium md:table-cell">Két</th>
-          <th className="hidden w-36 px-3 text-right font-medium lg:table-cell">Số tiền</th>
+          <th className="hidden w-44 px-3 font-medium md:table-cell xl:w-56">Guardian</th>
+          <th className="hidden w-36 px-3 font-medium md:table-cell xl:w-40">Két</th>
+          <th className="hidden w-32 px-3 text-right font-medium xl:table-cell">Số tiền</th>
           <th className="w-28 pr-4 pl-3 text-right font-medium">Lúc</th>
         </tr>
       </thead>
@@ -198,12 +203,19 @@ export function ActivityTable({ items, label, onOpen }: ListProps) {
                 <VaultResult view={view} />
               </td>
               <td
-                className={`hidden px-3 text-right text-sm tabular-nums lg:table-cell ${amountClass(item)}`}
+                className={`hidden px-3 text-right text-sm tabular-nums xl:table-cell ${amountClass(item)}`}
                 title={amountTitle(item)}
               >
                 {outflow(detail)}
               </td>
               <td className="py-3 pr-4 pl-3 text-right align-top text-xs text-muted tabular-nums md:align-middle">
+                {/* Below xl the amount column is hidden: the amount sits above the time instead. */}
+                <span
+                  className={`mb-0.5 block text-sm xl:hidden ${amountClass(item)}`}
+                  title={amountTitle(item)}
+                >
+                  {outflow(detail)}
+                </span>
                 {item.at ? formatTime(item.at) : ""}
               </td>
             </tr>
@@ -363,6 +375,11 @@ function ReviewForm({ checkId, vault }: { checkId: string; vault: string }) {
       >
         Lưu đánh giá
       </Button>
+      <OnChainFeedback
+        vault={vault as Address}
+        checkId={checkId as Hex}
+        status={status ?? current?.status ?? "reviewed"}
+      />
     </section>
   );
 }

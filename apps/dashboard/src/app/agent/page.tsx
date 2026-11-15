@@ -95,7 +95,7 @@ export default function AgentPage() {
               <>
                 <Section
                   title="Thử agent ngay trên web"
-                  description="Bấm một nút: trang này làm đúng việc agent của bạn sẽ làm, xin Guardian duyệt rồi két chi. Không cần cài gì."
+                  description="Bấm một nút: trang này làm đúng việc agent của bạn sẽ làm, két kiểm tra quy tắc, xin Guardian duyệt khi cần, rồi két chi. Không cần cài gì."
                 >
                   <WebAgentTry vault={vault} />
                 </Section>
@@ -460,7 +460,7 @@ function TryIt({ vault, connected, lastUsed }: { vault: Address; connected: bool
                   ? "Agent gọi get_rules, miễn phí."
                   : i === 1
                     ? "Guardian duyệt, két chi. Xem ở Hoạt động."
-                    : "Vượt hạn mức: két từ chối, không mất phí mạng."}
+                    : "Vượt hạn mức: két từ chối, không mất phí Guardian lẫn phí mạng."}
               </span>
             </span>
             <Copy aria-hidden="true" className="size-4 shrink-0 text-muted" />

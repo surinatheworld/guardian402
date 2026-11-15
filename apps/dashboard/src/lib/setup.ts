@@ -15,6 +15,12 @@ export type SetupDraft = {
   maxPerTx: number;
   /** Whole USDC; 0 = no total budget. */
   budget: number;
+  /**
+   * Whole USDC. A payment of at most this much to an allowed recipient runs without the Guardian, so it costs no
+   * Guardian fee (the vault's caps still apply). 0 = every payment needs the Guardian. The vault's
+   * `verdictThreshold`.
+   */
+  freeBelow: number;
   /** 0 = only LOW risk, 1 = up to MEDIUM. */
   maxRisk: 0 | 1;
 };
@@ -27,6 +33,7 @@ export const DEFAULT_DRAFT: SetupDraft = {
   dailyCap: 20,
   maxPerTx: 5,
   budget: 100,
+  freeBelow: 1,
   maxRisk: 0,
 };
 
@@ -91,10 +98,11 @@ export const filledRecipients = (list: readonly Recipient[]) =>
     .filter((r) => r.address.trim() && isAddress(r.address.trim()))
     .map((r) => ({ name: r.name.trim(), address: getAddress(r.address.trim()) }));
 
-export type LimitIssue = { field: "dailyCap" | "maxPerTx" | "budget"; message: string };
+export type LimitIssue = { field: "dailyCap" | "maxPerTx" | "budget" | "freeBelow"; message: string };
+type Limits = Pick<SetupDraft, "dailyCap" | "maxPerTx" | "budget"> & { freeBelow?: number };
 
 /** Limits the vault cannot work with: they block the step. */
-export function limitIssues(d: Pick<SetupDraft, "dailyCap" | "maxPerTx" | "budget">): LimitIssue[] {
+export function limitIssues(d: Limits): LimitIssue[] {
   const out: LimitIssue[] = [];
   const bad = (n: number) => !Number.isFinite(n) || n < 0;
   if (bad(d.dailyCap) || d.dailyCap === 0)
@@ -104,11 +112,13 @@ export function limitIssues(d: Pick<SetupDraft, "dailyCap" | "maxPerTx" | "budge
     });
   if (bad(d.maxPerTx)) out.push({ field: "maxPerTx", message: "Không được âm." });
   if (bad(d.budget)) out.push({ field: "budget", message: "Không được âm." });
+  if (d.freeBelow !== undefined && bad(d.freeBelow))
+    out.push({ field: "freeBelow", message: "Không được âm." });
   return out;
 }
 
 /** Valid limits worth a second look: shown next to the field, never blocking. */
-export function limitNotes(d: Pick<SetupDraft, "dailyCap" | "maxPerTx" | "budget">): LimitIssue[] {
+export function limitNotes(d: Limits): LimitIssue[] {
   const out: LimitIssue[] = [];
   if (d.dailyCap > 0 && d.maxPerTx > d.dailyCap)
     out.push({ field: "maxPerTx", message: "Lớn hơn hạn mức ngày nên mức ngày sẽ chặn trước." });
@@ -116,6 +126,11 @@ export function limitNotes(d: Pick<SetupDraft, "dailyCap" | "maxPerTx" | "budget
     out.push({
       field: "budget",
       message: "Nhỏ hơn hạn mức ngày: agent có thể dùng hết ngay trong ngày, rồi chờ bạn làm mới.",
+    });
+  if (d.freeBelow !== undefined && d.freeBelow > 0 && d.maxPerTx > 0 && d.freeBelow >= d.maxPerTx)
+    out.push({
+      field: "freeBelow",
+      message: "Không nhỏ hơn mức mỗi giao dịch: mọi khoản trả cho người nhận sẽ không qua Guardian.",
     });
   return out;
 }
@@ -132,8 +147,9 @@ export function vaultConfig(d: SetupDraft, usdcAddress: Address) {
         dailyCap: usdc(d.dailyCap),
         // Payments only: no approvals until the owner allows an app (Quy tắc → Ứng dụng).
         maxApproval: 0n,
-        // Every payment needs the Guardian's approval: the agent MCP `pay` always asks for it.
-        verdictThreshold: 0n,
+        // Up to freeBelow to an allowed recipient: no Guardian, no Guardian fee (the caps still apply). Above
+        // it, and for any approval or call to an app, the vault requires the Guardian's approval.
+        verdictThreshold: usdc(d.freeBelow),
         maxPerTx: usdc(d.maxPerTx),
         budget: usdc(d.budget),
       },
@@ -161,8 +177,8 @@ export function rulesInWords(d: SetupDraft): string[] {
     d.budget > 0
       ? `Tổng cộng tối đa ${n(d.budget)} USDC; hết thì agent dừng cho tới khi bạn làm mới.`
       : "Không giới hạn tổng, chỉ giới hạn theo ngày.",
-    d.maxRisk === 0
-      ? "Mọi khoản chi phải được Guardian chấm rủi ro thấp."
-      : "Mọi khoản chi phải được Guardian chấm rủi ro thấp hoặc trung bình.",
+    d.freeBelow > 0
+      ? `Khoản tới ${n(d.freeBelow)} USDC két chi thẳng, không tốn phí Guardian; khoản lớn hơn phải được Guardian chấm rủi ro ${d.maxRisk === 0 ? "thấp" : "thấp hoặc trung bình"}.`
+      : `Mọi khoản chi phải được Guardian chấm rủi ro ${d.maxRisk === 0 ? "thấp" : "thấp hoặc trung bình"}.`,
   ];
 }

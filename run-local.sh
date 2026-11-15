@@ -208,6 +208,7 @@ cmd_start() {
 
   # Everything below talks to the fork, whatever NETWORK/CHAIN_RPC_URL say in .env.local (env wins over the file).
   export NETWORK=local CHAIN_RPC_URL="$FORK_URL" FACILITATOR_RPC_URL="$FORK_URL" DEMO_MODE=true
+  export EXPLORER_LOOKUP="${EXPLORER_LOOKUP:-true}"
   export FACILITATOR_URL="http://127.0.0.1:4022"
   # Empty URLs (not unset: Next then ignores apps/dashboard/.env.local) = public endpoint. This host's browser
   # uses 127.0.0.1; a browser on another machine (tunnel) uses the dashboard's same-origin proxy /api/rpc,
@@ -277,6 +278,7 @@ ${BOLD}=== Starting Guardian402 on Avalanche Fuji ===${NC}
   trap 'exit 130' INT TERM
 
   export NETWORK=fuji CHAIN_RPC_URL="$fuji" FACILITATOR_RPC_URL="$fuji" FORK_RPC_URL="$FORK_URL" DEMO_MODE=true
+  export EXPLORER_LOOKUP="${EXPLORER_LOOKUP:-true}"
   export FACILITATOR_URL="http://127.0.0.1:4022"
   export NEXT_PUBLIC_NETWORK=fuji NEXT_PUBLIC_RPC_URL="" NEXT_PUBLIC_GUARDIAN_URL="" NEXT_PUBLIC_AGENT_URL=""
 

@@ -1,15 +1,18 @@
 // `pnpm happy-path:fuji`: the whole happy path on Avalanche Fuji, end to end, with the project's test keys.
 //
 //   owner (OWNER_PK)   creates a vault through the VaultFactory with its rules (1 recipient, 20 USDC/day,
-//                      2 USDC per payment, 3 USDC in total, LOW risk only) and deposits 6 USDC
+//                      2 USDC per payment, 3.5 USDC in total, payments up to 0.5 USDC without the Guardian,
+//                      LOW risk only) and deposits 6 USDC
 //   dashboard          the owner signs in with the wallet (SIWE), links the vault, the agent and the recipient's
 //                      name, and issues an API key — the same calls /bat-dau makes
 //   agent (AGENT_PK)   runs the agent MCP server (`pnpm mcp:agent`) and asks it, like an AI agent would:
-//                      get_rules · pay 1 USDC (paid) · pay 2.5 USDC (blocked: per payment) ·
-//                      pay 2 USDC (paid) · pay 0.5 USDC (blocked: total budget used)
+//                      get_rules · pay 0.5 USDC (paid, no Guardian fee) · pay 1 USDC (paid, Guardian) ·
+//                      pay 2.5 USDC (blocked by the vault, no fee) · pay 2 USDC (paid, Guardian) ·
+//                      pay 0.5 USDC (blocked: total budget used, no fee)
 //
 // Needs the Guardian (NETWORK=fuji) on GUARDIAN_URL behind the dashboard on DASHBOARD_URL (default
-// http://localhost:3000), and a little AVAX on OWNER_PK and AGENT_PK. Each run creates a new vault and spends
+// http://localhost:3000), and a little AVAX on OWNER_PK and AGENT_PK. HAPPY_PATH_NETWORK=local (with FUJI_RPC_URL
+// pointing at the fork) runs it against `./run-local.sh start`: same contracts, fork state only. Each run creates a new vault and spends
 // 6 USDC from the owner into the new vault (topped up from AGENT_PK when short) plus ~0.04 USDC of Guardian fees.
 // Exits 1 when an outcome differs from the plan above.
 import { existsSync } from "node:fs";
@@ -98,10 +101,13 @@ async function api<T>(path: string, method = "GET", body?: unknown): Promise<T> 
 
 // The vault's Guardian is the signer of the Guardian API the dashboard forwards to.
 const health = (await (await fetch(`${GUARDIAN}/v1/health`)).json()) as { signer: Address; network: string };
-if (health.network !== "fuji")
-  throw new Error(`the Guardian on ${GUARDIAN} runs ${health.network}, not fuji`);
+const NETWORK = process.env.HAPPY_PATH_NETWORK || "fuji";
+if (health.network !== NETWORK)
+  throw new Error(`the Guardian on ${GUARDIAN} runs ${health.network}, not ${NETWORK}`);
 const guardianSigner = health.signer;
-say(`[happy path] Fuji · factory ${factory} · dashboard ${DASHBOARD} · Guardian signer ${guardianSigner}`);
+say(
+  `[happy path] ${NETWORK} · factory ${factory} · dashboard ${DASHBOARD} · Guardian signer ${guardianSigner}`,
+);
 
 const resume = process.env.HAPPY_PATH_VAULT as Address | undefined;
 let vault: Address;
@@ -145,9 +151,10 @@ if (resume) {
               token: d.usdc,
               dailyCap: usdc(20),
               maxApproval: 0n,
-              verdictThreshold: 0n,
+              // Up to 0.5 USDC to the treasury: no Guardian, no Guardian fee.
+              verdictThreshold: usdc(0.5),
               maxPerTx: usdc(2),
-              budget: usdc(3),
+              budget: usdc(3.5),
             },
           ],
           nativeDailyCap: 0n,
@@ -165,7 +172,6 @@ if (resume) {
   vault = event.args.vault;
   say(`  két ${vault} · ${txUrl(created.transactionHash)}`);
 
-  // 6 USDC in the vault, 3 USDC of budget: each payment stays under the Guardian's drain rule (50% of balance).
   say("\n2. Chủ két nạp 6 USDC vào két");
   const deposit = await send(
     await ownerWallet.writeContract({
@@ -232,13 +238,15 @@ say("  get_rules:");
 for (const line of (rules.guideline as string[]) ?? []) say(`    · ${line}`);
 expect(rules.youAreTheVaultAgent === true, "agent là agent của két");
 
-const plan: [number, "paid" | "blocked", string][] = [
-  [1, "paid", "trả 1 USDC cho Treasury"],
-  [2.5, "blocked", "2,5 USDC vượt hạn mức 2 USDC mỗi giao dịch"],
-  [2, "paid", "trả 2 USDC (dùng hết tổng 3 USDC)"],
-  [0.5, "blocked", "0,5 USDC sau khi đã dùng hết tổng ngân sách"],
+// fee: whether the Guardian is paid (cosign). A reused vault (HAPPY_PATH_VAULT) may have another threshold.
+const plan: [number, "paid" | "blocked", boolean, string][] = [
+  [0.5, "paid", false, "trả 0,5 USDC: két chi thẳng, không tốn phí Guardian"],
+  [1, "paid", true, "trả 1 USDC cho Treasury, Guardian duyệt"],
+  [2.5, "blocked", false, "2,5 USDC vượt hạn mức 2 USDC mỗi giao dịch, két chặn miễn phí"],
+  [2, "paid", true, "trả 2 USDC (dùng hết tổng 3,5 USDC)"],
+  [0.5, "blocked", false, "0,5 USDC sau khi đã dùng hết tổng ngân sách, két chặn miễn phí"],
 ];
-for (const [amount, want, what] of plan) {
+for (const [amount, want, fee, what] of plan) {
   const r = await call("pay", { to: treasury, amount: String(Math.round(amount * UNIT * 1e6) / 1e6) });
   const detail =
     r.outcome === "paid"
@@ -248,6 +256,7 @@ for (const [amount, want, what] of plan) {
         : JSON.stringify(r);
   say(`  pay ${amount} USDC → ${String(r.outcome)} (${String(r.risk ?? "?")}) ${detail}`);
   expect(r.outcome === want, what);
+  if (!resume) expect((r.guardianFee != null) === fee, `${what}: ${fee ? "có" : "không"} phí Guardian`);
 }
 await mcp.close();
 
@@ -257,6 +266,6 @@ const [balance, left] = await Promise.all([
   chain.readContract({ address: vault, abi: agentVaultAbi, functionName: "remainingBudget", args: [d.usdc] }),
 ]);
 say(`  số dư ${formatUnits(balance, 6)} USDC · ngân sách còn ${formatUnits(left, 6)} USDC`);
-expect(left === 0n, "agent đã chi đúng 3 USDC và dừng ở tổng ngân sách");
+expect(left === 0n, "agent đã chi đúng tổng ngân sách và dừng ở đó");
 say(failures ? `\n✗ ${failures} kết quả lệch kế hoạch` : "\n✓ happy path khớp kế hoạch");
 process.exit(failures ? 1 : 0);

@@ -1,8 +1,10 @@
 "use client";
 // The agent's `pay`, run in the owner's browser so the owner can try the whole flow with one button and nothing
-// to install. Same steps as the MCP tool (apps/guardian-mcp/src/agent-tools.ts): the Guardian checks and approves
-// the payment (its 0.01 USDC fee paid over x402 by the agent wallet), the risk is compared with the vault's
-// maximum, the vault's own executeBatch is simulated, and only then the agent wallet sends it.
+// to install. Same steps as the MCP tool (apps/guardian-mcp/src/agent-tools.ts): a free dry run of the vault's
+// executeBatch without a verdict first (a payment the vault refuses costs nothing; a small one it allows without
+// approval goes straight out, no Guardian fee); only when the vault asks for approval, the Guardian checks and
+// approves the payment (its 0.01 USDC fee paid over x402 by the agent wallet), the risk is compared with the
+// vault's maximum, the vault's executeBatch is simulated again, and only then the agent wallet sends it.
 //
 // Non-custodial: the agent wallet key lives in this tab's memory only. It is never sent to the dashboard or the
 // Guardian; the x402 payment and the transaction are signed here.
@@ -37,9 +39,10 @@ import { GUARDIAN_URL, RPC_URL } from "./config";
 const MAX_FEE_ATOMIC = "20000";
 const RISK = { LOW: 0, MEDIUM: 1, HIGH: 2 } as const;
 
+/** `check` is absent when the vault ran the payment without the Guardian (at most its verdict threshold). */
 export type WebPayResult =
-  | { outcome: "paid"; tx: Hex; check: CheckResponse; feeTx?: Hex | undefined }
-  | { outcome: "reverted"; tx: Hex; check: CheckResponse; feeTx?: Hex | undefined }
+  | { outcome: "paid"; tx: Hex; check?: CheckResponse | undefined; feeTx?: Hex | undefined }
+  | { outcome: "reverted"; tx: Hex; check?: CheckResponse | undefined; feeTx?: Hex | undefined }
   | {
       outcome: "blocked";
       by: "vault-state" | "guardian" | "vault";
@@ -60,6 +63,40 @@ export function toAgentKey(v: string): Hex | null {
 }
 
 export const isAgentKey = (v: string) => toAgentKey(v) !== null;
+
+/** A vault error name in Vietnamese, for the owner. */
+export function vaultReasonVi(error: string): string {
+  const reasons: Record<string, string> = {
+    Paused: "Chủ két đang khoá két.",
+    NotAgent: "Ví này không phải ví agent của két.",
+    RecipientNotAllowed: "Người nhận không nằm trong danh sách chủ két cho phép.",
+    TargetNotAllowed: "Két không cho gọi ứng dụng này.",
+    SelectorNotAllowed: "Két không cho gọi chức năng này của ứng dụng.",
+    ApprovalTooLarge: "Mức cấp quyền lớn hơn chủ két cho phép.",
+    TxCapExceeded: "Vượt hạn mức mỗi giao dịch.",
+    DailyCapExceeded: "Vượt phần hạn mức còn lại của hôm nay.",
+    BudgetExceeded: "Đã dùng hết tổng ngân sách; chủ két cần làm mới.",
+    RiskTooHigh: "Mức rủi ro vượt mức két chấp nhận.",
+    VerdictExpired: "Phê duyệt của Guardian đã hết hạn; thử lại.",
+  };
+  return reasons[error] ?? `Két sẽ từ chối (${error}).`;
+}
+
+/** The vault error name a failed call reverted with (or the RPC message). */
+function revertName(e: unknown): string {
+  const r = e instanceof BaseError ? e.walk((x) => x instanceof ContractFunctionRevertedError) : null;
+  return r instanceof ContractFunctionRevertedError
+    ? (r.data?.errorName ?? r.reason ?? "unknown")
+    : ((e as BaseError).shortMessage ?? String(e));
+}
+
+const NO_VERDICT = {
+  callsHash: `0x${"0".repeat(64)}` as Hex,
+  nonce: 0n,
+  deadline: 0n,
+  risk: 0,
+  checkId: `0x${"0".repeat(64)}` as Hex,
+};
 
 /** The agent wallet address for a key, or null when the key is not a valid private key. */
 export function agentAddressOf(key: string): Address | null {
@@ -108,6 +145,37 @@ export async function webPay(p: WebPayInput): Promise<WebPayResult> {
         by: "vault-state",
         reason: `Khoá này là của ví ${account.address}, không phải ví agent của két.`,
       };
+
+    const chain = createPublicClient({ chain: fujiChain, transport: rpcTransport(RPC_URL) });
+    const wallet = createWalletClient({ account, chain: fujiChain, transport: rpcTransport(RPC_URL) });
+
+    // 1. Free: would the vault run this without the Guardian? (a read, no gas, no fee)
+    const dryArgs = [p.calls, NO_VERDICT, "0x"] as const;
+    let dry: string | null = null;
+    try {
+      await chain.simulateContract({
+        account,
+        address: p.vault,
+        abi: agentVaultAbi,
+        functionName: "executeBatch",
+        args: dryArgs,
+      });
+    } catch (e) {
+      dry = revertName(e);
+    }
+    if (dry === null) {
+      const tx = await wallet.writeContract({
+        address: p.vault,
+        abi: agentVaultAbi,
+        functionName: "executeBatch",
+        args: dryArgs,
+      });
+      const mined = await chain.waitForTransactionReceipt({ hash: tx });
+      return { outcome: mined.status === "success" ? "paid" : "reverted", tx };
+    }
+    if (dry !== "VerdictRequired") return { outcome: "blocked", by: "vault", reason: vaultReasonVi(dry) };
+
+    // 2. The vault asks for the Guardian's approval.
 
     const payingFetch = wrapFetchWithPaymentFromConfig(fetch, {
       schemes: [{ network: FUJI_CAIP2, client: new ExactEvmScheme(account) }],
@@ -165,7 +233,6 @@ export async function webPay(p: WebPayInput): Promise<WebPayResult> {
       },
       v.signature,
     ] as const;
-    const chain = createPublicClient({ chain: fujiChain, transport: rpcTransport(RPC_URL) });
     try {
       await chain.simulateContract({
         account,
@@ -175,14 +242,8 @@ export async function webPay(p: WebPayInput): Promise<WebPayResult> {
         args,
       });
     } catch (e) {
-      const r = e instanceof BaseError ? e.walk((x) => x instanceof ContractFunctionRevertedError) : null;
-      const reason =
-        r instanceof ContractFunctionRevertedError
-          ? (r.data?.errorName ?? r.reason ?? "unknown")
-          : ((e as BaseError).shortMessage ?? String(e));
-      return { outcome: "blocked", by: "vault", reason, check, feeTx };
+      return { outcome: "blocked", by: "vault", reason: vaultReasonVi(revertName(e)), check, feeTx };
     }
-    const wallet = createWalletClient({ account, chain: fujiChain, transport: rpcTransport(RPC_URL) });
     const tx = await wallet.writeContract({
       address: p.vault,
       abi: agentVaultAbi,

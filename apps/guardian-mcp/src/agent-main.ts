@@ -100,8 +100,18 @@ const api: AgentApi = {
 const chain = createPublicClient({ chain: fujiChain, transport: rpcTransport(rpc) });
 const wallet = createWalletClient({ account: agent, chain: fujiChain, transport: rpcTransport(rpc) });
 
+// No verdict: an empty one and an empty signature, which the vault reads as "without the Guardian" (it then
+// requires one only above the verdict threshold, for approvals and for calls to apps).
+const NO_VERDICT = {
+  callsHash: `0x${"0".repeat(64)}`,
+  nonce: 0n,
+  deadline: 0n,
+  risk: 0,
+  checkId: `0x${"0".repeat(64)}`,
+} as const;
+
 const args = (calls: Call[], v: CheckResponse["verdict"]) => {
-  if (!v) throw new Error("no verdict");
+  if (!v) return [calls, NO_VERDICT, "0x"] as const;
   return [
     calls,
     {

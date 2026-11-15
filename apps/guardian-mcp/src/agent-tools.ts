@@ -3,13 +3,15 @@
 //
 //   get_rules        GET  /me             the rules of the agent's vault, as numbers and as plain sentences
 //   check_payment    POST /check          a paid Guardian check (0.005 USDC over x402), nothing is sent
-//   pay              POST /cosign → AgentVault.executeBatch
-//                                         one step: Guardian check + approval (0.01 USDC), then the vault
-//                                         executes it with the agent's wallet, or nothing is sent
+//   pay              AgentVault.executeBatch, with POST /cosign only when the vault asks for approval
+//                                         one step: a free dry run on the vault first; then, only if the
+//                                         vault requires it, Guardian check + approval (0.01 USDC); then the
+//                                         vault executes it with the agent's wallet, or nothing is sent
 //   get_transaction  GET  /transactions/:hash   the verified outcome of a transaction
 //
 // The vault enforces its rules whether or not this server is used; `pay` only avoids sending a transaction the
-// Guardian or the vault would refuse, so a blocked payment costs the Guardian fee and no gas.
+// Guardian or the vault would refuse. A payment the vault refuses on its own rules costs nothing; a payment the
+// Guardian blocks costs its fee and no gas; a small payment the owner lets through without approval costs gas only.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
@@ -130,6 +132,26 @@ const text = (value: unknown, isError = false) => ({
   ...(isError ? { isError: true } : {}),
 });
 
+/** Nothing was sent and no Guardian fee was paid. */
+const FREE = { guardianFee: null, charged: false, sent: false } as const;
+
+/** A vault error name (from a free simulation) in words an agent can relay to its user. */
+export function vaultReason(error: string): string {
+  const reasons: Record<string, string> = {
+    Paused: "The owner locked the vault.",
+    NotAgent: "This wallet is not the vault's agent.",
+    RecipientNotAllowed: "The recipient is not on the owner's list of allowed recipients.",
+    TargetNotAllowed: "The vault does not allow calls to this contract.",
+    SelectorNotAllowed: "The vault does not allow this function on this contract.",
+    ApprovalTooLarge: "The approval is larger than the owner allows.",
+    TxCapExceeded: "The amount is above the owner's limit per payment.",
+    DailyCapExceeded: "The amount is above what is left of today's limit.",
+    BudgetExceeded: "The owner's total budget is used up; the owner must renew it.",
+    BadBatch: "The batch is empty or has too many calls.",
+  };
+  return reasons[error] ?? `The vault would refuse this payment (${error}).`;
+}
+
 function guardianError(status: number, body: unknown) {
   const b = (body ?? {}) as { error?: unknown; message?: unknown };
   const msg =
@@ -193,9 +215,11 @@ export function createAgentMcpServer(d: AgentDeps): McpServer {
     {
       title: "Pay from the vault",
       description:
-        "Make a payment from the vault in one step: the Guardian checks and approves it (0.01 USDC fee over " +
-        "x402), then the vault executes it with the agent wallet. If the Guardian or the vault would refuse, " +
-        "nothing is sent and the reasons are returned. Pass `to` + `amount` (+ `token`), or raw `calls`.",
+        "Make a payment from the vault in one step. The vault's own rules are checked first, for free: a payment " +
+        "they refuse is not sent and costs nothing, and a small payment the owner allows without approval is sent " +
+        "with no Guardian fee. Otherwise the Guardian checks and approves it (0.01 USDC fee over x402), then the " +
+        "vault executes it with the agent wallet. If the Guardian or the vault would refuse, nothing is sent and " +
+        "the reasons are returned. Pass `to` + `amount` (+ `token`), or raw `calls`.",
       inputSchema: paymentShape,
     },
     async (input) => {
@@ -206,10 +230,42 @@ export function createAgentMcpServer(d: AgentDeps): McpServer {
         return text({ outcome: "invalid", message: (e as Error).message }, true);
       }
       const me = await d.api.me();
-      if (me.vaultPaused) return text({ outcome: "blocked", reasons: ["The owner locked the vault."] });
+      if (me.vaultPaused)
+        return text({ outcome: "blocked", by: "vault", reasons: ["The owner locked the vault."], ...FREE });
       if (me.isOnChainAgent === false)
-        return text({ outcome: "blocked", reasons: ["This wallet is not the vault's agent."] });
+        return text({
+          outcome: "blocked",
+          by: "vault",
+          reasons: ["This wallet is not the vault's agent."],
+          ...FREE,
+        });
 
+      // 1. Free: ask the vault itself (a read, no gas) whether it would run the batch without the Guardian. A
+      // payment the vault refuses anyway (recipient not allowed, over a cap or the budget) costs nothing, and a
+      // small payment the owner lets through without approval goes straight out with no Guardian fee.
+      const pre = await d.sender.simulate(me.vault, calls, undefined);
+      if (!pre.revert) {
+        const sent = await d.sender.send(me.vault, calls, undefined);
+        return text({
+          outcome: sent.status === "success" ? "paid" : "reverted",
+          tx: sent.tx,
+          txUrl: txUrl(sent.tx),
+          guardian: "not needed: within the owner's limit for payments without approval",
+          guardianFee: null,
+          charged: false,
+        });
+      }
+      if (pre.revert !== "VerdictRequired") {
+        return text({
+          outcome: "blocked",
+          by: "vault",
+          vaultError: pre.revert,
+          reasons: [vaultReason(pre.revert)],
+          ...FREE,
+        });
+      }
+
+      // 2. The vault wants the Guardian's approval: pay for a check + signed verdict.
       const res = await d.api.ask("cosign", calls);
       if (res.status !== 200) return guardianError(res.status, res.body);
       const r = checkResponseSchema.parse(res.body);

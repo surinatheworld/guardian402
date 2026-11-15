@@ -26,6 +26,11 @@ const schema = z.object({
     .string()
     .default("false")
     .transform((v) => v === "true" || v === "1"),
+  // Optional Routescan lookup for UNKNOWN_CONTRACT (verified source, contract age); off by default.
+  EXPLORER_LOOKUP: z
+    .string()
+    .default("false")
+    .transform((v) => v === "true" || v === "1"),
   GUARDIAN_PORT: z.coerce.number().int().positive().default(4402),
   DASHBOARD_ORIGIN: z.string().default("http://localhost:3000"),
   // Accepted Host headers, comma-separated host:port; empty = this machine on GUARDIAN_PORT (P13).

@@ -251,11 +251,18 @@ export const unknownContract: Rule = (sim, ctx, cfg) => {
     seen.add(key);
     const exposed = approved.has(key) || paid.has(key);
     const info = cfg.explorerLookup.enabled ? ctx.explorer?.[key] : undefined;
+    // With the explorer lookup on, an unknown contract whose source is not verified on the explorer, or that
+    // was created only days ago, is HIGH even when the vault does not pay or approve it.
+    const suspicious =
+      info !== undefined &&
+      (!info.verified || (info.ageDays !== undefined && info.ageDays < cfg.explorerLookup.newContractDays));
     out.push(
       finding(
         "UNKNOWN_CONTRACT",
-        exposed ? "HIGH" : "MEDIUM",
-        "Contract not in the known-contracts registry",
+        exposed || suspicious ? "HIGH" : "MEDIUM",
+        suspicious
+          ? "Unverified or new contract not in the known-contracts registry"
+          : "Contract not in the known-contracts registry",
         {
           address: getAddress(addr),
           receivesFundsOrApproval: exposed,
@@ -308,14 +315,25 @@ export const addressPoisoning: Rule = (sim, ctx, cfg) => {
 
 // ------------------------------------------------------------------ DRAIN_PATTERN
 
+// A payment the owner already allowed is not a drain: when every unit that left the vault went to a recipient on
+// the vault's allowlist, the size of the payment is bounded by the vault's own caps (per transaction, daily,
+// budget), not by this rule. Without this, paying 1 USDC to the treasury from a vault holding 2 USDC was HIGH.
+// A drain to anyone else, or through a router or an approval, still fires.
 export const drainPattern: Rule = (sim, ctx, cfg) => {
   const pct = BigInt(cfg.drainPattern.percent);
+  const allowed = new Set(ctx.policy.recipients.map(lc));
+  const transfers = vaultTransfers(sim, ctx);
+  const paidToAllowed = (token: string, outflow: bigint) => {
+    const mine = transfers.filter((t) => lc(t.token) === lc(token));
+    if (mine.length === 0 || !mine.every((t) => allowed.has(lc(t.to)))) return false;
+    return mine.reduce((sum, t) => sum + t.amount, 0n) >= outflow;
+  };
   const out: Finding[] = [];
   for (const t of ctx.policy.tokens) {
     const d = sim.tokenDeltas.find((x) => lc(x.token) === lc(t.token));
     if (!d || d.delta >= 0n || d.before === 0n) continue;
     const outflow = -d.delta;
-    if (outflow * 100n >= d.before * pct) {
+    if (outflow * 100n >= d.before * pct && !paidToAllowed(t.token, outflow)) {
       out.push(
         finding("DRAIN_PATTERN", "HIGH", "Batch moves most of the vault balance", {
           token: t.token,
@@ -329,7 +347,12 @@ export const drainPattern: Rule = (sim, ctx, cfg) => {
   // The simulator tops the vault up with a gas buffer, so the real AVAX balance comes from the policy snapshot.
   const nativeOut = sim.nativeDelta < 0n ? -sim.nativeDelta : 0n;
   const nativeBefore = ctx.policy.nativeBalance;
-  if (nativeOut > 0n && (nativeBefore === 0n || nativeOut * 100n >= nativeBefore * pct)) {
+  const valueCalls = sim.calls.filter((c) => c.value > 0n);
+  const nativeToAllowed =
+    valueCalls.length > 0 &&
+    valueCalls.every((c) => allowed.has(lc(c.target)) && c.data === "0x") &&
+    valueCalls.reduce((sum, c) => sum + c.value, 0n) >= nativeOut;
+  if (nativeOut > 0n && (nativeBefore === 0n || nativeOut * 100n >= nativeBefore * pct) && !nativeToAllowed) {
     out.push(
       finding("DRAIN_PATTERN", "HIGH", "Batch moves most of the vault's AVAX", {
         token: ZERO_ADDRESS,

@@ -529,7 +529,8 @@ export default function SetupPage() {
                   Thử ngay trên web
                 </h3>
                 <p className="text-sm text-muted">
-                  Bấm một nút để xem agent trả tiền: Guardian duyệt rồi két chi. Không cần cài gì.
+                  Bấm một nút để xem agent trả tiền: két kiểm tra quy tắc, Guardian duyệt khi cần, rồi két
+                  chi. Không cần cài gì.
                 </p>
               </div>
               <WebAgentTry vault={created.vault} initialKey={generatedPk} />

@@ -459,6 +459,8 @@ describe("agent API", () => {
     const text = me.guideline.join(" ");
     expect(text).toContain("at most 5 USDC per transaction");
     expect(text).toContain("30 USDC left of a total budget of 50 USDC");
+    expect(text).toContain("asks the Guardian (0.01 USDC fee) only when the vault requires an approval");
+    expect(text).toContain("up to 10 USDC to an allowed recipient needs no Guardian approval (no fee)");
 
     chain.down = true;
     expect(await err(() => api.prepareCheck(p, "cosign", { calls }))).toBe("503 chain_unavailable");

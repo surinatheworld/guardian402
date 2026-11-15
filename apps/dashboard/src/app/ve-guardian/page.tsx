@@ -1,6 +1,7 @@
 "use client";
 // Về Guardian: how the Guardian protects a vault, its live status and signer, and the x402 fees it collects
 // (the old Doanh thu page). The one place that explains the system itself.
+import { GuardianReputation } from "@/components/reputation";
 import { Card, ErrorBox, Facts, LoadingRows, PageHeader, Stat, TxLink, AddressLink } from "@/components/ui";
 import { errorText, useGuardianHealth, useStats } from "@/lib/api";
 import { formatAmount, formatCount, formatTime } from "@/lib/format";
@@ -68,6 +69,12 @@ export default function AboutPage() {
             ]}
           />
         ) : null}
+      </Card>
+      <Card
+        title="Uy tín trên chain (ERC-8004)"
+        description="Điểm do các chủ két ghi lên ReputationRegistry chính thức trên Avalanche Fuji"
+      >
+        <GuardianReputation />
       </Card>
       <Card
         title="Phí kiểm tra (x402)"

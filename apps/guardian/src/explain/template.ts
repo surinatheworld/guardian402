@@ -66,10 +66,24 @@ const SENTENCES: Record<RuleId, Sentence> = {
         : amount(i, f.evidence.token, f.evidence.amount, lang);
     return lang === "vi" ? `Cấp quyền tiêu ${amt} cho ${who}.` : `Approves ${who} to spend ${amt}.`;
   },
-  UNKNOWN_CONTRACT: (f, i, lang) =>
-    lang === "vi"
-      ? `${label(i, f.evidence.address)} là contract lạ, chưa có trong danh sách đã biết.`
-      : `${label(i, f.evidence.address)} is a contract that is not in the known list.`,
+  UNKNOWN_CONTRACT: (f, i, lang) => {
+    const base =
+      lang === "vi"
+        ? `${label(i, f.evidence.address)} là contract lạ, chưa có trong danh sách đã biết`
+        : `${label(i, f.evidence.address)} is a contract that is not in the known list`;
+    const facts: string[] = [];
+    if (f.evidence.verified === false)
+      facts.push(
+        lang === "vi" ? "mã nguồn chưa verify trên Snowtrace" : "its source is not verified on Snowtrace",
+      );
+    if (f.evidence.verified === true)
+      facts.push(lang === "vi" ? "mã nguồn đã verify trên Snowtrace" : "its source is verified on Snowtrace");
+    if (typeof f.evidence.ageDays === "number")
+      facts.push(
+        lang === "vi" ? `tạo cách đây ${f.evidence.ageDays} ngày` : `created ${f.evidence.ageDays} days ago`,
+      );
+    return facts.length ? `${base} (${facts.join(", ")}).` : `${base}.`;
+  },
   ADDRESS_POISONING: (f, i, lang) =>
     lang === "vi"
       ? `${label(i, f.evidence.address)} là địa chỉ nhái, trông giống ${label(i, f.evidence.looksLike)}.`

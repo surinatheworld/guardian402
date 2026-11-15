@@ -66,14 +66,17 @@ describe("setup draft", () => {
   });
 
   it("becomes a payments-only Config in USDC base units", () => {
-    const c = vaultConfig(draft({ dailyCap: 20, maxPerTx: 2.5, budget: 100, maxRisk: 1 }), USDC);
+    const c = vaultConfig(
+      draft({ dailyCap: 20, maxPerTx: 2.5, budget: 100, freeBelow: 0.5, maxRisk: 1 }),
+      USDC,
+    );
     expect(c.maxAgentRisk).toBe(1);
     expect(c.tokens).toEqual([
       {
         token: USDC,
         dailyCap: 20_000_000n,
         maxApproval: 0n,
-        verdictThreshold: 0n,
+        verdictThreshold: 500_000n,
         maxPerTx: 2_500_000n,
         budget: 100_000_000n,
       },
@@ -89,5 +92,20 @@ describe("setup draft", () => {
     expect(words).toContain("Tối đa 20 USDC mỗi ngày, 5 USDC mỗi giao dịch.");
     expect(words).toContain("Tổng cộng tối đa 100 USDC");
     expect(rulesInWords(draft({ recipients: [{ name: "", address: "" }] }))[0]).toMatch(/Chưa có người nhận/);
+    expect(words).toContain("Khoản tới 1 USDC két chi thẳng, không tốn phí Guardian");
+    expect(rulesInWords(draft({ freeBelow: 0 })).join(" ")).toContain(
+      "Mọi khoản chi phải được Guardian chấm rủi ro thấp.",
+    );
+  });
+
+  it("lets small payments skip the Guardian, and says when that covers every payment", () => {
+    expect(vaultConfig(draft({ freeBelow: 0 }), USDC).tokens[0]?.verdictThreshold).toBe(0n);
+    expect(
+      limitIssues({ dailyCap: 20, maxPerTx: 5, budget: 100, freeBelow: -1 }).map((i) => i.field),
+    ).toEqual(["freeBelow"]);
+    expect(limitNotes({ dailyCap: 20, maxPerTx: 5, budget: 100, freeBelow: 1 })).toEqual([]);
+    expect(limitNotes({ dailyCap: 20, maxPerTx: 5, budget: 100, freeBelow: 5 }).map((i) => i.field)).toEqual([
+      "freeBelow",
+    ]);
   });
 });

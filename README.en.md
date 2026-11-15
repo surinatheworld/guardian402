@@ -20,7 +20,7 @@
 
 <p align="center">
   <img alt="197 contract tests" src="https://img.shields.io/badge/forge%20test-197%20passed-22C55E?style=flat-square&logo=ethereum&logoColor=white" />
-  <img alt="359 TypeScript tests" src="https://img.shields.io/badge/vitest-359%20passed-22C55E?style=flat-square&logo=vitest&logoColor=white" />
+  <img alt="368 TypeScript tests" src="https://img.shields.io/badge/vitest-368%20passed-22C55E?style=flat-square&logo=vitest&logoColor=white" />
   <img alt="eval: 40 cases, 100% recall, 0% false positives" src="https://img.shields.io/badge/eval-40%20cases%20%C2%B7%20100%25%20recall%20%C2%B7%200%25%20FP-22C55E?style=flat-square" />
   <img alt="Scenarios S0 to S6 on Fuji" src="https://img.shields.io/badge/Fuji-S0%E2%80%93S6%20pass-22C55E?style=flat-square" />
 </p>
@@ -168,7 +168,7 @@ Vault [`0xff0d…9C2d`](https://testnet.snowtrace.io/address/0xff0db552A0Ffe0464
 | Suite                                           | Result                                                                     |
 | :---------------------------------------------- | :------------------------------------------------------------------------- |
 | Contracts (`forge test`: unit, fuzz, invariant) | 197/197                                                                    |
-| TypeScript (`pnpm test`, 6 packages)            | 359/359                                                                    |
+| TypeScript (`pnpm test`, 6 packages)            | 368/368                                                                    |
 | Guardian on a Fuji fork (`test:fork`)           | 18/18                                                                      |
 | Eval, 40 labelled cases (`pnpm eval`)           | 100% precision, 100% recall, 0% false positives ([report](eval/report.md)) |
 
@@ -196,7 +196,8 @@ Previous demo vault (older code, left as is): [`0x6A8C…Cf3c`](https://testnet.
 - Circle's USDC on the C-Chain supports EIP-3009 (`transferWithAuthorization`), which is exactly what x402's `exact` scheme requires: the agent only signs, the facilitator submits the transaction, and no account or card is needed.
 - C-Chain settlement is fast and inexpensive, which makes fees of a fraction of a cent per call viable and lets the agent's transaction land within the verdict's 60-second window.
 - Anvil forks of the C-Chain are fast, so the Guardian simulates against near-current Fuji state (p50 of 354 ms in the [eval](eval/report.md)).
-- The Guardian has an on-chain identity on the official ERC-8004 IdentityRegistry on Fuji.
+- The Guardian has an on-chain identity on the official ERC-8004 IdentityRegistry on Fuji, and a public score on the official ReputationRegistry: an owner reviews a check and writes "right" or "false alarm" on chain; the Guardian's own key cannot rate itself.
+- The Guardian looks unknown contracts up on Avalanche's explorer (Routescan, behind testnet.snowtrace.io): unverified or younger than 7 days is high risk (`EXPLORER_LOOKUP`).
 
 ## 5. Try it
 
@@ -219,12 +220,12 @@ Open **https://miho-hackathon.080895.xyz**, click **Xem két demo** (view demo v
 
 The agent needs the **API URL** (`https://<dashboard>/api/agent/v1`), an **API key** (`g402_…`) and the **agent wallet's private key**. The private key stays on the machine running the agent; the dashboard never receives it. The API key cannot withdraw funds or change rules.
 
-| MCP tool          | Purpose                                                                       | Fee        |
-| :---------------- | :---------------------------------------------------------------------------- | :--------- |
-| `get_rules`       | Read the rules and remaining limits, phrased as guidance for the agent        | free       |
-| `check_payment`   | Pre-check a payment without sending it                                        | 0.005 USDC |
-| `pay`             | Guardian approval and vault execution in one step; nothing is sent if blocked | 0.01 USDC  |
-| `get_transaction` | Look up the outcome of a transaction                                          | free       |
+| MCP tool          | Purpose                                                                                                                                                                              | Fee                                                                                   |
+| :---------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------ |
+| `get_rules`       | Read the rules and remaining limits, phrased as guidance for the agent                                                                                                               | free                                                                                  |
+| `check_payment`   | Pre-check a payment without sending it                                                                                                                                               | 0.005 USDC                                                                            |
+| `pay`             | A free dry run on the vault first; a payment the vault lets through without approval goes straight out, otherwise Guardian approval then vault execution; nothing is sent if blocked | 0.01 USDC when the Guardian approves; 0 for a payment the vault blocks or a small one |
+| `get_transaction` | Look up the outcome of a transaction                                                                                                                                                 | free                                                                                  |
 
 MCP configuration, the Agent REST API, the Guardian API and public endpoints: [docs/API.md](docs/API.md).
 
