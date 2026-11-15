@@ -205,6 +205,8 @@ Previous demo vault (older code, left as is): [`0x6A8C…Cf3c`](https://testnet.
 
 Open **https://miho-hackathon.080895.xyz**, click **Xem két demo** (view demo vault) on the sign-in page, then open **Chạy thử** (Try it) to have the Guardian score any scenario. Simulation is free and sends nothing on-chain. The dashboard UI is in Vietnamese.
 
+**No vault needed:** the **Kiểm tra ví** page (`/kiem-tra-vi`, linked from the sign-in page) checks a transaction from any wallet before it signs: an approval, a transfer, or the raw data a website sends to the wallet. The Guardian simulates it from that address and flags unlimited approvals, unknown or unverified contracts, lookalike addresses, drains and abnormal slippage. Wallets and apps call `POST /v1/wallet/check` (0.005 USDC over x402).
+
 |           Activity: what the Guardian scored and what the vault decided           | Spending rules: caps, recipients, risk level  |
 | :-------------------------------------------------------------------------------: | :-------------------------------------------: |
 | ![Activity page with blocked and executed transactions](docs/assets/activity.png) | ![Spending rules page](docs/assets/rules.png) |
@@ -224,7 +226,6 @@ The agent needs the **API URL** (`https://<dashboard>/api/agent/v1`), an **API k
 | :---------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------ |
 | `get_rules`       | Read the rules and remaining limits, phrased as guidance for the agent                                                                                                               | free                                                                                  |
 | `check_payment`   | Pre-check a payment without sending it                                                                                                                                               | 0.005 USDC                                                                            |
-| _(Guardian API)_  | `POST /v1/wallet/check`: check a transaction from **any wallet** before it signs (no vault needed); in the dashboard this is the **Kiểm tra ví** page, free on the demo              | 0.005 USDC                                                                            |
 | `pay`             | A free dry run on the vault first; a payment the vault lets through without approval goes straight out, otherwise Guardian approval then vault execution; nothing is sent if blocked | 0.01 USDC when the Guardian approves; 0 for a payment the vault blocks or a small one |
 | `get_transaction` | Look up the outcome of a transaction                                                                                                                                                 | free                                                                                  |
 

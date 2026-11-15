@@ -174,7 +174,8 @@ export function WebAgentTry({ vault, initialKey }: { vault: Address; initialKey?
       ) : null}
       {lowFees && agentFromKey ? (
         <Notice status="warning" title="Ví agent cần phí">
-          Mỗi lần trả, ví agent trả phí Guardian (0,01 USDC) và phí mạng (AVAX). Gửi phí cho agent:
+          Khoản cần Guardian duyệt tốn phí Guardian (0,01 USDC); mọi khoản đều tốn phí mạng (AVAX). Gửi phí
+          cho agent:
           <div className="mt-2">
             <AgentFeeForm agent={agentFromKey} />
           </div>

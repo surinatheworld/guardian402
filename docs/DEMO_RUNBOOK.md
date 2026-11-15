@@ -89,6 +89,12 @@ Then:
 
 Optional if there is time: S6 (owner pauses, the agent is blocked), Chạy thử → S3 "Chỉ mô phỏng" (lookalike address), and the MCP agent paying for a check (`pnpm mcp:example`, see README "MCP server").
 
+Also optional, the features added on 2026-11-15:
+
+- **Kiểm tra ví** (`/kiem-tra-vi`, no vault, no sign-in): an unlimited USDC approval to the router lookalike `0xE20b…d1d9` is HIGH (unlimited approval + lookalike); a 1 USDC transfer is LOW. Topic 14 for any wallet.
+- **Pay only when the Guardian works:** in Agent → Thử agent ngay trên web, a payment to a stranger is refused by the vault for free (no Guardian fee); a payment above the vault's verdict threshold goes through the Guardian.
+- **Về Guardian:** vaults created on Fuji (VaultCreated events) and the Guardian's ERC-8004 score, counted only from wallets that own a factory vault.
+
 S0 (`transfer` of 1.5 USDC to the treasury, LOW, executes) is the plain "agent payment" case; it costs 1.5 USDC of the vault per run, so keep it out of repeated rehearsals. The same scenarios from a terminal: `NETWORK=fuji CHAIN_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc DEMO_MODE=true pnpm agent scenario S1` (then S2, S4).
 
 ## Fallback

@@ -205,6 +205,8 @@ Két demo trước (code cũ, giữ nguyên): [`0x6A8C…Cf3c`](https://testnet.
 
 Mở **https://miho-hackathon.080895.xyz**, bấm **Xem két demo** ở trang đăng nhập, rồi mở **Chạy thử** để Guardian chấm bất kỳ kịch bản nào. Chạy thử miễn phí và không gửi gì lên blockchain.
 
+**Không có két cũng dùng được:** trang **Kiểm tra ví** (`/kiem-tra-vi`, có lối vào ở trang đăng nhập) kiểm tra một giao dịch của bất kỳ ví nào trước khi ký: cấp quyền, chuyển tiền, hay dữ liệu thô mà trang web gửi cho ví. Guardian chạy thử từ địa chỉ ví đó và báo cấp quyền vô hạn, contract lạ hoặc chưa verify, địa chỉ nhái, rút gần hết số dư, giá swap lệch. Ví và ứng dụng tích hợp gọi `POST /v1/wallet/check` (0,005 USDC qua x402).
+
 |                   Hoạt động: Guardian chấm gì, két quyết định ra sao                   | Quy tắc chi tiêu: hạn mức, người nhận, mức rủi ro |
 | :------------------------------------------------------------------------------------: | :-----------------------------------------------: |
 | ![Trang Hoạt động với các giao dịch bị chặn và đã thực hiện](docs/assets/activity.png) | ![Trang Quy tắc chi tiêu](docs/assets/rules.png)  |
@@ -220,13 +222,12 @@ Mở **https://miho-hackathon.080895.xyz**, bấm **Xem két demo** ở trang đ
 
 Agent cần **địa chỉ API** (`https://<dashboard>/api/agent/v1`), **khoá API** (`g402_…`) và **khoá riêng ví agent**. Khoá riêng chỉ nằm trên máy chạy agent; dashboard không bao giờ nhận nó. Khoá API không rút được tiền và không đổi được quy tắc.
 
-| Công cụ MCP       | Làm gì                                                                                                                                                       | Phí                                                                   |
-| :---------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
-| `get_rules`       | Đọc quy tắc và hạn mức còn lại, thành câu hướng dẫn cho agent                                                                                                | miễn phí                                                              |
-| `check_payment`   | Kiểm tra trước một khoản chi, không gửi                                                                                                                      | 0,005 USDC                                                            |
-| _(Guardian API)_  | `POST /v1/wallet/check`: kiểm tra giao dịch của **bất kỳ ví nào** trước khi ký (không cần két); trên dashboard là trang **Kiểm tra ví**, miễn phí ở bản demo | 0,005 USDC                                                            |
-| `pay`             | Két tự kiểm tra miễn phí trước; khoản két cho chi thẳng thì gửi luôn, khoản cần duyệt thì Guardian duyệt rồi két chi; bị chặn thì không gửi gì               | 0,01 USDC khi cần Guardian duyệt; khoản bị két chặn hoặc khoản nhỏ: 0 |
-| `get_transaction` | Xem kết quả một giao dịch                                                                                                                                    | miễn phí                                                              |
+| Công cụ MCP       | Làm gì                                                                                                                                         | Phí                                                                   |
+| :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
+| `get_rules`       | Đọc quy tắc và hạn mức còn lại, thành câu hướng dẫn cho agent                                                                                  | miễn phí                                                              |
+| `check_payment`   | Kiểm tra trước một khoản chi, không gửi                                                                                                        | 0,005 USDC                                                            |
+| `pay`             | Két tự kiểm tra miễn phí trước; khoản két cho chi thẳng thì gửi luôn, khoản cần duyệt thì Guardian duyệt rồi két chi; bị chặn thì không gửi gì | 0,01 USDC khi cần Guardian duyệt; khoản bị két chặn hoặc khoản nhỏ: 0 |
+| `get_transaction` | Xem kết quả một giao dịch                                                                                                                      | miễn phí                                                              |
 
 Cấu hình MCP, Agent REST API, Guardian API và các endpoint public: [docs/API.md](docs/API.md).
 
