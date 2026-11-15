@@ -12,7 +12,7 @@ Funds sit in the owner's smart-contract vault (`AgentVault`). The agent can only
 
 [![Avalanche Fuji](https://img.shields.io/badge/Avalanche-Fuji%2043113-E84142?style=flat-square&logo=avalanche&logoColor=white)](https://testnet.snowtrace.io/address/0xAd6BC023d60f871488394dEceE9EC2E85E553549)
 ![forge test 197 passed](https://img.shields.io/badge/forge%20test-197%20passed-22C55E?style=flat-square)
-![TypeScript tests 381 passed](https://img.shields.io/badge/TypeScript%20tests-381%20passed-22C55E?style=flat-square)
+![TypeScript tests 386 passed](https://img.shields.io/badge/TypeScript%20tests-386%20passed-22C55E?style=flat-square)
 ![eval 40 cases](https://img.shields.io/badge/eval-40%20cases%20%C2%B7%20recall%20100%25%20%C2%B7%20FP%200%25-22C55E?style=flat-square)
 ![x402 2.28.0](https://img.shields.io/badge/x402-2.28.0-2F7BFF?style=flat-square)
 ![ERC-8004 agent 295](https://img.shields.io/badge/ERC--8004-agent%20%23295-8B5CF6?style=flat-square)
@@ -47,7 +47,7 @@ risk_engine: 9 deterministic rules; same input gives the same LOW/MEDIUM/HIGH
 llm_role: explanation text only (Vietnamese + English); cannot change risk or sign; off with LLM_PROVIDER=none
 custody: non-custodial; the owner withdraws at any time; the Guardian key signs verdicts only
 revenue: x402 per request in USDC (check 0.005, wallet check 0.005, cosign 0.01); no token
-tests: { forge: 197 passed, typescript: 381 passed, fork_integration: 18 }
+tests: { forge: 197 passed, typescript: 386 passed, fork_integration: 18 }
 contract_coverage: AgentVault.sol and VaultFactory.sol 100% lines, statements, branches, functions
 eval: 40 synthetic labelled cases; precision 100%, recall 100%, false positive rate 0%, p50 354 ms
 mocked_parts: [MockOracle, MockRouter + mWAVAX, scripted attack feed, 3/3 lookalike threshold] # DEMO MODE, section 8
@@ -57,7 +57,7 @@ mocked_parts: [MockOracle, MockRouter + mWAVAX, scripted attack feed, 3/3 lookal
 
 | Criterion                     | Main evidence                                                                                                                                                                                                                                                                                                                    | Where to check                                                                                                                                                                                                                                   |
 | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Technical Implementation (25) | The vault enforces the rules on-chain; 197 Foundry tests (unit, fuzz, invariant); 100% line and branch coverage of `AgentVault` and `VaultFactory`. Pipeline: simulate, rules, explain, sign; 381 TypeScript tests. Verdicts signed in TypeScript are cross-checked by the contract. CI runs build, typecheck, lint and tests.   | [`AgentVault.sol`](contracts/src/AgentVault.sol), [`contracts/test/`](contracts/test), [`pipeline.ts`](apps/guardian/src/pipeline.ts), [`VerdictCrossCheck.t.sol`](contracts/test/VerdictCrossCheck.t.sol), [`ci.yml`](.github/workflows/ci.yml) |
+| Technical Implementation (25) | The vault enforces the rules on-chain; 197 Foundry tests (unit, fuzz, invariant); 100% line and branch coverage of `AgentVault` and `VaultFactory`. Pipeline: simulate, rules, explain, sign; 386 TypeScript tests. Verdicts signed in TypeScript are cross-checked by the contract. CI runs build, typecheck, lint and tests.   | [`AgentVault.sol`](contracts/src/AgentVault.sol), [`contracts/test/`](contracts/test), [`pipeline.ts`](apps/guardian/src/pipeline.ts), [`VerdictCrossCheck.t.sol`](contracts/test/VerdictCrossCheck.t.sol), [`ci.yml`](.github/workflows/ci.yml) |
 | Avalanche Integration (25)    | 6 contracts verified on Fuji. x402 fees settle in Circle's USDC on the C-Chain (EIP-3009). Identity and reputation on the official ERC-8004 registries. Simulation on an Anvil fork of Fuji. Routescan lookup for unknown contracts. Core wallet support.                                                                        | [Section 5](#5-evidence-on-fuji), [`x402.ts`](apps/guardian/src/x402.ts), [`erc8004.fuji.json`](packages/shared/src/addresses/erc8004.fuji.json), [`explorer.ts`](apps/guardian/src/explorer.ts)                                                 |
 | Creativity & Innovation (15)  | Two independent layers: on-chain rules still block when the agent skips the Guardian; the verdict is bound to the batch hash, a nonce and a 60-second deadline. Risk-based fees: the vault checks itself for free first, and the Guardian is paid only when the vault asks for approval. The LLM never decides where money goes. | [Section 3](#3-solution-two-layers-of-protection), [`agent-tools.ts`](apps/guardian-mcp/src/agent-tools.ts#L213)                                                                                                                                 |
 | Impact & Use Case (15)        | Operators of AI agents hand money to an agent without handing over full control. The MCP tool `pay` works with any MCP-capable agent. The wallet check page serves any wallet before it signs.                                                                                                                                   | [Section 6](#6-try-it), [`packages/mcp-agent/`](packages/mcp-agent), [`/kiem-tra-vi`](https://miho-hackathon.080895.xyz/kiem-tra-vi)                                                                                                             |
@@ -117,17 +117,17 @@ Owner rights: withdraw at any time, even while paused; change the agent or the G
 
 [`Pipeline.run`](apps/guardian/src/pipeline.ts#L113): validate input → read the vault's rules → simulate on the fork → run the rules → explain → sign the verdict (`cosign` only) → store → respond.
 
-| Rule                        | Detects                                                                                      | Level                                                                     |
-| :-------------------------- | :------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------ |
-| `SIMULATION_FAILED`         | The batch reverts in simulation                                                              | HIGH                                                                      |
-| `POLICY_PRECHECK`           | The vault would refuse: recipient not allowed, cap or budget exceeded, vault paused          | HIGH                                                                      |
-| `UNLIMITED_APPROVAL`        | Unlimited `approve`, above the maximum, or to a non-allowlisted spender; `setApprovalForAll` | HIGH                                                                      |
-| `UNKNOWN_CONTRACT`          | A contract outside the known-contracts registry                                              | MEDIUM; HIGH when it receives funds, is unverified or is under 7 days old |
-| `ADDRESS_POISONING`         | Lookalike address: same first 4 and last 4 characters as a trusted address                   | HIGH                                                                      |
-| `DRAIN_PATTERN`             | One batch moves 50% or more of a balance, unless all of it goes to allowlisted recipients    | HIGH                                                                      |
-| `ABNORMAL_SLIPPAGE`         | A swap returns less than the reference price                                                 | MEDIUM from 2%, HIGH from 10%                                             |
-| `RECIPIENT_NOT_ALLOWLISTED` | Funds or swap output go to an address outside the allowlist                                  | HIGH                                                                      |
-| `UNPROTECTED_SWAP`          | `minOut` more than 3% below the simulated output                                             | MEDIUM                                                                    |
+| Rule                        | Detects                                                                                                               | Level                                                                     |
+| :-------------------------- | :-------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------ |
+| `SIMULATION_FAILED`         | The batch reverts in simulation                                                                                       | HIGH                                                                      |
+| `POLICY_PRECHECK`           | The vault would refuse: recipient not allowed, cap or budget exceeded, vault paused                                   | HIGH                                                                      |
+| `UNLIMITED_APPROVAL`        | Unlimited `approve`, above the maximum, or to a non-allowlisted spender; `setApprovalForAll`                          | HIGH                                                                      |
+| `UNKNOWN_CONTRACT`          | A contract outside the known-contracts registry                                                                       | MEDIUM; HIGH when it receives funds, is unverified or is under 7 days old |
+| `ADDRESS_POISONING`         | Lookalike address: same first 4 and last 4 characters as a trusted address, or at most 4 characters different from it | HIGH                                                                      |
+| `DRAIN_PATTERN`             | One batch moves 50% or more of a balance, unless all of it goes to allowlisted recipients                             | HIGH                                                                      |
+| `ABNORMAL_SLIPPAGE`         | A swap returns less than the reference price                                                                          | MEDIUM from 2%, HIGH from 10%                                             |
+| `RECIPIENT_NOT_ALLOWLISTED` | Funds or swap output go to an address outside the allowlist                                                           | HIGH                                                                      |
+| `UNPROTECTED_SWAP`          | `minOut` more than 3% below the simulated output                                                                      | MEDIUM                                                                    |
 
 Thresholds live in [`config/rules.json`](apps/guardian/config/rules.json). A check of an arbitrary wallet runs 7 rules, without the two that read a vault policy (`POLICY_PRECHECK`, `RECIPIENT_NOT_ALLOWLISTED`). The Routescan lookup for unknown contracts is enabled with `EXPLORER_LOOKUP=true`.
 
@@ -241,7 +241,7 @@ Vault [`0xff0d…9C2d`](https://testnet.snowtrace.io/address/0xff0db552A0Ffe0464
 | :------------------------------------------------ | :------------------------------------------------------------------------------------- | :---------------------------------------------------------------------- |
 | Contracts: unit, fuzz, invariant                  | 197/197                                                                                | `cd contracts && forge test`                                            |
 | Coverage of `AgentVault.sol`, `VaultFactory.sol`  | 100% lines, statements, branches, functions                                            | `forge coverage --report summary --no-match-coverage "(test\|script)/"` |
-| TypeScript, 7 packages                            | 381/381                                                                                | `pnpm test`                                                             |
+| TypeScript, 7 packages                            | 386/386                                                                                | `pnpm test`                                                             |
 | Guardian on a Fuji fork                           | 18 tests                                                                               | `pnpm --filter @guardian402/guardian test:fork`                         |
 | Verdict signed in TypeScript, checked in Solidity | pass                                                                                   | `pnpm test:crosscheck`                                                  |
 | Eval, 40 labelled cases written by the team       | precision 100%, recall 100%, false positives 0%, p50 354 ms ([report](eval/report.md)) | `pnpm eval`                                                             |
@@ -338,7 +338,7 @@ Runs the seven scenarios S0–S6 (a single one: `scenario S2`). Full command lis
 | To check                      | Command                                                              | Expected result                                      |
 | :---------------------------- | :------------------------------------------------------------------- | :--------------------------------------------------- |
 | Contracts                     | `cd contracts && forge test`                                         | `197 tests passed, 0 failed`                         |
-| TypeScript                    | `pnpm test && pnpm typecheck && pnpm lint`                           | 381 tests pass, no type errors, no lint errors       |
+| TypeScript                    | `pnpm test && pnpm typecheck && pnpm lint`                           | 386 tests pass, no type errors, no lint errors       |
 | Verdict TypeScript ↔ Solidity | `pnpm test:crosscheck`                                               | `VerdictCrossCheck` passes                           |
 | Eval                          | `pnpm fork`, then `pnpm eval`                                        | fingerprint `75b364aac5a8179c` in `eval/report.md`   |
 | Scenarios S0–S6               | `./run-local.sh`, then `./run-local.sh scenario all`                 | every scenario matches the table in 5.4, exit code 0 |

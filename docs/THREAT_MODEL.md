@@ -91,7 +91,7 @@ Verdicts carry the vault address in the EIP-712 domain, the chain id, a single-u
 
 ### Address poisoning
 
-Lookalike recipients and spenders are flagged by `ADDRESS_POISONING` (4+4 hex characters in production, 3+3 in DEMO because mining 4+4 takes too long on a laptop). They are also outside the allowlist, so the vault rejects them anyway.
+Lookalike recipients and spenders are flagged by `ADDRESS_POISONING` (4+4 hex characters in production, 3+3 in DEMO because mining 4+4 takes too long on a laptop, and any address at most 4 hex characters away from a trusted one). They are also outside the allowlist, so the vault rejects them anyway.
 
 ### Payments without the Guardian (verdict threshold)
 

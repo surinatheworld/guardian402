@@ -12,7 +12,7 @@ Tiền nằm trong két smart contract (`AgentVault`) của chủ. Agent chỉ c
 
 [![Avalanche Fuji](https://img.shields.io/badge/Avalanche-Fuji%2043113-E84142?style=flat-square&logo=avalanche&logoColor=white)](https://testnet.snowtrace.io/address/0xAd6BC023d60f871488394dEceE9EC2E85E553549)
 ![forge test 197 passed](https://img.shields.io/badge/forge%20test-197%20passed-22C55E?style=flat-square)
-![TypeScript tests 381 passed](https://img.shields.io/badge/TypeScript%20tests-381%20passed-22C55E?style=flat-square)
+![TypeScript tests 386 passed](https://img.shields.io/badge/TypeScript%20tests-386%20passed-22C55E?style=flat-square)
 ![eval 40 cases](https://img.shields.io/badge/eval-40%20cases%20%C2%B7%20recall%20100%25%20%C2%B7%20FP%200%25-22C55E?style=flat-square)
 ![x402 2.28.0](https://img.shields.io/badge/x402-2.28.0-2F7BFF?style=flat-square)
 ![ERC-8004 agent 295](https://img.shields.io/badge/ERC--8004-agent%20%23295-8B5CF6?style=flat-square)
@@ -47,7 +47,7 @@ risk_engine: 9 deterministic rules; same input gives the same LOW/MEDIUM/HIGH
 llm_role: explanation text only (Vietnamese + English); cannot change risk or sign; off with LLM_PROVIDER=none
 custody: non-custodial; the owner withdraws at any time; the Guardian key signs verdicts only
 revenue: x402 per request in USDC (check 0.005, wallet check 0.005, cosign 0.01); no token
-tests: { forge: 197 passed, typescript: 381 passed, fork_integration: 18 }
+tests: { forge: 197 passed, typescript: 386 passed, fork_integration: 18 }
 contract_coverage: AgentVault.sol and VaultFactory.sol 100% lines, statements, branches, functions
 eval: 40 synthetic labelled cases; precision 100%, recall 100%, false positive rate 0%, p50 354 ms
 mocked_parts: [MockOracle, MockRouter + mWAVAX, scripted attack feed, 3/3 lookalike threshold] # DEMO MODE, section 8
@@ -57,7 +57,7 @@ mocked_parts: [MockOracle, MockRouter + mWAVAX, scripted attack feed, 3/3 lookal
 
 | Tiêu chí                      | Bằng chứng chính                                                                                                                                                                                                                                                                                  | Kiểm ở đâu                                                                                                                                                                                                                                       |
 | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Technical Implementation (25) | Két cưỡng chế quy tắc trên chain, 197 test Foundry (unit, fuzz, invariant), độ bao phủ `AgentVault` và `VaultFactory` 100% dòng và nhánh. Pipeline chạy thử, luật, giải thích, ký; 381 test TypeScript. Verdict ký bằng TypeScript được contract kiểm chéo. CI chạy build, typecheck, lint, test. | [`AgentVault.sol`](contracts/src/AgentVault.sol), [`contracts/test/`](contracts/test), [`pipeline.ts`](apps/guardian/src/pipeline.ts), [`VerdictCrossCheck.t.sol`](contracts/test/VerdictCrossCheck.t.sol), [`ci.yml`](.github/workflows/ci.yml) |
+| Technical Implementation (25) | Két cưỡng chế quy tắc trên chain, 197 test Foundry (unit, fuzz, invariant), độ bao phủ `AgentVault` và `VaultFactory` 100% dòng và nhánh. Pipeline chạy thử, luật, giải thích, ký; 386 test TypeScript. Verdict ký bằng TypeScript được contract kiểm chéo. CI chạy build, typecheck, lint, test. | [`AgentVault.sol`](contracts/src/AgentVault.sol), [`contracts/test/`](contracts/test), [`pipeline.ts`](apps/guardian/src/pipeline.ts), [`VerdictCrossCheck.t.sol`](contracts/test/VerdictCrossCheck.t.sol), [`ci.yml`](.github/workflows/ci.yml) |
 | Avalanche Integration (25)    | 6 contract đã verify trên Fuji. Phí x402 settle bằng USDC của Circle trên C-Chain (EIP-3009). Danh tính và uy tín trên ERC-8004 chính thức. Chạy thử trên fork Anvil của Fuji. Tra Routescan cho contract lạ. Hỗ trợ ví Core.                                                                     | [Mục 5](#5-bằng-chứng-trên-fuji), [`x402.ts`](apps/guardian/src/x402.ts), [`erc8004.fuji.json`](packages/shared/src/addresses/erc8004.fuji.json), [`explorer.ts`](apps/guardian/src/explorer.ts)                                                 |
 | Creativity & Innovation (15)  | Hai lớp độc lập: quy tắc trên chain vẫn chặn khi agent bỏ qua Guardian; verdict gắn hash lô lệnh, nonce và hạn 60 giây. Phí theo rủi ro: két tự kiểm miễn phí trước, chỉ trả Guardian khi két đòi phê duyệt. LLM không quyết định tiền đi đâu.                                                    | [Mục 3](#3-giải-pháp-hai-lớp-bảo-vệ), [`agent-tools.ts`](apps/guardian-mcp/src/agent-tools.ts#L213)                                                                                                                                              |
 | Impact & Use Case (15)        | Người vận hành AI agent giao tiền cho agent mà không giao toàn quyền. Công cụ MCP `pay` dùng được với mọi agent hỗ trợ MCP. Trang Kiểm tra ví dùng cho bất kỳ ví nào trước khi ký.                                                                                                                | [Mục 6](#6-dùng-thử), [`packages/mcp-agent/`](packages/mcp-agent), [`/kiem-tra-vi`](https://miho-hackathon.080895.xyz/kiem-tra-vi)                                                                                                               |
@@ -117,17 +117,17 @@ Quyền của chủ két: rút tiền bất cứ lúc nào kể cả khi két đ
 
 [`Pipeline.run`](apps/guardian/src/pipeline.ts#L113): kiểm đầu vào → đọc quy tắc của két → chạy thử trên fork → chạy luật → giải thích → ký verdict (chỉ `cosign`) → lưu → trả lời.
 
-| Luật                        | Phát hiện                                                                                       | Mức                                                             |
-| :-------------------------- | :---------------------------------------------------------------------------------------------- | :-------------------------------------------------------------- |
-| `SIMULATION_FAILED`         | Lô lệnh revert khi chạy thử                                                                     | HIGH                                                            |
-| `POLICY_PRECHECK`           | Két sẽ từ chối: sai người nhận, vượt hạn mức hay ngân sách, két đang khoá                       | HIGH                                                            |
-| `UNLIMITED_APPROVAL`        | `approve` không giới hạn, vượt mức tối đa hoặc cho địa chỉ ngoài danh sách; `setApprovalForAll` | HIGH                                                            |
-| `UNKNOWN_CONTRACT`          | Contract ngoài danh sách đã biết                                                                | MEDIUM; HIGH khi kèm tiền, chưa verify hoặc mới tạo dưới 7 ngày |
-| `ADDRESS_POISONING`         | Địa chỉ nhái: trùng 4 ký tự đầu và 4 ký tự cuối với một địa chỉ tin cậy                         | HIGH                                                            |
-| `DRAIN_PATTERN`             | Một lô lệnh rút từ 50% số dư trở lên, trừ khi toàn bộ đi tới người nhận đã duyệt                | HIGH                                                            |
-| `ABNORMAL_SLIPPAGE`         | Swap nhận ít hơn giá tham chiếu                                                                 | MEDIUM từ 2%, HIGH từ 10%                                       |
-| `RECIPIENT_NOT_ALLOWLISTED` | Tiền hoặc đầu ra của swap tới địa chỉ ngoài danh sách                                           | HIGH                                                            |
-| `UNPROTECTED_SWAP`          | `minOut` thấp hơn kết quả chạy thử quá 3%                                                       | MEDIUM                                                          |
+| Luật                        | Phát hiện                                                                                                | Mức                                                             |
+| :-------------------------- | :------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------- |
+| `SIMULATION_FAILED`         | Lô lệnh revert khi chạy thử                                                                              | HIGH                                                            |
+| `POLICY_PRECHECK`           | Két sẽ từ chối: sai người nhận, vượt hạn mức hay ngân sách, két đang khoá                                | HIGH                                                            |
+| `UNLIMITED_APPROVAL`        | `approve` không giới hạn, vượt mức tối đa hoặc cho địa chỉ ngoài danh sách; `setApprovalForAll`          | HIGH                                                            |
+| `UNKNOWN_CONTRACT`          | Contract ngoài danh sách đã biết                                                                         | MEDIUM; HIGH khi kèm tiền, chưa verify hoặc mới tạo dưới 7 ngày |
+| `ADDRESS_POISONING`         | Địa chỉ nhái: trùng 4 ký tự đầu và 4 ký tự cuối với một địa chỉ tin cậy, hoặc chỉ khác nó tối đa 4 ký tự | HIGH                                                            |
+| `DRAIN_PATTERN`             | Một lô lệnh rút từ 50% số dư trở lên, trừ khi toàn bộ đi tới người nhận đã duyệt                         | HIGH                                                            |
+| `ABNORMAL_SLIPPAGE`         | Swap nhận ít hơn giá tham chiếu                                                                          | MEDIUM từ 2%, HIGH từ 10%                                       |
+| `RECIPIENT_NOT_ALLOWLISTED` | Tiền hoặc đầu ra của swap tới địa chỉ ngoài danh sách                                                    | HIGH                                                            |
+| `UNPROTECTED_SWAP`          | `minOut` thấp hơn kết quả chạy thử quá 3%                                                                | MEDIUM                                                          |
 
 Ngưỡng nằm trong [`config/rules.json`](apps/guardian/config/rules.json). Kiểm tra ví bất kỳ dùng 7 luật, bỏ hai luật đọc quy tắc của két (`POLICY_PRECHECK`, `RECIPIENT_NOT_ALLOWLISTED`). Tra Routescan cho contract lạ bật bằng `EXPLORER_LOOKUP=true`.
 
@@ -241,7 +241,7 @@ Két [`0xff0d…9C2d`](https://testnet.snowtrace.io/address/0xff0db552A0Ffe04642
 | :---------------------------------------------- | :------------------------------------------------------------------------------------- | :---------------------------------------------------------------------- |
 | Contract: unit, fuzz, invariant                 | 197/197                                                                                | `cd contracts && forge test`                                            |
 | Độ bao phủ `AgentVault.sol`, `VaultFactory.sol` | 100% dòng, câu lệnh, nhánh, hàm                                                        | `forge coverage --report summary --no-match-coverage "(test\|script)/"` |
-| TypeScript, 7 package                           | 381/381                                                                                | `pnpm test`                                                             |
+| TypeScript, 7 package                           | 386/386                                                                                | `pnpm test`                                                             |
 | Guardian trên fork Fuji                         | 18 test                                                                                | `pnpm --filter @guardian402/guardian test:fork`                         |
 | Verdict ký bằng TypeScript, kiểm bằng Solidity  | pass                                                                                   | `pnpm test:crosscheck`                                                  |
 | Eval, 40 ca có nhãn do nhóm viết                | precision 100%, recall 100%, dương tính giả 0%, p50 354 ms ([báo cáo](eval/report.md)) | `pnpm eval`                                                             |
@@ -338,7 +338,7 @@ Chạy bảy kịch bản S0–S6 (một kịch bản: `scenario S2`). Danh sác
 | Muốn kiểm                     | Lệnh                                                               | Kết quả mong đợi                                      |
 | :---------------------------- | :----------------------------------------------------------------- | :---------------------------------------------------- |
 | Contract                      | `cd contracts && forge test`                                       | `197 tests passed, 0 failed`                          |
-| TypeScript                    | `pnpm test && pnpm typecheck && pnpm lint`                         | 381 test pass, không lỗi kiểu, không lỗi lint         |
+| TypeScript                    | `pnpm test && pnpm typecheck && pnpm lint`                         | 386 test pass, không lỗi kiểu, không lỗi lint         |
 | Verdict TypeScript ↔ Solidity | `pnpm test:crosscheck`                                             | `VerdictCrossCheck` pass                              |
 | Eval                          | `pnpm fork`, rồi `pnpm eval`                                       | dấu vân tay `75b364aac5a8179c` trong `eval/report.md` |
 | Kịch bản S0–S6                | `./run-local.sh`, rồi `./run-local.sh scenario all`                | mỗi kịch bản khớp bảng ở mục 5.4, thoát mã 0          |
